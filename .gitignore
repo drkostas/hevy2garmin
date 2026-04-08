@@ -42,3 +42,6 @@ fit_output/
 *.db
 *.sqlite
 worker/.wrangler/
+
+# Claude Code local instructions (never committed)
+CLAUDE.md
