@@ -145,6 +145,22 @@ class PostgresDatabase(Database):
                 )
             conn.commit()
 
+    def unsync(self, hevy_id: str) -> bool:
+        with self._get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM synced_workouts WHERE hevy_id = %s", (hevy_id,))
+                deleted = cur.rowcount > 0
+            conn.commit()
+        return deleted
+
+    def unsync_all(self) -> int:
+        with self._get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM synced_workouts")
+                count = cur.rowcount
+            conn.commit()
+        return count
+
     def get_synced_count(self) -> int:
         with self._get_conn() as conn:
             with conn.cursor() as cur:

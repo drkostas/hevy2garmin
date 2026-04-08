@@ -58,6 +58,14 @@ class Database(ABC):
         """Cache HR data for a workout."""
 
     @abstractmethod
+    def unsync(self, hevy_id: str) -> bool:
+        """Remove a sync record. Returns True if a record was deleted."""
+
+    @abstractmethod
+    def unsync_all(self) -> int:
+        """Remove all sync records. Returns count of deleted records."""
+
+    @abstractmethod
     def get_app_config(self, key: str) -> dict | None:
         """Get a JSON value from the generic key-value app cache."""
 

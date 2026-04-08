@@ -149,6 +149,15 @@
                     Garmin
                 </a>
                 {% endif %}
+                {% if w.status == 'uploaded' %}
+                <button type="button"
+                    onclick="unsyncWorkout('{{ w.id }}', this)"
+                    style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; background: rgba(239,68,68,0.12); color: #f87171; border: none; cursor: pointer;"
+                    title="Remove sync record so this workout can be re-synced">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Unsync
+                </button>
+                {% endif %}
             </div>
             <!-- Exercise details -->
             <div style="margin-top: 4px;">
@@ -443,6 +452,28 @@ async function loadHRChart(hevyId, summaryEl) {
         hrChartCache[hevyId] = true;
     } catch (e) {
         container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Failed to load HR data: ' + e.message + '</p>';
+    }
+}
+
+async function unsyncWorkout(hevyId, btn) {
+    if (!confirm('Remove this sync record? The workout will re-appear as "pending" and can be synced again.\n\nThe Garmin activity won\'t be deleted — manage that from Garmin Connect if needed.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Removing…';
+    try {
+        const form = new FormData();
+        const resp = await fetch('/api/unsync/' + hevyId, { method: 'POST', body: form });
+        const data = await resp.json();
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed: ' + (data.error || 'Unknown error'));
+            btn.disabled = false;
+            btn.textContent = 'Unsync';
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Unsync';
     }
 }
 </script>

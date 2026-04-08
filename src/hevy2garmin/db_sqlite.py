@@ -94,6 +94,22 @@ class SQLiteDatabase(Database):
         conn.commit()
         conn.close()
 
+    def unsync(self, hevy_id: str) -> bool:
+        conn = self._get_conn()
+        cur = conn.execute("DELETE FROM synced_workouts WHERE hevy_id = ?", (hevy_id,))
+        deleted = cur.rowcount > 0
+        conn.commit()
+        conn.close()
+        return deleted
+
+    def unsync_all(self) -> int:
+        conn = self._get_conn()
+        cur = conn.execute("DELETE FROM synced_workouts")
+        count = cur.rowcount
+        conn.commit()
+        conn.close()
+        return count
+
     def get_synced_count(self) -> int:
         conn = self._get_conn()
         count = conn.execute("SELECT COUNT(*) FROM synced_workouts").fetchone()[0]

@@ -86,6 +86,16 @@ def mark_synced(
     return get_db().mark_synced(hevy_id, garmin_activity_id, title, calories, avg_hr)
 
 
+def unsync(hevy_id: str, **kw) -> bool:
+    """Remove a sync record. Returns True if a record was deleted."""
+    return get_db().unsync(hevy_id)
+
+
+def unsync_all(**kw) -> int:
+    """Remove all sync records. Returns count of deleted records."""
+    return get_db().unsync_all()
+
+
 def get_synced_count(**kw) -> int:
     """Get total number of synced workouts."""
     return get_db().get_synced_count()

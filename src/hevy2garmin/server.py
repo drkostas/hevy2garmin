@@ -945,6 +945,61 @@ async def api_sync_single(request: Request, workout_id: str):
         return HTMLResponse(f'<td colspan="5" style="color: var(--pico-del-color);">Failed: {e}</td>')
 
 
+@app.post("/api/unsync/{hevy_id}")
+async def api_unsync(request: Request, hevy_id: str):
+    """Remove a workout's sync record so it can be re-synced."""
+    from fastapi.responses import JSONResponse
+
+    garmin_id = db.get_garmin_id(hevy_id)
+    deleted = db.unsync(hevy_id)
+    if not deleted:
+        return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
+
+    # Optionally delete the Garmin activity too
+    form = await request.form()
+    delete_garmin = form.get("delete_garmin") in ("true", "1", True)
+    garmin_deleted = False
+    if delete_garmin and garmin_id:
+        try:
+            config = load_config()
+            from hevy2garmin.garmin import get_client
+            client = get_client(config.get("garmin_email"))
+            client.delete_activity(int(garmin_id))
+            garmin_deleted = True
+            logger.info("Deleted Garmin activity %s for hevy workout %s", garmin_id, hevy_id)
+        except Exception as e:
+            logger.warning("Failed to delete Garmin activity %s: %s", garmin_id, e)
+
+    # Clear cached workout pages so the workouts page reflects the change
+    _db = db.get_db()
+    for page in range(1, 11):
+        _db.set_app_config(f"hevy_workouts_page_{page}", {})
+
+    logger.info("Unsynced workout %s (garmin_id=%s, garmin_deleted=%s)", hevy_id, garmin_id, garmin_deleted)
+    return JSONResponse({"ok": True, "garmin_deleted": garmin_deleted})
+
+
+@app.post("/api/unsync-all")
+async def api_unsync_all(request: Request):
+    """Remove ALL sync records. Does not delete from Garmin."""
+    from fastapi.responses import JSONResponse
+
+    form = await request.form()
+    confirm = form.get("confirm", "")
+    if confirm != "RESET":
+        return JSONResponse({"ok": False, "error": "Send confirm=RESET to proceed"}, status_code=400)
+
+    count = db.unsync_all()
+
+    # Clear cached workout pages
+    _db = db.get_db()
+    for page in range(1, 11):
+        _db.set_app_config(f"hevy_workouts_page_{page}", {})
+
+    logger.info("Unsynced all %d workouts", count)
+    return JSONResponse({"ok": True, "count": count})
+
+
 @app.post("/api/toggle-autosync", response_class=HTMLResponse)
 async def api_toggle_autosync(request: Request):
     form = await request.form()

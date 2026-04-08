@@ -74,6 +74,29 @@ class TestSyncTracking:
         assert recent[0]["calories"] == 250
         assert recent[0]["avg_hr"] == 95
 
+    def test_unsync_single(self, tmp_path: Path) -> None:
+        db = SQLiteDatabase(tmp_path / "test.db")
+        db.mark_synced("w1", garmin_activity_id="100", title="Push")
+        db.mark_synced("w2", garmin_activity_id="200", title="Pull")
+        assert db.get_synced_count() == 2
+        assert db.unsync("w1") is True
+        assert db.get_synced_count() == 1
+        assert db.is_synced("w1") is False
+        assert db.is_synced("w2") is True
+
+    def test_unsync_nonexistent(self, tmp_path: Path) -> None:
+        db = SQLiteDatabase(tmp_path / "test.db")
+        assert db.unsync("nonexistent") is False
+
+    def test_unsync_all(self, tmp_path: Path) -> None:
+        db = SQLiteDatabase(tmp_path / "test.db")
+        db.mark_synced("w1", title="Push")
+        db.mark_synced("w2", title="Pull")
+        db.mark_synced("w3", title="Legs")
+        count = db.unsync_all()
+        assert count == 3
+        assert db.get_synced_count() == 0
+
     def test_app_config_roundtrip(self, tmp_path: Path) -> None:
         db = SQLiteDatabase(tmp_path / "test.db")
         assert db.get_app_config("missing") is None

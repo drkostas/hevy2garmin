@@ -177,6 +177,40 @@ def cmd_unmapped(args: argparse.Namespace) -> None:
         print("FIT SDK categories: https://developer.garmin.com/fit/overview/")
 
 
+def cmd_unsync(args: argparse.Namespace) -> None:
+    """Remove sync records so workouts can be re-synced."""
+    if args.all:
+        if not args.confirm:
+            print("✗ --all requires --confirm to prevent accidents")
+            sys.exit(1)
+        count = db.unsync_all()
+        print(f"✓ Removed {count} sync records. All workouts will re-appear as pending.")
+        return
+
+    if not args.hevy_id:
+        print("✗ Provide a Hevy workout ID, or use --all --confirm")
+        sys.exit(1)
+
+    garmin_id = db.get_garmin_id(args.hevy_id)
+    if not db.unsync(args.hevy_id):
+        print(f"✗ No sync record found for {args.hevy_id}")
+        sys.exit(1)
+
+    print(f"✓ Removed sync record for {args.hevy_id}")
+    if garmin_id:
+        print(f"  Garmin activity: {garmin_id}")
+
+    if args.delete and garmin_id:
+        try:
+            config = load_config()
+            from hevy2garmin.garmin import get_client
+            client = get_client(config.get("garmin_email"))
+            client.delete_activity(int(garmin_id))
+            print(f"  ✓ Deleted Garmin activity {garmin_id}")
+        except Exception as e:
+            print(f"  ✗ Failed to delete from Garmin: {e}")
+
+
 def cmd_map(args: argparse.Namespace) -> None:
     """Add a custom exercise mapping."""
     save_custom_mapping(args.exercise_name, args.category, args.subcategory)
@@ -223,6 +257,13 @@ def main() -> None:
     map_parser.add_argument("--category", type=int, required=True, help="FIT SDK exercise category")
     map_parser.add_argument("--subcategory", type=int, required=True, help="FIT SDK exercise subcategory")
 
+    # unsync
+    unsync_parser = subparsers.add_parser("unsync", help="Remove sync record(s) so workouts can be re-synced")
+    unsync_parser.add_argument("hevy_id", nargs="?", help="Hevy workout ID to unsync")
+    unsync_parser.add_argument("--all", action="store_true", help="Remove ALL sync records (requires --confirm)")
+    unsync_parser.add_argument("--confirm", action="store_true", help="Required with --all")
+    unsync_parser.add_argument("--delete", action="store_true", help="Also delete the Garmin activity")
+
     # serve
     serve_parser = subparsers.add_parser("serve", help="Start web dashboard")
     serve_parser.add_argument("-p", "--port", type=int, default=8123, help="Port (default: 8123)")
@@ -250,6 +291,7 @@ def main() -> None:
             "list": cmd_list,
             "unmapped": cmd_unmapped,
             "map": cmd_map,
+            "unsync": cmd_unsync,
         }
         commands[args.command](args)
     except RuntimeError as e:
