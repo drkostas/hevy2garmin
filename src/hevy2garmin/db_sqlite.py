@@ -48,6 +48,13 @@ class SQLiteDatabase(Database):
                 cached_at TEXT DEFAULT (datetime('now'))
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_cache (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
         conn.commit()
         return conn
 
@@ -141,6 +148,25 @@ class SQLiteDatabase(Database):
         conn.execute(
             "INSERT OR REPLACE INTO hr_cache (hevy_id, data) VALUES (?, ?)",
             (hevy_id, json.dumps(data)),
+        )
+        conn.commit()
+        conn.close()
+
+    def get_app_config(self, key: str) -> dict | None:
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT value FROM app_cache WHERE key = ?", (key,)
+        ).fetchone()
+        conn.close()
+        if row:
+            return json.loads(row[0])
+        return None
+
+    def set_app_config(self, key: str, value: dict) -> None:
+        conn = self._get_conn()
+        conn.execute(
+            "INSERT OR REPLACE INTO app_cache (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+            (key, json.dumps(value)),
         )
         conn.commit()
         conn.close()

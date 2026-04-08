@@ -56,3 +56,11 @@ class Database(ABC):
     @abstractmethod
     def cache_hr(self, hevy_id: str, data: dict) -> None:
         """Cache HR data for a workout."""
+
+    @abstractmethod
+    def get_app_config(self, key: str) -> dict | None:
+        """Get a JSON value from the generic key-value app cache."""
+
+    @abstractmethod
+    def set_app_config(self, key: str, value: dict) -> None:
+        """Store a JSON value in the generic key-value app cache."""

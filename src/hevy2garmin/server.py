@@ -66,10 +66,9 @@ def _get_unmapped_exercises() -> list[tuple[str, int]]:
     # Try DB cache first (instant)
     try:
         _db = db.get_db()
-        if hasattr(_db, 'get_app_config'):
-            cached = _db.get_app_config("unmapped_exercises")
-            if cached and isinstance(cached, dict):
-                return sorted(cached.items(), key=lambda x: -x[1])
+        cached = _db.get_app_config("unmapped_exercises")
+        if cached and isinstance(cached, dict):
+            return sorted(cached.items(), key=lambda x: -x[1])
     except Exception:
         pass
 
@@ -268,15 +267,14 @@ async def dashboard(request: Request):
     try:
         # Try cached count from DB first (instant), fall back to Hevy API
         _db = db.get_db()
-        cached = _db.get_app_config("hevy_total") if hasattr(_db, 'get_app_config') else None
+        cached = _db.get_app_config("hevy_total")
         if cached and isinstance(cached, dict):
             hevy_total = cached.get("count", 0)
         else:
             from hevy2garmin.hevy import HevyClient
             hevy = HevyClient(api_key=config.get("hevy_api_key"))
             hevy_total = hevy.get_workout_count()
-            if hasattr(_db, 'set_app_config'):
-                _db.set_app_config("hevy_total", {"count": hevy_total})
+            _db.set_app_config("hevy_total", {"count": hevy_total})
     except Exception:
         pass
     mapping_count = 0
@@ -443,16 +441,23 @@ async def workouts_page(request: Request):
     fetch_error = None
     try:
         from hevy2garmin.hevy import HevyClient
-        from hevy2garmin.garmin import get_client
-        from hevy2garmin.matcher import fetch_garmin_activities, match_workouts_to_garmin
 
-        data = HevyClient(api_key=config.get("hevy_api_key")).get_workouts(page=page, page_size=10)
-        workouts_raw = data.get("workouts", [])
-        page_count = data.get("page_count", 1)
+        _db = db.get_db()
+        cache_key = f"hevy_workouts_page_{page}"
+
+        # Try DB cache first (populated during sync). Fall back to Hevy API on miss.
+        cached = _db.get_app_config(cache_key)
+        if cached:
+            workouts_raw = cached.get("workouts", [])
+            page_count = cached.get("page_count", 1)
+        else:
+            data = HevyClient(api_key=config.get("hevy_api_key")).get_workouts(page=page, page_size=10)
+            workouts_raw = data.get("workouts", [])
+            page_count = data.get("page_count", 1)
+            _db.set_app_config(cache_key, {"workouts": workouts_raw, "page_count": page_count})
 
         # Batch check sync status (1 query instead of N)
         hevy_ids = [w.get("id", "") for w in workouts_raw]
-        _db = db.get_db()
         synced_map = _db.get_synced_ids(hevy_ids) if hasattr(_db, 'get_synced_ids') else {
             wid: db.get_garmin_id(wid) for wid in hevy_ids if db.is_synced(wid)
         }
@@ -705,10 +710,9 @@ async def settings_save(
     if db.get_database_url():
         try:
             _db = db.get_db()
-            if hasattr(_db, 'set_app_config'):
-                _db.set_app_config("user_profile", config["user_profile"])
-                _db.set_app_config("timing", config["timing"])
-                _db.set_app_config("hr_fusion", config.get("hr_fusion", {}))
+            _db.set_app_config("user_profile", config["user_profile"])
+            _db.set_app_config("timing", config["timing"])
+            _db.set_app_config("hr_fusion", config.get("hr_fusion", {}))
         except Exception as e:
             logger.warning("Failed to persist settings to DB: %s", e)
 
@@ -1167,8 +1171,7 @@ async def api_sync_one(request: Request):
     total_count = hevy.get_workout_count()
     # Cache total for dashboard
     _db = db.get_db()
-    if hasattr(_db, 'set_app_config'):
-        _db.set_app_config("hevy_total", {"count": total_count})
+    _db.set_app_config("hevy_total", {"count": total_count})
     synced_count = db.get_synced_count()
     remaining = max(0, total_count - synced_count)
 
@@ -1181,6 +1184,11 @@ async def api_sync_one(request: Request):
         workouts = data.get("workouts", [])
         if not workouts:
             break
+        # Refresh the workouts-page cache while we already have the data
+        _db.set_app_config(
+            f"hevy_workouts_page_{page}",
+            {"workouts": workouts, "page_count": data.get("page_count", 1)},
+        )
         for w in workouts:
             if not unsynced and not db.is_synced(w["id"]) and w["id"] not in _failed_ids:
                 unsynced = w
@@ -1196,7 +1204,7 @@ async def api_sync_one(request: Request):
             break
         page += 1
     # Update unmapped cache in DB
-    if unmapped_found and hasattr(_db, 'set_app_config'):
+    if unmapped_found:
         _db.set_app_config("unmapped_exercises", unmapped_found)
 
     if not unsynced:

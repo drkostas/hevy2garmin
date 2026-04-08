@@ -74,6 +74,25 @@ class TestSyncTracking:
         assert recent[0]["calories"] == 250
         assert recent[0]["avg_hr"] == 95
 
+    def test_app_config_roundtrip(self, tmp_path: Path) -> None:
+        db = SQLiteDatabase(tmp_path / "test.db")
+        assert db.get_app_config("missing") is None
+        db.set_app_config("settings", {"theme": "dark", "n": 42})
+        assert db.get_app_config("settings") == {"theme": "dark", "n": 42}
+        # Overwrite
+        db.set_app_config("settings", {"theme": "light"})
+        assert db.get_app_config("settings") == {"theme": "light"}
+
+    def test_app_config_caches_workout_pages(self, tmp_path: Path) -> None:
+        """The workouts-page cache key pattern used by the server."""
+        db = SQLiteDatabase(tmp_path / "test.db")
+        page_data = {"workouts": [{"id": "a"}, {"id": "b"}], "page_count": 3}
+        db.set_app_config("hevy_workouts_page_1", page_data)
+        got = db.get_app_config("hevy_workouts_page_1")
+        assert got["page_count"] == 3
+        assert len(got["workouts"]) == 2
+        assert got["workouts"][0]["id"] == "a"
+
 
 @pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
 class TestPostgresBackend:
