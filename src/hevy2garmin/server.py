@@ -919,7 +919,7 @@ async def api_sync_single(request: Request, workout_id: str):
     try:
         from hevy2garmin.hevy import HevyClient
         from hevy2garmin.fit import generate_fit
-        from hevy2garmin.garmin import get_client, rename_activity, set_description, upload_fit, generate_description
+        from hevy2garmin.garmin import get_client, rename_activity, set_description, upload_fit, generate_description, find_activity_by_start_time
         import tempfile
 
         config = load_config()
@@ -928,12 +928,21 @@ async def api_sync_single(request: Request, workout_id: str):
         if not workout:
             return HTMLResponse('<td colspan="5">Workout not found</td>')
 
+        garmin_client = get_client(config.get("garmin_email"))
+        workout_start = workout.get("start_time")
+
+        # Dedup: check if activity already exists on Garmin
+        existing_id = find_activity_by_start_time(garmin_client, workout_start) if workout_start else None
+
         with tempfile.TemporaryDirectory() as tmp:
             fit_path = f"{tmp}/{workout_id}.fit"
             result = generate_fit(workout, hr_samples=None, output_path=fit_path)
-            garmin_client = get_client(config.get("garmin_email"))
-            upload_result = upload_fit(garmin_client, fit_path, workout_start=workout.get("start_time"))
-            aid = upload_result.get("activity_id")
+            if existing_id:
+                aid = existing_id
+                logger.info("Activity already on Garmin (%s), skipping upload", aid)
+            else:
+                upload_result = upload_fit(garmin_client, fit_path, workout_start=workout_start)
+                aid = upload_result.get("activity_id")
             if aid:
                 rename_activity(garmin_client, aid, workout["title"])
                 set_description(garmin_client, aid, generate_description(workout, calories=result.get("calories"), avg_hr=result.get("avg_hr")))
@@ -1323,24 +1332,45 @@ async def api_sync_one(request: Request):
 
     # Sync this one workout
     try:
+        from hevy2garmin.garmin import find_activity_by_start_time
         garmin_client = get_client(config.get("garmin_email"))
+        workout_start = unsynced.get("start_time")
 
-        with tempfile.TemporaryDirectory() as tmp:
-            fit_path = f"{tmp}/{unsynced['id']}.fit"
-            result = generate_fit(unsynced, hr_samples=None, output_path=fit_path)
-            upload_result = upload_fit(garmin_client, fit_path, workout_start=unsynced.get("start_time"))
-            aid = upload_result.get("activity_id")
-            if aid:
-                rename_activity(garmin_client, aid, unsynced["title"])
-                desc = generate_description(unsynced, calories=result.get("calories"), avg_hr=result.get("avg_hr"))
-                set_description(garmin_client, aid, desc)
-            db.mark_synced(
-                hevy_id=unsynced["id"],
-                garmin_activity_id=str(aid) if aid else None,
-                title=unsynced["title"],
-                calories=result.get("calories"),
-                avg_hr=result.get("avg_hr"),
-            )
+        # Dedup: check if this workout already exists on Garmin before uploading.
+        # Prevents duplicates when a prior sync uploaded successfully but crashed
+        # before marking the workout as synced in the DB.
+        existing_id = None
+        if workout_start:
+            existing_id = find_activity_by_start_time(garmin_client, workout_start)
+
+        if existing_id:
+            logger.info("Activity already on Garmin (%s), skipping upload for %s", existing_id, unsynced["title"])
+            aid = existing_id
+            # Still generate FIT to get calorie estimate
+            with tempfile.TemporaryDirectory() as tmp:
+                fit_path = f"{tmp}/{unsynced['id']}.fit"
+                result = generate_fit(unsynced, hr_samples=None, output_path=fit_path)
+            rename_activity(garmin_client, aid, unsynced["title"])
+            desc = generate_description(unsynced, calories=result.get("calories"), avg_hr=result.get("avg_hr"))
+            set_description(garmin_client, aid, desc)
+        else:
+            with tempfile.TemporaryDirectory() as tmp:
+                fit_path = f"{tmp}/{unsynced['id']}.fit"
+                result = generate_fit(unsynced, hr_samples=None, output_path=fit_path)
+                upload_result = upload_fit(garmin_client, fit_path, workout_start=workout_start)
+                aid = upload_result.get("activity_id")
+                if aid:
+                    rename_activity(garmin_client, aid, unsynced["title"])
+                    desc = generate_description(unsynced, calories=result.get("calories"), avg_hr=result.get("avg_hr"))
+                    set_description(garmin_client, aid, desc)
+
+        db.mark_synced(
+            hevy_id=unsynced["id"],
+            garmin_activity_id=str(aid) if aid else None,
+            title=unsynced["title"],
+            calories=result.get("calories"),
+            avg_hr=result.get("avg_hr"),
+        )
 
         remaining = hevy.get_workout_count() - db.get_synced_count()
         return JSONResponse({"synced": 1, "title": unsynced["title"], "remaining": max(0, remaining), "done": remaining <= 0})

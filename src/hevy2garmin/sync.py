@@ -12,6 +12,7 @@ from hevy2garmin import db
 from hevy2garmin.config import load_config
 from hevy2garmin.fit import generate_fit
 from hevy2garmin.garmin import (
+    find_activity_by_start_time,
     generate_description,
     get_client,
     rename_activity,
@@ -146,8 +147,14 @@ def sync(
                     stats["synced"] += 1
                     continue
 
-                upload_result = upload_fit(garmin_client, fit_path, workout_start=start_time)
-                activity_id = upload_result.get("activity_id")
+                # Dedup: check if activity already exists on Garmin
+                existing_id = find_activity_by_start_time(garmin_client, start_time) if start_time else None
+                if existing_id:
+                    logger.info("  Activity already on Garmin (%s), skipping upload", existing_id)
+                    activity_id = existing_id
+                else:
+                    upload_result = upload_fit(garmin_client, fit_path, workout_start=start_time)
+                    activity_id = upload_result.get("activity_id")
 
                 if activity_id:
                     rename_activity(garmin_client, activity_id, title)
