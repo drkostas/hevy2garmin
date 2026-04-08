@@ -122,6 +122,12 @@
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     Uploaded
                 </span>
+                {% if w.edited_since_sync %}
+                <span class="badge" style="background: rgba(251,191,36,0.15); color: #fbbf24; border-color: rgba(251,191,36,0.3);">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edited on Hevy
+                </span>
+                {% endif %}
                 {% elif w.status == 'matched' %}
                 <span class="badge badge-success">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -148,6 +154,15 @@
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     Garmin
                 </a>
+                {% endif %}
+                {% if w.status == 'uploaded' and w.edited_since_sync %}
+                <button type="button"
+                    onclick="resyncWorkout('{{ w.id }}', this)"
+                    style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; background: rgba(251,191,36,0.12); color: #fbbf24; border: none; cursor: pointer;"
+                    title="Unsync and re-upload with the latest Hevy data">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    Re-sync
+                </button>
                 {% endif %}
                 {% if w.status == 'uploaded' %}
                 <button type="button"
@@ -452,6 +467,26 @@ async function loadHRChart(hevyId, summaryEl) {
         hrChartCache[hevyId] = true;
     } catch (e) {
         container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Failed to load HR data: ' + e.message + '</p>';
+    }
+}
+
+async function resyncWorkout(hevyId, btn) {
+    if (!confirm('Re-sync this workout? It will be unsynced from Garmin and re-uploaded with the latest Hevy data.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Re-syncing…';
+    try {
+        // Step 1: unsync
+        const unsyncResp = await fetch('/api/unsync/' + hevyId, { method: 'POST', body: new FormData() });
+        const unsyncData = await unsyncResp.json();
+        if (!unsyncData.ok) { alert('Unsync failed: ' + (unsyncData.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Re-sync'; return; }
+        // Step 2: re-sync
+        const syncResp = await fetch('/api/sync/' + hevyId, { method: 'POST' });
+        if (syncResp.ok) { window.location.reload(); }
+        else { alert('Re-sync upload failed. The workout is now pending — try syncing from the dashboard.'); window.location.reload(); }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Re-sync';
     }
 }
 

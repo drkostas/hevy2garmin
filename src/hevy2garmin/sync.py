@@ -171,6 +171,7 @@ def sync(
                     title=title,
                     calories=result.get("calories"),
                     avg_hr=result.get("avg_hr"),
+                    hevy_updated_at=workout.get("updated_at"),
                 )
                 stats["synced"] += 1
                 logger.info("  ✓ Synced → Garmin activity %s", activity_id)

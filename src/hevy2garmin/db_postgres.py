@@ -83,6 +83,11 @@ class PostgresDatabase(Database):
                         subcategory INTEGER NOT NULL DEFAULT 0
                     )
                 """)
+                # Migration: add hevy_updated_at if missing
+                try:
+                    cur.execute("ALTER TABLE synced_workouts ADD COLUMN hevy_updated_at TEXT")
+                except Exception:
+                    conn.rollback()
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS app_cache (
                         key TEXT PRIMARY KEY,
@@ -127,23 +132,46 @@ class PostgresDatabase(Database):
         title: str = "",
         calories: int | None = None,
         avg_hr: int | None = None,
+        hevy_updated_at: str | None = None,
     ) -> None:
         with self._get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (hevy_id) DO UPDATE SET
                         garmin_activity_id = EXCLUDED.garmin_activity_id,
                         title = EXCLUDED.title,
                         calories = EXCLUDED.calories,
                         avg_hr = EXCLUDED.avg_hr,
+                        hevy_updated_at = EXCLUDED.hevy_updated_at,
                         synced_at = NOW()
                     """,
-                    (hevy_id, garmin_activity_id, title, calories, avg_hr),
+                    (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at),
                 )
             conn.commit()
+
+    def get_stale_synced(self, workouts: list[dict]) -> list[str]:
+        """Return hevy_ids of synced workouts edited on Hevy since sync."""
+        if not workouts:
+            return []
+        hevy_ids = [w.get("id", "") for w in workouts]
+        with self._get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT hevy_id, hevy_updated_at FROM synced_workouts WHERE hevy_id = ANY(%s) AND hevy_updated_at IS NOT NULL",
+                    (hevy_ids,)
+                )
+                stored = {r["hevy_id"]: r["hevy_updated_at"] for r in cur.fetchall()}
+        stale = []
+        for w in workouts:
+            wid = w.get("id", "")
+            old_ts = stored.get(wid)
+            new_ts = w.get("updated_at") or ""
+            if old_ts and new_ts and new_ts > old_ts:
+                stale.append(wid)
+        return stale
 
     def unsync(self, hevy_id: str) -> bool:
         with self._get_conn() as conn:

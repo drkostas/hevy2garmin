@@ -479,6 +479,8 @@ async def workouts_page(request: Request):
         synced_map = _db.get_synced_ids(hevy_ids) if hasattr(_db, 'get_synced_ids') else {
             wid: db.get_garmin_id(wid) for wid in hevy_ids if db.is_synced(wid)
         }
+        # Check for workouts edited on Hevy since last sync
+        stale_ids = set(_db.get_stale_synced(workouts_raw))
 
         # Get profile for calorie calculation
         profile = config.get("user_profile", {})
@@ -494,6 +496,8 @@ async def workouts_page(request: Request):
                 gid = synced_map[w["id"]]
                 if gid:
                     w["garmin_match"] = {"garmin_id": gid, "garmin_name": w.get("title", "")}
+                if w["id"] in stale_ids:
+                    w["edited_since_sync"] = True
             else:
                 w["status"] = "pending"
 
@@ -964,7 +968,7 @@ async def api_sync_single(request: Request, workout_id: str):
             if aid:
                 rename_activity(garmin_client, aid, workout["title"])
                 set_description(garmin_client, aid, generate_description(workout, calories=result.get("calories"), avg_hr=result.get("avg_hr")))
-            db.mark_synced(hevy_id=workout_id, garmin_activity_id=str(aid) if aid else None, title=workout["title"], calories=result.get("calories"), avg_hr=result.get("avg_hr"))
+            db.mark_synced(hevy_id=workout_id, garmin_activity_id=str(aid) if aid else None, title=workout["title"], calories=result.get("calories"), avg_hr=result.get("avg_hr"), hevy_updated_at=workout.get("updated_at"))
 
         start = (workout.get("start_time") or "")[:16]
         return HTMLResponse(f'<tr><td><span class="badge badge-success">✓ Synced</span></td><td>{start}</td><td><strong>{workout["title"]}</strong></td><td>{len(workout.get("exercises", []))}</td><td></td></tr>')
@@ -1401,6 +1405,7 @@ async def _do_sync_one(request: Request):
             title=unsynced["title"],
             calories=result.get("calories"),
             avg_hr=result.get("avg_hr"),
+            hevy_updated_at=unsynced.get("updated_at"),
         )
 
         remaining = hevy.get_workout_count() - db.get_synced_count()

@@ -80,10 +80,11 @@ def mark_synced(
     title: str = "",
     calories: int | None = None,
     avg_hr: int | None = None,
+    hevy_updated_at: str | None = None,
     **kw,
 ) -> None:
     """Record a successfully synced workout."""
-    return get_db().mark_synced(hevy_id, garmin_activity_id, title, calories, avg_hr)
+    return get_db().mark_synced(hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at)
 
 
 def unsync(hevy_id: str, **kw) -> bool:

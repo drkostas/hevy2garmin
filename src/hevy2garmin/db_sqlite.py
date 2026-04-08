@@ -48,6 +48,11 @@ class SQLiteDatabase(Database):
                 cached_at TEXT DEFAULT (datetime('now'))
             )
         """)
+        # Migration: add hevy_updated_at if missing
+        try:
+            conn.execute("ALTER TABLE synced_workouts ADD COLUMN hevy_updated_at TEXT")
+        except Exception:
+            pass  # Column already exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS app_cache (
                 key TEXT PRIMARY KEY,
@@ -82,17 +87,40 @@ class SQLiteDatabase(Database):
         title: str = "",
         calories: int | None = None,
         avg_hr: int | None = None,
+        hevy_updated_at: str | None = None,
     ) -> None:
         conn = self._get_conn()
         conn.execute(
             """
-            INSERT OR REPLACE INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (hevy_id, garmin_activity_id, title, calories, avg_hr),
+            (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at),
         )
         conn.commit()
         conn.close()
+
+    def get_stale_synced(self, workouts: list[dict]) -> list[str]:
+        """Return hevy_ids of synced workouts edited on Hevy since sync."""
+        if not workouts:
+            return []
+        conn = self._get_conn()
+        placeholders = ",".join("?" for _ in workouts)
+        hevy_ids = [w.get("id", "") for w in workouts]
+        rows = conn.execute(
+            f"SELECT hevy_id, hevy_updated_at FROM synced_workouts WHERE hevy_id IN ({placeholders}) AND hevy_updated_at IS NOT NULL",
+            hevy_ids,
+        ).fetchall()
+        conn.close()
+        stored = {r[0]: r[1] for r in rows}
+        stale = []
+        for w in workouts:
+            wid = w.get("id", "")
+            old_ts = stored.get(wid)
+            new_ts = w.get("updated_at") or ""
+            if old_ts and new_ts and new_ts > old_ts:
+                stale.append(wid)
+        return stale
 
     def unsync(self, hevy_id: str) -> bool:
         conn = self._get_conn()

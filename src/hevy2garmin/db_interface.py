@@ -24,8 +24,13 @@ class Database(ABC):
         title: str = "",
         calories: int | None = None,
         avg_hr: int | None = None,
+        hevy_updated_at: str | None = None,
     ) -> None:
         """Record a successfully synced workout."""
+
+    @abstractmethod
+    def get_stale_synced(self, workouts: list[dict]) -> list[str]:
+        """Return hevy_ids of synced workouts edited on Hevy since sync."""
 
     @abstractmethod
     def get_synced_count(self) -> int:
