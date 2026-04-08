@@ -56,10 +56,31 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 _autosync_timer: threading.Timer | None = None
 _autosync_lock = threading.Lock()
 _sync_executing = threading.Lock()  # Prevents concurrent sync execution
+_sync_lock_acquired_at: float = 0  # time.time() when lock was acquired
+_SYNC_LOCK_TIMEOUT = 300  # 5 minutes — force-release if exceeded
 _last_sync_time: datetime | None = None
 _unmapped_cache: list[tuple[str, int]] | None = None
 _unmapped_cache_time: float = 0
 _failed_ids: set[str] = set()  # Workouts that failed upload this session (retried next session)
+
+
+def _acquire_sync_lock() -> bool:
+    """Try to acquire the sync lock. Force-release if held too long (hung sync)."""
+    global _sync_lock_acquired_at
+    if _sync_executing.acquire(blocking=False):
+        _sync_lock_acquired_at = time.time()
+        return True
+    # Check if the lock has been held too long (hung sync)
+    if _sync_lock_acquired_at and (time.time() - _sync_lock_acquired_at) > _SYNC_LOCK_TIMEOUT:
+        logger.warning("Sync lock held for >%ds — force-releasing (likely hung)", _SYNC_LOCK_TIMEOUT)
+        try:
+            _sync_executing.release()
+        except RuntimeError:
+            pass
+        if _sync_executing.acquire(blocking=False):
+            _sync_lock_acquired_at = time.time()
+            return True
+    return False
 
 
 def _get_unmapped_exercises() -> list[tuple[str, int]]:
@@ -110,7 +131,7 @@ def _run_autosync() -> None:
     if not auto_cfg.get("enabled", False):
         return
 
-    if not _sync_executing.acquire(blocking=False):
+    if not _acquire_sync_lock():
         logger.info("Auto-sync: skipped — another sync is running")
         _schedule_autosync(auto_cfg.get("interval_minutes", 30))
         return
@@ -125,6 +146,22 @@ def _run_autosync() -> None:
             logger.error("Auto-sync: Hevy API key invalid — disabling auto-sync. %s", e)
             config["auto_sync"]["enabled"] = False
             save_config(config)
+            # Also persist to DB (Vercel filesystem is read-only)
+            if db.get_database_url():
+                try:
+                    import json as _json
+                    _db = db.get_db()
+                    if hasattr(_db, '_get_conn'):
+                        with _db._get_conn() as conn:
+                            with conn.cursor() as cur:
+                                cur.execute("""
+                                    INSERT INTO platform_credentials (platform, auth_type, credentials, status)
+                                    VALUES ('auto_sync', 'config', %s, 'active')
+                                    ON CONFLICT (platform) DO UPDATE SET credentials = EXCLUDED.credentials
+                                """, (_json.dumps({"enabled": False, "interval_minutes": config.get("auto_sync", {}).get("interval_minutes", 120)}),))
+                            conn.commit()
+                except Exception:
+                    pass
             hevy_auth_failed = True
         result = {"synced": 0, "skipped": 0, "failed": 1, "error": str(e)}
     finally:
@@ -927,10 +964,15 @@ async def api_sync(request: Request):
         sync_kwargs["since"] = since_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         sync_kwargs["fetch_all"] = True  # paginate until we hit the date
 
+    if not _acquire_sync_lock():
+        return HTMLResponse('<div class="toast toast-error">Another sync is already running. Please wait.</div>')
+
     try:
         result = sync(**sync_kwargs)
     except Exception as e:
         result = {"synced": 0, "skipped": 0, "failed": 1, "unmapped": [], "error": str(e)}
+    finally:
+        _sync_executing.release()
     _last_sync_time = datetime.now(timezone.utc)
     _record_sync_log(result, trigger=f"manual ({scope})")
     return _render("partials/sync_result.html", result=result)
@@ -944,6 +986,9 @@ async def api_sync_single(request: Request, workout_id: str):
         from hevy2garmin.garmin import get_client, rename_activity, set_description, upload_fit, generate_description, find_activity_by_start_time
         import tempfile
 
+        # force_upload=true skips dedup (used by re-sync after edit)
+        force_upload = request.query_params.get("force") == "1"
+
         config = load_config()
         data = HevyClient(api_key=config.get("hevy_api_key")).get_workouts(page=1, page_size=10)
         workout = next((w for w in data.get("workouts", []) if w["id"] == workout_id), None)
@@ -953,8 +998,10 @@ async def api_sync_single(request: Request, workout_id: str):
         garmin_client = get_client(config.get("garmin_email"))
         workout_start = workout.get("start_time")
 
-        # Dedup: check if activity already exists on Garmin
-        existing_id = find_activity_by_start_time(garmin_client, workout_start) if workout_start else None
+        # Dedup: check if activity already exists on Garmin (skip if force)
+        existing_id = None
+        if not force_upload and workout_start:
+            existing_id = find_activity_by_start_time(garmin_client, workout_start)
 
         with tempfile.TemporaryDirectory() as tmp:
             fit_path = f"{tmp}/{workout_id}.fit"
@@ -1296,7 +1343,7 @@ async def api_sync_one(request: Request):
     """Sync exactly 1 unsynced workout. Returns JSON with status."""
     from fastapi.responses import JSONResponse
 
-    if not _sync_executing.acquire(blocking=False):
+    if not _acquire_sync_lock():
         return JSONResponse({"error": "Sync already running", "busy": True})
 
     try:

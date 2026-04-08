@@ -471,16 +471,18 @@ async function loadHRChart(hevyId, summaryEl) {
 }
 
 async function resyncWorkout(hevyId, btn) {
-    if (!confirm('Re-sync this workout? It will be unsynced from Garmin and re-uploaded with the latest Hevy data.')) return;
+    if (!confirm('Re-sync this workout? The old Garmin activity will be deleted and a fresh one uploaded with the latest Hevy data.')) return;
     btn.disabled = true;
     btn.textContent = 'Re-syncing…';
     try {
-        // Step 1: unsync
-        const unsyncResp = await fetch('/api/unsync/' + hevyId, { method: 'POST', body: new FormData() });
+        // Step 1: unsync + delete old Garmin activity
+        const form = new FormData();
+        form.append('delete_garmin', 'true');
+        const unsyncResp = await fetch('/api/unsync/' + hevyId, { method: 'POST', body: form });
         const unsyncData = await unsyncResp.json();
         if (!unsyncData.ok) { alert('Unsync failed: ' + (unsyncData.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Re-sync'; return; }
-        // Step 2: re-sync
-        const syncResp = await fetch('/api/sync/' + hevyId, { method: 'POST' });
+        // Step 2: re-sync with force=1 (bypass dedup check)
+        const syncResp = await fetch('/api/sync/' + hevyId + '?force=1', { method: 'POST' });
         if (syncResp.ok) { window.location.reload(); }
         else { alert('Re-sync upload failed. The workout is now pending — try syncing from the dashboard.'); window.location.reload(); }
     } catch (e) {

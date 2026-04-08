@@ -4,9 +4,20 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from hevy2garmin.db_interface import Database
+
+
+def _ts_newer(new_ts: str, old_ts: str) -> bool:
+    """Compare ISO timestamps safely (handles Z vs +00:00 differences)."""
+    try:
+        new_dt = datetime.fromisoformat(new_ts.replace("Z", "+00:00"))
+        old_dt = datetime.fromisoformat(old_ts.replace("Z", "+00:00"))
+        return new_dt > old_dt
+    except (ValueError, TypeError):
+        return new_ts > old_ts
 
 DEFAULT_DB_PATH = Path("~/.hevy2garmin/sync.db").expanduser()
 
@@ -118,7 +129,7 @@ class SQLiteDatabase(Database):
             wid = w.get("id", "")
             old_ts = stored.get(wid)
             new_ts = w.get("updated_at") or ""
-            if old_ts and new_ts and new_ts > old_ts:
+            if old_ts and new_ts and _ts_newer(new_ts, old_ts):
                 stale.append(wid)
         return stale
 

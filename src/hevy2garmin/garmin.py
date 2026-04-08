@@ -128,6 +128,11 @@ def find_activity_by_start_time(
         return None
 
     for act in activities:
+        # Only match strength training activities — skip runs, bikes, yoga, etc.
+        act_type = act.get("activityType", {}).get("typeKey", "")
+        if act_type and act_type not in ("strength_training", "other"):
+            continue
+
         # Prefer startTimeGMT (UTC) over startTimeLocal to avoid timezone mismatch
         act_start_str = act.get("startTimeGMT") or act.get("startTimeLocal", "")
         try:
@@ -214,7 +219,8 @@ def generate_description(workout: dict, calories: int | None = None, avg_hr: int
                 top_reps = max(reps) if reps else 0
                 lines.append(f"• {name}: {len(normal)} sets · {top_weight:.1f}kg × {top_reps}")
             elif warmup:
-                lines.append(f"• {name}: {len(warmup)} warmup sets")
+                s_label = "set" if len(warmup) == 1 else "sets"
+                lines.append(f"• {name}: {len(warmup)} warmup {s_label}")
 
     lines.append("\n— synced by hevy2garmin")
     return "\n".join(lines)
