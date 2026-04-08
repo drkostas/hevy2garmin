@@ -387,6 +387,11 @@ async function syncNow() {
             const resp = await fetch('/api/sync-one', { method: 'POST' });
             const data = await resp.json();
 
+            if (data.busy) {
+                text.textContent = 'Another sync is already running. Please wait.';
+                break;
+            }
+
             if (data.error && !data.title) {
                 errors++;
                 // Show user-friendly error messages
@@ -394,6 +399,9 @@ async function syncNow() {
                 if (data.eu_consent) {
                     text.textContent = 'Garmin requires upload consent.';
                     result.innerHTML = '<div class="toast toast-error">Enable Device Upload in <a href="https://connect.garmin.com/modern/settings" target="_blank" style="color: inherit; text-decoration: underline;">Garmin Settings</a> > Data, then try again.</div>';
+                } else if (err.includes('Hevy API key')) {
+                    text.textContent = 'Hevy API key expired. Enter a new key in Setup.';
+                    result.innerHTML = '<div class="toast toast-error">Hevy API key invalid. <a href="/setup" style="color: inherit; text-decoration: underline;">Go to Setup</a></div>';
                 } else if (err.includes('Login failed') || err.includes('auth') || err.includes('OAuth') || err.includes('token')) {
                     text.textContent = 'Garmin connection expired. Please reconnect from Setup.';
                     result.innerHTML = '<div class="toast toast-error">Garmin connection expired. <a href="/setup" style="color: inherit; text-decoration: underline;">Reconnect</a></div>';

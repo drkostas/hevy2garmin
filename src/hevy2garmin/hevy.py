@@ -12,6 +12,10 @@ from urllib3.util.retry import Retry
 
 logger = logging.getLogger("hevy2garmin")
 
+
+class HevyAuthError(Exception):
+    """Raised when the Hevy API rejects the API key (401/403)."""
+
 DEFAULT_BASE_URL = "https://api.hevyapp.com/v1"
 API_CALL_DELAY = 0.5
 
@@ -47,6 +51,11 @@ class HevyClient:
         """Make a GET request with rate limiting."""
         url = f"{self.base_url}{path}"
         resp = self.session.get(url, params=params, timeout=30)
+        if resp.status_code in (401, 403):
+            raise HevyAuthError(
+                "Hevy API key is invalid or expired. "
+                "Check your Hevy Pro subscription and regenerate the key at hevy.com/settings."
+            )
         resp.raise_for_status()
         # Log rate-limit headers when approaching the limit
         remaining = resp.headers.get("X-RateLimit-Remaining") or resp.headers.get("x-ratelimit-remaining")

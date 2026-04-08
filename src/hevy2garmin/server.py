@@ -55,6 +55,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 _autosync_timer: threading.Timer | None = None
 _autosync_lock = threading.Lock()
+_sync_executing = threading.Lock()  # Prevents concurrent sync execution
 _last_sync_time: datetime | None = None
 _unmapped_cache: list[tuple[str, int]] | None = None
 _unmapped_cache_time: float = 0
@@ -109,11 +110,28 @@ def _run_autosync() -> None:
     if not auto_cfg.get("enabled", False):
         return
 
+    if not _sync_executing.acquire(blocking=False):
+        logger.info("Auto-sync: skipped — another sync is running")
+        _schedule_autosync(auto_cfg.get("interval_minutes", 30))
+        return
+
     logger.info("Auto-sync: running scheduled sync")
+    hevy_auth_failed = False
     try:
         result = sync(limit=10, dry_run=False)
     except Exception as e:
+        from hevy2garmin.hevy import HevyAuthError
+        if isinstance(e, HevyAuthError):
+            logger.error("Auto-sync: Hevy API key invalid — disabling auto-sync. %s", e)
+            config["auto_sync"]["enabled"] = False
+            save_config(config)
+            hevy_auth_failed = True
         result = {"synced": 0, "skipped": 0, "failed": 1, "error": str(e)}
+    finally:
+        _sync_executing.release()
+
+    if hevy_auth_failed:
+        return  # Don't reschedule
 
     _last_sync_time = datetime.now(timezone.utc)
     _record_sync_log(result, trigger="auto")
@@ -1274,6 +1292,19 @@ async def api_sync_one(request: Request):
     """Sync exactly 1 unsynced workout. Returns JSON with status."""
     from fastapi.responses import JSONResponse
 
+    if not _sync_executing.acquire(blocking=False):
+        return JSONResponse({"error": "Sync already running", "busy": True})
+
+    try:
+        return await _do_sync_one(request)
+    finally:
+        _sync_executing.release()
+
+
+async def _do_sync_one(request: Request):
+    """Inner sync logic, called with _sync_executing lock held."""
+    from fastapi.responses import JSONResponse
+
     config = load_config()
     hevy_api_key = config.get("hevy_api_key")
 
@@ -1377,6 +1408,11 @@ async def api_sync_one(request: Request):
     except Exception as e:
         logger.error("Sync failed for %s: %s", unsynced.get("title", "?"), str(e)[:300])
         err = str(e)
+
+        # Hevy API key invalid — hard stop, point to setup
+        from hevy2garmin.hevy import HevyAuthError
+        if isinstance(e, HevyAuthError):
+            return JSONResponse({"synced": 0, "error": "Hevy API key is invalid or expired. Go to Setup to enter a new key.", "remaining": -1, "done": False}, status_code=401)
 
         # Auth errors are hard stops — user needs to reconnect
         if "Login failed" in err or "OAuth" in err or "token" in err:
