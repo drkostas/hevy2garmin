@@ -151,6 +151,18 @@ class TestGenerateDescription:
         desc = generate_description(workout)
         assert "3 sets" in desc
 
+    def test_singular_set_with_warmup_prefix(self) -> None:
+        """Exercise with warmup + 1 working set shows working set in singular."""
+        workout = {"title": "T", "exercises": [
+            {"title": "Bench", "sets": [
+                {"type": "warmup", "weight_kg": 20, "reps": 5},
+                {"type": "normal", "weight_kg": 80, "reps": 5},
+            ]}
+        ]}
+        desc = generate_description(workout)
+        assert "1 set" in desc
+        assert "1 sets" not in desc
+
     def test_mixed_strength_and_cardio(self) -> None:
         workout = {"title": "Mixed", "exercises": [
             {"title": "Bench", "sets": [{"type": "normal", "weight_kg": 80, "reps": 8}]},
