@@ -132,8 +132,12 @@ async function exchangeTicket() {
 
     result.innerHTML = '<span style="font-size: 12px; color: var(--text-muted);">Connecting to Garmin...</span>';
     try {
-        // Step 1: Exchange ticket for tokens via Cloudflare Worker (bypasses cloud IP blocks)
-        const exchResp = await fetch('https://hevy2garmin-exchange.gkos.workers.dev/exchange', {
+        // Step 1: Exchange ticket for a Garmin DI OAuth token via the Cloudflare Worker
+        // (the Worker runs from Cloudflare's edge IPs which Garmin does not block).
+        // The "-di" worker is the garmin-auth >= 0.3.0 variant; the legacy
+        // `hevy2garmin-exchange` worker stays alive for older deployments.
+        // Worker returns {di_token, di_refresh_token, di_client_id, expires_in, ...}
+        const exchResp = await fetch('https://hevy2garmin-exchange-di.gkos.workers.dev/exchange', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ticket: ticket })
@@ -143,11 +147,19 @@ async function exchangeTicket() {
             result.innerHTML = '<span style="font-size: 12px; color: var(--red);">&#10007; ' + exchData.error + '</span>';
             return;
         }
-        // Step 2: Store tokens on our server
+        if (!exchData.di_token || !exchData.di_refresh_token || !exchData.di_client_id) {
+            result.innerHTML = '<span style="font-size: 12px; color: var(--red);">&#10007; Worker returned unexpected response shape</span>';
+            return;
+        }
+        // Step 2: Store tokens on our server (garmin-auth >= 0.3.0 single-file DI format)
         const storeResp = await fetch('/api/garmin-ticket', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tokens: exchData })
+            body: JSON.stringify({ tokens: {
+                di_token: exchData.di_token,
+                di_refresh_token: exchData.di_refresh_token,
+                di_client_id: exchData.di_client_id,
+            }})
         });
         const storeData = await storeResp.json();
         if (storeData.ok) {

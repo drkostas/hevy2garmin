@@ -159,7 +159,7 @@ def set_description(client: Garmin, activity_id: int, description: str) -> None:
     """Set description for a Garmin activity."""
     url = f"/activity-service/activity/{activity_id}"
     payload = {"activityId": activity_id, "description": description}
-    client.garth.put("connectapi", url, json=payload, api=True)
+    client.client.put("connectapi", url, json=payload, api=True)
     time.sleep(1.0)
     logger.info("  Description set (%d chars)", len(description))
 
@@ -167,7 +167,7 @@ def set_description(client: Garmin, activity_id: int, description: str) -> None:
 def upload_image(client: Garmin, activity_id: int, image_bytes: bytes, filename: str = "image.png") -> None:
     """Upload an image to a Garmin activity."""
     files = {"file": (filename, io.BytesIO(image_bytes))}
-    client.garth.post(
+    client.client.post(
         "connectapi",
         f"activity-service/activity/{activity_id}/image",
         files=files,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hevy2garmin"
-version = "0.2.0"
+version = "0.3.0"
 description = "Sync Hevy gym workouts to Garmin Connect — exercise mapping, FIT file generation, and automatic upload"
 readme = "README.md"
 license = "MIT"
@@ -19,8 +19,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    "garmin-auth>=0.2.1",
-    "garminconnect>=0.2.38,<0.3.0",
+    "garmin-auth>=0.3.0,<0.4.0",
+    "garminconnect>=0.3.0,<0.4.0",
+    "curl_cffi>=0.6",
+    "ua-generator>=1.0",
     "requests>=2.31",
     "fit-tool>=0.9.15",
     "fastapi>=0.110",

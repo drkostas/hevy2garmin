@@ -335,7 +335,8 @@ async def dashboard(request: Request):
         else:
             from pathlib import Path
             token_dir = Path(config.get("garmin_token_dir", "~/.garminconnect")).expanduser()
-            garmin_connected = (token_dir / "oauth2_token.json").exists()
+            # garmin-auth >= 0.3.0 uses a single DI OAuth token file
+            garmin_connected = (token_dir / "garmin_tokens.json").exists()
     except Exception:
         pass
 
@@ -478,36 +479,48 @@ async def setup_save(
 
 @app.post("/api/garmin-ticket")
 async def garmin_ticket_store(request: Request):
-    """Store pre-exchanged Garmin OAuth tokens.
+    """Store pre-exchanged Garmin DI OAuth tokens.
 
     The token exchange happens via Cloudflare Worker (bypasses cloud IP blocks).
-    This endpoint just stores the resulting tokens in the DB/filesystem.
+    The Worker POSTs the ``ST-...`` ticket to Garmin's DI OAuth endpoint and
+    returns ``{di_token, di_refresh_token, di_client_id, ...}``. This endpoint
+    just persists that payload to whichever token store is configured so
+    ``garmin-auth >= 0.3.0`` can pick it up on the next sync.
     """
     import json as _json
     body = await request.json()
     tokens_data = body.get("tokens")
-    if not tokens_data or "oauth1" not in tokens_data or "oauth2" not in tokens_data:
-        return HTMLResponse(_json.dumps({"error": "Invalid tokens"}), status_code=400)
+    if not isinstance(tokens_data, dict) or not all(
+        k in tokens_data for k in ("di_token", "di_refresh_token", "di_client_id")
+    ):
+        return HTMLResponse(
+            _json.dumps({"error": "Invalid tokens: expected di_token/di_refresh_token/di_client_id"}),
+            status_code=400,
+        )
+
+    # Only keep the fields the new token store cares about; the Worker also
+    # returns metadata like expires_in that garminconnect recomputes itself.
+    payload = {
+        "di_token": tokens_data["di_token"],
+        "di_refresh_token": tokens_data["di_refresh_token"],
+        "di_client_id": tokens_data["di_client_id"],
+    }
 
     try:
-        tokens = {
-            "oauth1_token.json": tokens_data["oauth1"],
-            "oauth2_token.json": tokens_data["oauth2"],
-        }
         database_url = db.get_database_url()
         if database_url:
             from garmin_auth.storage import DBTokenStore
             store = DBTokenStore(database_url)
-            store.save(tokens)
+            store.save(payload)
         else:
             from garmin_auth.storage import FileTokenStore
             store = FileTokenStore()
-            store.save(tokens)
+            store.save(payload)
 
-        logger.info("Garmin tokens stored successfully")
+        logger.info("Garmin DI tokens stored successfully")
         return HTMLResponse(_json.dumps({"ok": True}))
     except Exception as e:
-        logger.warning("Garmin ticket exchange failed: %s", e)
+        logger.warning("Garmin ticket exchange store failed: %s", e)
         return HTMLResponse(
             _json.dumps({"error": str(e)[:200]}),
             status_code=500,
