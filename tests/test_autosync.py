@@ -5,9 +5,11 @@ from __future__ import annotations
 import pytest
 
 from hevy2garmin.server import (
+    _acquire_sync_lock,
     _build_sync_workflow_yaml,
     _format_interval_label,
     _minutes_to_cron,
+    _sync_executing,
 )
 
 
@@ -61,6 +63,20 @@ class TestBuildSyncWorkflowYaml:
         yml = _build_sync_workflow_yaml(1440)
         assert "cron: '0 0 * * *'" in yml
 
+class TestSyncLock:
+    def test_acquire_and_release(self) -> None:
+        """Lock can be acquired and released without crashing (verifies time module is imported)."""
+        assert _acquire_sync_lock() is True
+        _sync_executing.release()
+
+    def test_acquire_blocks_second(self) -> None:
+        """Second acquire returns False when lock is held."""
+        assert _acquire_sync_lock() is True
+        assert _acquire_sync_lock() is False  # Already held
+        _sync_executing.release()
+
+
+class TestBuildSyncWorkflowYaml:
     def test_workflow_structure_intact(self) -> None:
         """Make sure essential workflow pieces survive any cron change."""
         yml = _build_sync_workflow_yaml(60)

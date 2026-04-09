@@ -213,11 +213,27 @@ def generate_description(workout: dict, calories: int | None = None, avg_hr: int
             normal = [s for s in all_sets if s.get("type") == "normal"]
             warmup = [s for s in all_sets if s.get("type") == "warmup"]
             if normal:
-                weights = [s.get("weight_kg") or s.get("weight", 0) for s in normal]
-                reps = [s.get("reps", 0) for s in normal]
-                top_weight = max(weights) if weights else 0
-                top_reps = max(reps) if reps else 0
-                lines.append(f"• {name}: {len(normal)} sets · {top_weight:.1f}kg × {top_reps}")
+                n_label = "set" if len(normal) == 1 else "sets"
+                # Check if this is a cardio exercise (has distance or duration, no weight/reps)
+                has_distance = any(s.get("distance_meters") for s in normal)
+                has_duration = any(s.get("duration_seconds") for s in normal)
+                has_weight = any(s.get("weight_kg") or s.get("weight") for s in normal)
+                if has_distance or (has_duration and not has_weight):
+                    # Cardio: show distance and/or duration
+                    total_dist = sum(s.get("distance_meters", 0) or 0 for s in normal)
+                    total_dur = sum(s.get("duration_seconds", 0) or 0 for s in normal)
+                    parts = [f"{len(normal)} {n_label}"]
+                    if total_dist > 0:
+                        parts.append(f"{total_dist / 1000:.1f}km")
+                    if total_dur > 0:
+                        parts.append(f"{int(total_dur // 60)}min")
+                    lines.append(f"• {name}: {' · '.join(parts)}")
+                else:
+                    weights = [s.get("weight_kg") or s.get("weight", 0) for s in normal]
+                    reps = [s.get("reps", 0) for s in normal]
+                    top_weight = max(weights) if weights else 0
+                    top_reps = max(reps) if reps else 0
+                    lines.append(f"• {name}: {len(normal)} {n_label} · {top_weight:.1f}kg × {top_reps}")
             elif warmup:
                 s_label = "set" if len(warmup) == 1 else "sets"
                 lines.append(f"• {name}: {len(warmup)} warmup {s_label}")

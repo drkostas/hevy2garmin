@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -278,18 +279,39 @@ _is_configured_cache: bool | None = None
 async def check_setup(request: Request, call_next):
     global _is_configured_cache
     path = request.url.path
-    if path in ("/setup", "/favicon.ico", "/api/sync-one", "/api/cron/sync",
-                "/api/setup-actions", "/api/garmin-ticket") \
-       or path.startswith("/static"):
+    secret = os.environ.get("HEVY2GARMIN_SECRET")
+
+    # Static resources: pass through, no auth, no cookie
+    if path == "/favicon.ico" or path.startswith("/static"):
         return await call_next(request)
-    # Cache is_configured result (set to True after first successful setup)
-    if _is_configured_cache is None:
-        _is_configured_cache = is_configured()
-    if not _is_configured_cache:
-        _is_configured_cache = is_configured()  # Re-check in case setup just completed
+
+    # Auth check for POST /api/* endpoints (CSRF protection).
+    # Cron has its own Bearer token check. All others require the cookie or X-Api-Key.
+    if secret and request.method == "POST" and path.startswith("/api/") and path != "/api/cron/sync":
+        token = request.cookies.get("h2g_auth") or request.headers.get("x-api-key")
+        if token != secret:
+            from starlette.responses import Response
+            return Response("Unauthorized", status_code=401)
+
+    # Setup page and sync endpoints: skip the "is configured?" redirect
+    if path in ("/setup", "/api/sync-one", "/api/cron/sync", "/api/setup-actions", "/api/garmin-ticket"):
+        response = await call_next(request)
+    else:
+        # Redirect to setup if not configured
+        if _is_configured_cache is None:
+            _is_configured_cache = is_configured()
         if not _is_configured_cache:
-            return RedirectResponse("/setup")
-    return await call_next(request)
+            _is_configured_cache = is_configured()
+            if not _is_configured_cache:
+                return RedirectResponse("/setup")
+        response = await call_next(request)
+
+    # Auto-set auth cookie on every GET so it survives cookie clears and new devices.
+    # SameSite=strict prevents cross-origin POSTs from using it (CSRF protection).
+    if secret and request.method == "GET" and not request.cookies.get("h2g_auth"):
+        response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict", max_age=365 * 86400)
+
+    return response
 
 
 # ── Pages ────────────────────────────────────────────────────────────────────
@@ -444,7 +466,12 @@ async def setup_save(
         return _render("setup.html", config=load_config(), garmin_error=garmin_error,
                         allow_skip=True, is_cloud=bool(db.get_database_url()))
 
-    return RedirectResponse("/", status_code=303)
+    response = RedirectResponse("/", status_code=303)
+    # Set auth cookie if HEVY2GARMIN_SECRET is configured (cloud deployments)
+    secret = os.environ.get("HEVY2GARMIN_SECRET")
+    if secret:
+        response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict", max_age=365 * 86400)
+    return response
 
 
 # ── Browser-based Garmin auth (ticket exchange) ───────────────────────────
@@ -546,6 +573,8 @@ async def workouts_page(request: Request):
                     from hevy2garmin.fit import _parse_timestamp, _DEFAULT_HR_BPM
                     start_dt = _parse_timestamp(start)
                     end_dt = _parse_timestamp(end)
+                    if not start_dt or not end_dt:
+                        raise ValueError("bad timestamp")
                     duration_s = (end_dt - start_dt).total_seconds()
                     workout_year = start_dt.year
                     age = workout_year - birth_year
@@ -629,6 +658,8 @@ async def api_workout_hr(request: Request, hevy_id: str):
         w_end = workout.get("end_time") or workout.get("endTime", "")
         start_dt = _parse_timestamp(w_start)
         end_dt = _parse_timestamp(w_end)
+        if not start_dt or not end_dt:
+            return HTMLResponse('<div style="padding:20px;color:var(--text-muted);">Workout timestamps missing</div>')
         start_ms = int(start_dt.timestamp() * 1000)
         end_ms = int(end_dt.timestamp() * 1000)
         total_duration_s = max(1, (end_ms - start_ms) / 1000)

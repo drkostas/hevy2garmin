@@ -99,3 +99,65 @@ class TestGenerateDescription:
         workout = {"title": "Empty", "exercises": []}
         desc = generate_description(workout)
         assert "Empty" in desc
+
+    def test_warmup_only_singular(self) -> None:
+        workout = {"title": "W", "exercises": [
+            {"title": "Bench", "sets": [{"type": "warmup", "weight_kg": 20, "reps": 5}]}
+        ]}
+        desc = generate_description(workout)
+        assert "1 warmup set" in desc
+        assert "1 warmup sets" not in desc
+
+    def test_warmup_only_plural(self) -> None:
+        workout = {"title": "W", "exercises": [
+            {"title": "Bench", "sets": [
+                {"type": "warmup", "weight_kg": 20, "reps": 5},
+                {"type": "warmup", "weight_kg": 30, "reps": 5},
+            ]}
+        ]}
+        desc = generate_description(workout)
+        assert "2 warmup sets" in desc
+
+    def test_cardio_exercise_description(self) -> None:
+        workout = {"title": "Cardio", "exercises": [
+            {"title": "Treadmill", "sets": [
+                {"type": "normal", "distance_meters": 5000, "duration_seconds": 1800, "weight_kg": None, "reps": None}
+            ]}
+        ]}
+        desc = generate_description(workout)
+        assert "5.0km" in desc
+        assert "30min" in desc
+        assert "1 set" in desc
+        assert "1 sets" not in desc
+
+    def test_singular_set_grammar(self) -> None:
+        """1 normal set should say 'set' not 'sets'."""
+        workout = {"title": "T", "exercises": [
+            {"title": "Curl", "sets": [{"type": "normal", "weight_kg": 10, "reps": 12}]}
+        ]}
+        desc = generate_description(workout)
+        assert "1 set" in desc
+        assert "1 sets" not in desc
+
+    def test_plural_sets_grammar(self) -> None:
+        """3 normal sets should say 'sets'."""
+        workout = {"title": "T", "exercises": [
+            {"title": "Curl", "sets": [
+                {"type": "normal", "weight_kg": 10, "reps": 12},
+                {"type": "normal", "weight_kg": 10, "reps": 10},
+                {"type": "normal", "weight_kg": 10, "reps": 8},
+            ]}
+        ]}
+        desc = generate_description(workout)
+        assert "3 sets" in desc
+
+    def test_mixed_strength_and_cardio(self) -> None:
+        workout = {"title": "Mixed", "exercises": [
+            {"title": "Bench", "sets": [{"type": "normal", "weight_kg": 80, "reps": 8}]},
+            {"title": "Treadmill", "sets": [
+                {"type": "normal", "distance_meters": 3000, "duration_seconds": 900, "weight_kg": None, "reps": None}
+            ]},
+        ]}
+        desc = generate_description(workout)
+        assert "80.0kg" in desc
+        assert "3.0km" in desc

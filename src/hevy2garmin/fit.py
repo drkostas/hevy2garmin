@@ -79,16 +79,24 @@ def calc_calories(hr_samples: list[int], duration_s: float, workout_year: int, p
     return _calc_calories(hr_samples, duration_s, workout_year, profile)
 
 
-def _parse_timestamp(raw: str) -> datetime:
-    """Parse ISO-8601 or Garmin space-separated timestamp to UTC datetime."""
+def _parse_timestamp(raw: str | None) -> datetime | None:
+    """Parse ISO-8601 or Garmin space-separated timestamp to UTC datetime.
+
+    Returns None for null, empty, or malformed input instead of crashing.
+    """
+    if not raw or not isinstance(raw, str):
+        return None
     cleaned = raw.strip()
-    if "T" in cleaned:
-        cleaned = cleaned.replace("Z", "+00:00")
-        return datetime.fromisoformat(cleaned)
-    else:
+    if not cleaned:
+        return None
+    try:
+        if "T" in cleaned:
+            return datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
         return datetime.strptime(cleaned, "%Y-%m-%d %H:%M:%S").replace(
             tzinfo=timezone.utc
         )
+    except (ValueError, TypeError):
+        return None
 
 
 def _calc_calories(hr_samples: list[int], duration_s: float, workout_year: int, profile: dict | None = None) -> int:
@@ -151,8 +159,13 @@ def generate_fit(
     p = _get_profile(profile)
 
     # -- Resolve timing --
-    start_dt = _parse_timestamp(hevy_workout["start_time"])
-    end_dt = _parse_timestamp(hevy_workout["end_time"])
+    start_dt = _parse_timestamp(hevy_workout.get("start_time"))
+    end_dt = _parse_timestamp(hevy_workout.get("end_time"))
+    if not start_dt or not end_dt:
+        raise ValueError(
+            f"Workout '{hevy_workout.get('title', '?')}' missing valid start/end time "
+            f"(start={hevy_workout.get('start_time')!r}, end={hevy_workout.get('end_time')!r})"
+        )
     duration_s = (end_dt - start_dt).total_seconds()
 
     start_ms = _ms(start_dt)
@@ -172,7 +185,13 @@ def generate_fit(
         sets = ex.get("sets", [])
         for s_idx, s in enumerate(sets):
             is_warmup = s.get("type", "normal") == "warmup"
-            set_dur = p["warmup_set_s"] if is_warmup else p["working_set_s"]
+            # Use the set's own duration if present (cardio/isometric exercises),
+            # otherwise fall back to profile defaults
+            explicit_dur = s.get("duration_seconds")
+            if explicit_dur and explicit_dur > 0:
+                set_dur = float(explicit_dur)
+            else:
+                set_dur = p["warmup_set_s"] if is_warmup else p["working_set_s"]
 
             # Rest after this set (none after the very last set of the workout)
             is_last_set_of_exercise = s_idx == len(sets) - 1
@@ -294,6 +313,10 @@ def generate_fit(
         weight = s.get("weight_kg")
         if weight is not None:
             active.weight = float(weight)
+
+        # Note: FIT SetMessage doesn't have a distance field.
+        # Cardio data (distance_meters) is captured via set duration timing
+        # (duration_seconds handled above) which is more meaningful for Garmin.
 
         timeline.append((set_end_ms, "set", active))
         msg_index += 1

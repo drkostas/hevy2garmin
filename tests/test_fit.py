@@ -127,3 +127,72 @@ class TestEdgeCases:
         result = generate_fit(workout, hr_samples=None, output_path=path, profile=sample_profile)
         assert result["exercises"] == 0
         assert result["total_sets"] == 0
+
+    def test_missing_start_time_raises(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Null start_time raises ValueError, not AttributeError."""
+        workout = {"id": "x", "title": "T", "start_time": None, "end_time": "2026-04-01T20:10:00+00:00", "exercises": []}
+        with pytest.raises(ValueError, match="missing valid start/end time"):
+            generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "x.fit"), profile=sample_profile)
+
+    def test_empty_start_time_raises(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Empty string start_time raises ValueError, not crashes."""
+        workout = {"id": "x", "title": "T", "start_time": "", "end_time": "2026-04-01T20:10:00+00:00", "exercises": []}
+        with pytest.raises(ValueError, match="missing valid start/end time"):
+            generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "x.fit"), profile=sample_profile)
+
+    def test_exercise_with_zero_sets(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Exercise with empty sets list doesn't crash."""
+        workout = {
+            "id": "nosetsid", "title": "No Sets", "start_time": "2026-04-01T20:00:00+00:00",
+            "end_time": "2026-04-01T20:10:00+00:00",
+            "exercises": [{"index": 0, "title": "Bench Press", "sets": []}],
+        }
+        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "nosets.fit"), profile=sample_profile)
+        assert result["total_sets"] == 0
+
+    def test_isometric_exercise(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Set with reps=0 and duration_seconds generates valid FIT."""
+        workout = {
+            "id": "iso", "title": "Iso", "start_time": "2026-04-01T20:00:00+00:00",
+            "end_time": "2026-04-01T20:05:00+00:00",
+            "exercises": [{"index": 0, "title": "Plank", "exercise_template_id": "X",
+                "sets": [{"index": 0, "type": "normal", "reps": 0, "duration_seconds": 60}]}],
+        }
+        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "iso.fit"), profile=sample_profile)
+        assert result["total_sets"] == 1
+
+    def test_cardio_exercise(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Set with distance_meters and duration_seconds, no weight/reps."""
+        workout = {
+            "id": "cardio", "title": "Treadmill Day", "start_time": "2026-04-01T20:00:00+00:00",
+            "end_time": "2026-04-01T20:30:00+00:00",
+            "exercises": [{"index": 0, "title": "Treadmill", "exercise_template_id": "X",
+                "sets": [{"index": 0, "type": "normal", "distance_meters": 5000, "duration_seconds": 1800,
+                           "weight_kg": None, "reps": None}]}],
+        }
+        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "cardio.fit"), profile=sample_profile)
+        assert result["total_sets"] == 1
+        assert Path(tmp_path / "cardio.fit").stat().st_size > 0
+
+    def test_special_chars_in_title(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Emoji and unicode in workout title don't crash."""
+        workout = {
+            "id": "emoji", "title": "💪 André's Push/Pull & Legs Day", "start_time": "2026-04-01T20:00:00+00:00",
+            "end_time": "2026-04-01T20:30:00+00:00",
+            "exercises": [{"index": 0, "title": "Bench Press (Barbell)", "exercise_template_id": "79D0BB3A",
+                "sets": [{"index": 0, "type": "normal", "weight_kg": 60, "reps": 8}]}],
+        }
+        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "emoji.fit"), profile=sample_profile)
+        assert result["exercises"] == 1
+
+    def test_very_long_workout(self, sample_profile: dict, tmp_path: Path) -> None:
+        """3-hour workout generates correct duration."""
+        workout = {
+            "id": "long", "title": "Marathon Session", "start_time": "2026-04-01T18:00:00+00:00",
+            "end_time": "2026-04-01T21:00:00+00:00",
+            "exercises": [{"index": 0, "title": "Squat", "exercise_template_id": "X",
+                "sets": [{"index": i, "type": "normal", "weight_kg": 100, "reps": 5} for i in range(20)]}],
+        }
+        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "long.fit"), profile=sample_profile)
+        assert result["duration_s"] == 10800  # 3 hours
+        assert result["total_sets"] == 20
