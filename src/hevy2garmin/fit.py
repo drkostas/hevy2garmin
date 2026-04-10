@@ -312,7 +312,7 @@ def generate_fit(
 
         weight = s.get("weight_kg")
         if weight is not None:
-            active.weight = float(weight)
+            active.weight = max(0.0, float(weight))
 
         # Note: FIT SetMessage doesn't have a distance field.
         # Cardio data (distance_meters) is captured via set duration timing

@@ -196,3 +196,15 @@ class TestEdgeCases:
         result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "long.fit"), profile=sample_profile)
         assert result["duration_s"] == 10800  # 3 hours
         assert result["total_sets"] == 20
+
+    def test_negative_weight_clamped(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Negative weight_kg should be clamped to 0, not written as-is."""
+        workout = {
+            "id": "neg", "title": "Bad Data", "start_time": "2026-04-01T10:00:00+00:00",
+            "end_time": "2026-04-01T10:30:00+00:00",
+            "exercises": [{"index": 0, "title": "Curl", "exercise_template_id": "X",
+                "sets": [{"index": 0, "type": "normal", "weight_kg": -5, "reps": 10}]}],
+        }
+        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "neg.fit"), profile=sample_profile)
+        assert result["total_sets"] == 1
+        assert (tmp_path / "neg.fit").exists()
