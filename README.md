@@ -94,17 +94,16 @@ Click the button above. Sign in with GitHub if prompted. You'll see a few screen
 
 Click **Continue to Dashboard**, then **Visit** to open your app. Bookmark this URL -- it's your dashboard.
 
-Click **Save & Continue** on the setup page.
+On the setup page, enter your Garmin email and password and click **Connect**.
 
-The app will ask you to sign into Garmin through your browser:
+- If your Garmin account **does not** have 2FA enabled, you're connected in a second. That's it.
+- If your Garmin account **has 2FA enabled**, Garmin emails you a 6-digit code. A code input appears on the page, paste the code, click **Verify**. Done.
 
-1. Tap **Sign into Garmin** (opens Garmin's login page in a new tab)
-2. Log in with your Garmin email and password
-3. After login, **copy the URL** from your browser's address bar
-4. Go back to the setup tab and **paste it** in the box
-5. Click **Connect**
+Then click **Save & Continue**.
 
-This is needed because Garmin blocks automated logins from cloud servers. Your browser does the login from your own internet connection, then the app stores the tokens securely.
+Garmin blocks automated logins from cloud servers (AWS, Azure, Vercel), so hevy2garmin routes the login through a Cloudflare Worker that runs on Cloudflare's edge network. Garmin accepts those IPs, so the whole flow happens in a single click from the dashboard -- no browser tab switching, no URL copying.
+
+> **Fallback for edge cases:** on the rare occasion Garmin doesn't accept the direct login (most often when the account has an unusual security configuration), the setup page automatically reveals the old "Sign into Garmin in a new tab and paste the URL back" flow as a safety net. You don't need to do anything differently -- just follow the instructions the page shows you.
 
 **Step 6: Sync your workouts**
 
@@ -291,7 +290,7 @@ See [`.env.example`](.env.example) for all available env vars.
 
 **Garmin authentication:** Only needs the password for initial login. After that, tokens are cached (in `~/.garminconnect` locally or in Postgres for cloud deploys) and refresh automatically.
 
-> **Cloud deploys (Vercel):** Garmin blocks automated logins from cloud servers. The setup wizard handles this by having you sign into Garmin through your browser, then securely storing the tokens. This only needs to be done once.
+> **Cloud deploys (Vercel):** Garmin blocks automated logins from cloud servers, so hevy2garmin routes the login through a Cloudflare Worker (`hevy2garmin-exchange-di.gkos.workers.dev`) that runs on Cloudflare's edge network. The Worker accepts your email + password from the setup page, completes the login (including 2FA if enabled), and returns a DI OAuth token that hevy2garmin stores in your Postgres database. This happens in a single click from the setup wizard. On the rare occasion Garmin rejects the direct login, the setup page automatically falls back to a "sign in via browser, paste the URL back" flow.
 
 ## How It Works
 

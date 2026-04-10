@@ -74,7 +74,19 @@
             </div>
             <div class="form-group">
                 <label class="form-label" for="garmin_password">Password</label>
-                <input class="form-input" type="password" id="garmin_password" name="garmin_password" placeholder="{% if is_cloud %}Pre-filled from deploy{% else %}Stored locally only{% endif %}" autocomplete="current-password">
+                <div style="display: flex; gap: 8px;">
+                    <input class="form-input" type="password" id="garmin_password" name="garmin_password" placeholder="{% if is_cloud %}Pre-filled from deploy{% else %}Stored locally only{% endif %}" autocomplete="current-password" style="flex: 1;">
+                    <button type="button" class="btn btn-primary btn-sm" id="garmin_connect_btn" onclick="garminConnect()" style="white-space: nowrap;">Connect</button>
+                </div>
+                <div id="garmin_connect_result" style="margin-top: 6px; font-size: 12px;"></div>
+            </div>
+            <div class="form-group" id="garmin_mfa_row" style="display: none;">
+                <label class="form-label" for="garmin_mfa_code">Garmin sent you a verification code</label>
+                <div style="display: flex; gap: 8px;">
+                    <input class="form-input" type="text" id="garmin_mfa_code" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" style="flex: 1; font-family: monospace; letter-spacing: 2px;">
+                    <button type="button" class="btn btn-primary btn-sm" id="garmin_mfa_btn" onclick="garminSubmitMfa()" style="white-space: nowrap;">Verify</button>
+                </div>
+                <div class="form-hint" style="font-size: 11px; margin-top: 4px;">Check your email / authenticator app. Code is valid for a few minutes.</div>
             </div>
         </div>
 
@@ -112,6 +124,158 @@
 </div>
 
 <script>
+const GARMIN_WORKER_BASE = 'https://hevy2garmin-exchange-di.gkos.workers.dev';
+
+// ── Garmin inline login (preferred UX, no copy-paste) ──────────────────────
+
+let garminMfaSessionId = null;
+
+async function garminConnect() {
+    const email = document.getElementById('garmin_email').value.trim();
+    const password = document.getElementById('garmin_password').value;
+    const result = document.getElementById('garmin_connect_result');
+    const btn = document.getElementById('garmin_connect_btn');
+    if (!email || !password) {
+        result.innerHTML = '<span style="color: var(--red);">Enter email and password first</span>';
+        return;
+    }
+    btn.disabled = true;
+    result.innerHTML = '<span style="color: var(--text-muted);">Connecting to Garmin...</span>';
+    try {
+        const resp = await fetch(GARMIN_WORKER_BASE + '/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: password }),
+        });
+        const data = await resp.json();
+        await handleGarminLoginResponse(data);
+    } catch (e) {
+        result.innerHTML = '<span style="color: var(--red);">&#10007; Network error, try again</span>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function garminSubmitMfa() {
+    const code = document.getElementById('garmin_mfa_code').value.trim();
+    const result = document.getElementById('garmin_connect_result');
+    const btn = document.getElementById('garmin_mfa_btn');
+    if (!code) {
+        result.innerHTML = '<span style="color: var(--red);">Enter the code first</span>';
+        return;
+    }
+    if (!garminMfaSessionId) {
+        result.innerHTML = '<span style="color: var(--red);">Session expired, click Connect again</span>';
+        return;
+    }
+    btn.disabled = true;
+    result.innerHTML = '<span style="color: var(--text-muted);">Verifying code...</span>';
+    try {
+        const resp = await fetch(GARMIN_WORKER_BASE + '/login-mfa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: garminMfaSessionId, mfa_code: code }),
+        });
+        const data = await resp.json();
+        await handleGarminLoginResponse(data);
+    } catch (e) {
+        result.innerHTML = '<span style="color: var(--red);">&#10007; Network error, try again</span>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function handleGarminLoginResponse(data) {
+    const result = document.getElementById('garmin_connect_result');
+    const mfaRow = document.getElementById('garmin_mfa_row');
+
+    if (data.status === 'success') {
+        // Hide MFA row if it was shown
+        mfaRow.style.display = 'none';
+        garminMfaSessionId = null;
+        // Persist tokens on our server
+        const storeResp = await fetch('/api/garmin-ticket', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tokens: {
+                di_token: data.di_token,
+                di_refresh_token: data.di_refresh_token,
+                di_client_id: data.di_client_id,
+            }}),
+        });
+        const storeData = await storeResp.json();
+        if (storeData.ok) {
+            result.innerHTML = '<span style="color: var(--accent);">&#10003; Connected to Garmin</span>';
+        } else {
+            result.innerHTML = '<span style="color: var(--red);">&#10007; ' + (storeData.error || 'Failed to save tokens') + '</span>';
+        }
+        return;
+    }
+
+    if (data.status === 'needs_mfa') {
+        garminMfaSessionId = data.session_id;
+        mfaRow.style.display = '';
+        const method = data.mfa_method || 'email';
+        result.innerHTML = '<span style="color: var(--text-muted);">Garmin sent a verification code to your ' + method + '. Enter it below.</span>';
+        document.getElementById('garmin_mfa_code').focus();
+        return;
+    }
+
+    if (data.status === 'mfa_failed') {
+        result.innerHTML = '<span style="color: var(--red);">&#10007; ' + (data.message || 'Code rejected, try again') + '</span>';
+        document.getElementById('garmin_mfa_code').select();
+        return;
+    }
+
+    if (data.status === 'invalid_credentials') {
+        result.innerHTML = '<span style="color: var(--red);">&#10007; Invalid email or password</span>';
+        return;
+    }
+
+    if (data.status === 'rate_limited') {
+        result.innerHTML = '<span style="color: var(--red);">&#10007; Garmin rate-limited this account. Wait a few minutes and try again.</span>';
+        return;
+    }
+
+    if (data.status === 'needs_captcha') {
+        // Worker returns needs_captcha for both actual captcha challenges AND
+        // Garmin's 427 response which appears when MFA-enabled accounts try the
+        // direct portal API flow (Garmin forces those through the embed widget
+        // browser flow instead). Either way, the fix is the same: show the
+        // manual sign-in UI so the user can complete setup via their browser.
+        const detail = data.message || 'Garmin requires the browser sign-in flow for this account.';
+        result.innerHTML = '<span style="color: var(--text-secondary); font-size: 11px;">&#9888; ' + detail + ' Use the manual sign-in below:</span>';
+        revealManualFallback();
+        return;
+    }
+
+    // Unknown / error status — reveal the manual fallback so the user has a path forward.
+    const msg = (data && (data.message || data.error)) || 'Unexpected error';
+    result.innerHTML = '<span style="color: var(--red);">&#10007; ' + msg + '. Try the manual sign-in below.</span>';
+    revealManualFallback();
+}
+
+function revealManualFallback() {
+    // If the server didn't pre-render the garmin_error block, synthesize a link
+    // that opens Garmin's embed widget so the user can paste the URL back.
+    const existing = document.getElementById('ticket-result');
+    if (existing) return; // already visible
+    const container = document.createElement('div');
+    container.className = 'card';
+    container.style.marginTop = '12px';
+    container.innerHTML = '<p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">' +
+        'Sign in with your browser and paste the URL back here:' +
+        '</p>' +
+        '<a href="https://sso.garmin.com/sso/signin?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fembed&source=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fembed&redirectAfterAccountLoginUrl=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fembed&redirectAfterAccountCreationUrl=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fembed" ' +
+        'target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="margin-bottom: 8px;">Sign into Garmin</a>' +
+        '<div style="display: flex; gap: 8px;">' +
+        '<input class="form-input" type="text" id="garmin_ticket_url" placeholder="https://sso.garmin.com/sso/embed?ticket=ST-..." style="flex: 1; font-size: 13px;">' +
+        '<button type="button" class="btn btn-primary btn-sm" onclick="exchangeTicket()" style="white-space: nowrap;">Connect</button>' +
+        '</div>' +
+        '<div id="ticket-result" style="margin-top: 4px;"></div>';
+    document.getElementById('garmin_connect_result').after(container);
+}
+
 async function exchangeTicket() {
     const urlInput = document.getElementById('garmin_ticket_url');
     const result = document.getElementById('ticket-result');

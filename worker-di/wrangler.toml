@@ -1,3 +1,10 @@
 name = "hevy2garmin-exchange-di"
 main = "index.js"
 compatibility_date = "2024-01-01"
+
+# Short-lived storage for pending MFA login sessions (~10 minute TTL set
+# per-put in index.js). Keyed by session ID handed to the browser between
+# /login and /login-mfa.
+[[kv_namespaces]]
+binding = "MFA_SESSIONS"
+id = "71c7a991a5644ed0a09221da0d6bb423"
