@@ -292,6 +292,60 @@ See [`.env.example`](.env.example) for all available env vars.
 
 > **Cloud deploys (Vercel):** Garmin blocks automated logins from cloud servers, so hevy2garmin routes the login through a Cloudflare Worker (`hevy2garmin-exchange-di.gkos.workers.dev`) that runs on Cloudflare's edge network. The Worker accepts your email + password from the setup page, completes the login (including 2FA if enabled), and returns a DI OAuth token that hevy2garmin stores in your Postgres database. This happens in a single click from the setup wizard. On the rare occasion Garmin rejects the direct login, the setup page automatically falls back to a "sign in via browser, paste the URL back" flow.
 
+## Updating
+
+### Vercel (one-click deploy)
+
+Your Vercel project is linked to a GitHub repo that was created when you first deployed. To get the latest version:
+
+1. Go to your forked repo on GitHub (e.g. `github.com/your-username/hevy2garmin`)
+2. Click **Sync fork** → **Update branch** (this pulls the latest changes from the original repo)
+3. Vercel auto-deploys when your repo updates. Wait ~1 minute for the build to finish.
+4. Open your dashboard URL and reconnect Garmin if prompted (token format may change between versions)
+
+If you don't see a "Sync fork" button, your repo may have been created as a standalone copy. In that case, go to your Vercel dashboard → project → **Settings** → **Git** → change the repo URL to `drkostas/hevy2garmin`, then trigger a redeploy from the **Deployments** tab.
+
+### pip
+
+```bash
+pip install --upgrade hevy2garmin
+```
+
+### Docker
+
+```bash
+cd hevy2garmin
+git pull origin main
+docker build -t hevy2garmin .
+```
+
+### Git clone (local)
+
+```bash
+cd hevy2garmin
+git pull origin main
+pip install -e .
+```
+
+## Activity Description
+
+When hevy2garmin syncs a workout, it adds a text description to the Garmin activity summarizing your session:
+
+```
+🏋️ Push Day
+⏱️ 52 min
+🔥 387 kcal
+❤️ avg 118 bpm
+
+• Bench Press (Barbell): 3 sets · 80.0kg × 8
+• Incline Dumbbell Press: 3 sets · 28.0kg × 10
+• Cable Fly: 3 sets · 15.0kg × 12
+
+— synced by hevy2garmin
+```
+
+This is visible in the activity details on Garmin Connect and any connected apps (Strava, etc.). Cardio exercises show distance and duration instead of weight and reps.
+
 ## How It Works
 
 1. Pulls workouts from the Hevy API
