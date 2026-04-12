@@ -99,6 +99,11 @@ class PostgresDatabase(Database):
                     cur.execute("ALTER TABLE synced_workouts ADD COLUMN hevy_updated_at TEXT")
                 except Exception:
                     conn.rollback()
+                # Migration: add sync_method column (merge mode)
+                try:
+                    cur.execute("ALTER TABLE synced_workouts ADD COLUMN sync_method TEXT DEFAULT 'upload'")
+                except Exception:
+                    conn.rollback()
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS app_cache (
                         key TEXT PRIMARY KEY,
@@ -144,22 +149,24 @@ class PostgresDatabase(Database):
         calories: int | None = None,
         avg_hr: int | None = None,
         hevy_updated_at: str | None = None,
+        sync_method: str = "upload",
     ) -> None:
         with self._get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at, sync_method)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (hevy_id) DO UPDATE SET
                         garmin_activity_id = EXCLUDED.garmin_activity_id,
                         title = EXCLUDED.title,
                         calories = EXCLUDED.calories,
                         avg_hr = EXCLUDED.avg_hr,
                         hevy_updated_at = EXCLUDED.hevy_updated_at,
+                        sync_method = EXCLUDED.sync_method,
                         synced_at = NOW()
                     """,
-                    (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at),
+                    (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at, sync_method),
                 )
             conn.commit()
 

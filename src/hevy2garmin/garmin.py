@@ -159,7 +159,7 @@ def set_description(client: Garmin, activity_id: int, description: str) -> None:
     """Set description for a Garmin activity."""
     url = f"/activity-service/activity/{activity_id}"
     payload = {"activityId": activity_id, "description": description}
-    client.client.put("connectapi", url, json=payload, api=True)
+    client.garth.connectapi(url, method="PUT", json=payload)
     time.sleep(1.0)
     logger.info("  Description set (%d chars)", len(description))
 
@@ -167,14 +167,136 @@ def set_description(client: Garmin, activity_id: int, description: str) -> None:
 def upload_image(client: Garmin, activity_id: int, image_bytes: bytes, filename: str = "image.png") -> None:
     """Upload an image to a Garmin activity."""
     files = {"file": (filename, io.BytesIO(image_bytes))}
-    client.client.post(
-        "connectapi",
-        f"activity-service/activity/{activity_id}/image",
+    client.garth.connectapi(
+        f"/activity-service/activity/{activity_id}/image",
+        method="POST",
         files=files,
-        api=True,
     )
     time.sleep(1.0)
     logger.info("  Image uploaded (%dKB)", len(image_bytes) // 1024)
+
+
+def find_matching_garmin_activity(
+    client: Garmin,
+    hevy_workout: dict,
+    overlap_threshold: float = 0.70,
+    max_drift_minutes: int = 20,
+) -> dict | None:
+    """Find a user-recorded Garmin Strength Training activity matching a Hevy workout.
+
+    Searches for activities that overlap the Hevy workout's time window,
+    then scores by temporal overlap and start-time proximity.
+
+    Returns the best-matching activity dict, or None if nothing qualifies.
+    Only matches completed activities of type 'strength_training'.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    start_raw = hevy_workout.get("start_time") or hevy_workout.get("startTime", "")
+    end_raw = hevy_workout.get("end_time") or hevy_workout.get("endTime", "")
+    if not start_raw or not end_raw:
+        return None
+
+    try:
+        hevy_start = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))
+        hevy_end = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+    hevy_duration = (hevy_end - hevy_start).total_seconds()
+    if hevy_duration <= 0:
+        return None
+
+    # Query activities in a window around the workout
+    search_start = (hevy_start - timedelta(hours=2)).date().isoformat()
+    search_end = (hevy_end + timedelta(hours=2)).date().isoformat()
+    try:
+        activities = _limiter.call(client.get_activities_by_date, search_start, search_end)
+    except Exception as e:
+        logger.warning("Could not query Garmin activities for merge: %s", e)
+        return None
+
+    best_score = 0.0
+    best: dict | None = None
+
+    for act in (activities or []):
+        # Hard filter: strength_training only
+        act_type = act.get("activityType", {}).get("typeKey", "")
+        if act_type != "strength_training":
+            continue
+
+        # Must be a completed activity (has duration)
+        act_duration = act.get("duration", 0)
+        if not act_duration or act_duration <= 0:
+            continue
+
+        # Parse start time
+        act_start_str = act.get("startTimeGMT") or act.get("startTimeLocal", "")
+        try:
+            if "T" not in act_start_str:
+                act_start_str = act_start_str.replace(" ", "T")
+            act_start = datetime.fromisoformat(act_start_str)
+            if act_start.tzinfo is None:
+                act_start = act_start.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            continue
+
+        act_end = act_start + timedelta(seconds=act_duration)
+
+        # Check: activity must be finished. Garmin only sets duration > 0
+        # once the activity is saved/stopped. We also reject activities whose
+        # end time is more than 5 minutes into the future (clock skew margin).
+        if act_end > datetime.now(timezone.utc) + timedelta(minutes=5):
+            continue
+
+        # Compute temporal overlap
+        overlap_start = max(hevy_start.replace(tzinfo=timezone.utc), act_start.replace(tzinfo=timezone.utc))
+        overlap_end = min(hevy_end.replace(tzinfo=timezone.utc), act_end.replace(tzinfo=timezone.utc))
+        overlap_s = max(0.0, (overlap_end - overlap_start).total_seconds())
+        overlap_pct = overlap_s / hevy_duration
+
+        if overlap_pct < overlap_threshold:
+            continue
+
+        # Check start drift
+        drift_s = abs((act_start.replace(tzinfo=timezone.utc) - hevy_start.replace(tzinfo=timezone.utc)).total_seconds())
+        drift_min = drift_s / 60
+        if drift_min > max_drift_minutes:
+            continue
+
+        # Score: overlap dominates, drift is a small penalty
+        score = (overlap_pct * 100) - (drift_min * 0.5)
+        if score > best_score:
+            best_score = score
+            best = act
+
+    if best:
+        logger.info(
+            "Merge match: Garmin activity %s (overlap %.0f%%, drift %.1fmin)",
+            best.get("activityId"), best_score, 0,
+        )
+    return best
+
+
+def get_activity_exercise_sets(client: Garmin, activity_id: int) -> dict:
+    """GET exercise sets for a Garmin activity (for backup before merge)."""
+    time.sleep(1.0)
+    return client.get_activity_exercise_sets(activity_id)
+
+
+def push_exercise_sets(client: Garmin, activity_id: int, payload: dict) -> None:
+    """PUT exercise sets to an existing Garmin activity.
+
+    Uses the undocumented /activity-service/activity/{id}/exerciseSets endpoint.
+    Atomically replaces ALL exercise sets on the activity.
+
+    Note: called directly (not through _limiter) because the endpoint returns
+    204 No Content which the rate limiter misinterprets as an error.
+    """
+    url = f"/activity-service/activity/{activity_id}/exerciseSets"
+    time.sleep(1.0)  # manual rate limit
+    client.garth.connectapi(url, method="PUT", json=payload)
+    logger.info("  Pushed %d exercise sets to activity %s", len(payload.get("exerciseSets", [])), activity_id)
 
 
 def generate_description(workout: dict, calories: int | None = None, avg_hr: int | None = None) -> str:

@@ -25,6 +25,7 @@ class Database(ABC):
         calories: int | None = None,
         avg_hr: int | None = None,
         hevy_updated_at: str | None = None,
+        sync_method: str = "upload",
     ) -> None:
         """Record a successfully synced workout."""
 

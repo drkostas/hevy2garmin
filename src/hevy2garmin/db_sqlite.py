@@ -64,6 +64,11 @@ class SQLiteDatabase(Database):
             conn.execute("ALTER TABLE synced_workouts ADD COLUMN hevy_updated_at TEXT")
         except Exception:
             pass  # Column already exists
+        # Migration: add sync_method column (merge mode)
+        try:
+            conn.execute("ALTER TABLE synced_workouts ADD COLUMN sync_method TEXT DEFAULT 'upload'")
+        except Exception:
+            pass  # Column already exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS app_cache (
                 key TEXT PRIMARY KEY,
@@ -99,14 +104,15 @@ class SQLiteDatabase(Database):
         calories: int | None = None,
         avg_hr: int | None = None,
         hevy_updated_at: str | None = None,
+        sync_method: str = "upload",
     ) -> None:
         conn = self._get_conn()
         conn.execute(
             """
-            INSERT OR REPLACE INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO synced_workouts (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at, sync_method)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at),
+            (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at, sync_method),
         )
         conn.commit()
         conn.close()

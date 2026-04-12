@@ -21,6 +21,7 @@ from hevy2garmin.garmin import (
 )
 from hevy2garmin.hevy import HevyClient
 from hevy2garmin.mapper import lookup_exercise
+from hevy2garmin.merge import attempt_merge, reset_circuit_breaker, MergeResult
 
 logger = logging.getLogger("hevy2garmin")
 
@@ -112,7 +113,12 @@ def sync(
         garmin_client = get_client(garmin_email, garmin_password, garmin_token_dir)
         logger.info("Authenticated successfully")
 
-    stats = {"synced": 0, "skipped": 0, "failed": 0, "total": len(workouts), "unmapped": []}
+    merge_mode = cfg.get("merge_mode", False)
+    stats = {"synced": 0, "skipped": 0, "failed": 0, "total": len(workouts), "unmapped": [], "merged": 0, "merge_fallback": 0}
+
+    if merge_mode:
+        reset_circuit_breaker()
+        logger.info("Merge mode enabled — will try to enhance watch activities")
 
     for workout in workouts:
         wid = workout.get("id", "unknown")
@@ -134,6 +140,26 @@ def sync(
                 stats["unmapped"].append(ex_name)
 
         try:
+            # ── Merge mode: try to enhance a watch-recorded activity ──
+            if merge_mode and garmin_client and not dry_run:
+                merge_result = attempt_merge(garmin_client, workout, db)
+                if merge_result.merged:
+                    db.mark_synced(
+                        hevy_id=wid,
+                        garmin_activity_id=str(merge_result.activity_id),
+                        title=title,
+                        hevy_updated_at=workout.get("updated_at"),
+                        sync_method="merge",
+                    )
+                    stats["synced"] += 1
+                    stats["merged"] += 1
+                    logger.info("  ⚡ Enhanced → Garmin activity %s", merge_result.activity_id)
+                    continue
+                else:
+                    logger.info("  Merge fallback: %s", merge_result.fallback_reason)
+                    stats["merge_fallback"] += 1
+
+            # ── Standard upload path (FIT generation) ──
             with tempfile.TemporaryDirectory() as tmp:
                 fit_path = str(Path(tmp) / f"{wid}.fit")
                 result = generate_fit(workout, hr_samples=None, output_path=fit_path)
@@ -165,6 +191,7 @@ def sync(
                     )
                     set_description(garmin_client, activity_id, desc)
 
+                sync_method = "upload_fallback" if merge_mode else "upload"
                 db.mark_synced(
                     hevy_id=wid,
                     garmin_activity_id=str(activity_id) if activity_id else None,
@@ -172,6 +199,7 @@ def sync(
                     calories=result.get("calories"),
                     avg_hr=result.get("avg_hr"),
                     hevy_updated_at=workout.get("updated_at"),
+                    sync_method=sync_method,
                 )
                 stats["synced"] += 1
                 logger.info("  ✓ Synced → Garmin activity %s", activity_id)
