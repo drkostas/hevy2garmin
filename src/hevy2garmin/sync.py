@@ -113,7 +113,7 @@ def sync(
         garmin_client = get_client(garmin_email, garmin_password, garmin_token_dir)
         logger.info("Authenticated successfully")
 
-    merge_mode = cfg.get("merge_mode", False)
+    merge_mode = cfg.get("merge_mode", True)
     stats = {"synced": 0, "skipped": 0, "failed": 0, "total": len(workouts), "unmapped": [], "merged": 0, "merge_fallback": 0}
 
     if merge_mode:
