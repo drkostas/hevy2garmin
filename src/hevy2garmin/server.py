@@ -794,6 +794,10 @@ async def settings_save(
     working_set_seconds: int = Form(40), warmup_set_seconds: int = Form(25),
     rest_between_sets_seconds: int = Form(75), rest_between_exercises_seconds: int = Form(120),
     hr_fusion_enabled: str = Form("off"),
+    merge_mode: str = Form("off"),
+    description_enabled: str = Form("off"),
+    merge_overlap_pct: int = Form(70),
+    merge_max_drift_min: int = Form(20),
 ):
     config = load_config()
     if hevy_api_key:
@@ -807,6 +811,10 @@ async def settings_save(
         rest_between_exercises_seconds=rest_between_exercises_seconds,
     )
     config.setdefault("hr_fusion", {})["enabled"] = hr_fusion_enabled == "on"
+    config["merge_mode"] = merge_mode == "on"
+    config["description_enabled"] = description_enabled == "on"
+    config["merge_overlap_pct"] = max(50, min(95, merge_overlap_pct))
+    config["merge_max_drift_min"] = max(5, min(60, merge_max_drift_min))
     save_config(config)
 
     # Persist settings to DB on cloud (filesystem is read-only on Vercel)
@@ -816,6 +824,12 @@ async def settings_save(
             _db.set_app_config("user_profile", config["user_profile"])
             _db.set_app_config("timing", config["timing"])
             _db.set_app_config("hr_fusion", config.get("hr_fusion", {}))
+            _db.set_app_config("merge_settings", {
+                "merge_mode": config["merge_mode"],
+                "description_enabled": config["description_enabled"],
+                "merge_overlap_pct": config["merge_overlap_pct"],
+                "merge_max_drift_min": config["merge_max_drift_min"],
+            })
         except Exception as e:
             logger.warning("Failed to persist settings to DB: %s", e)
 

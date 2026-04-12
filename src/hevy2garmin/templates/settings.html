@@ -161,6 +161,43 @@
         </p>
     </div>
 
+    <!-- Enhance Watch Activities Section -->
+    <div class="card section">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span class="card-title">Enhance Watch Activities</span>
+            </div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="hidden" name="merge_mode" value="off">
+                <input type="checkbox" name="merge_mode" value="on" {{ 'checked' if config.get('merge_mode', True) }} style="width: 18px; height: 18px; accent-color: var(--accent);">
+                <span style="font-size: 13px; color: var(--text-secondary);">Enabled</span>
+            </label>
+        </div>
+        <p class="section-description">
+            When you start a <strong>Strength Training</strong> activity on your Garmin watch at the gym, hevy2garmin will detect it and push your Hevy exercise data into that activity instead of creating a new one.
+            You get 1-second HR sampling, training effect, EPOC, and recovery data. If no matching watch activity is found, it falls back to the normal upload.
+        </p>
+    </div>
+
+    <!-- Activity Description Section -->
+    <div class="card section">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="card-title">Activity Description</span>
+            </div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="hidden" name="description_enabled" value="off">
+                <input type="checkbox" name="description_enabled" value="on" {{ 'checked' if config.get('description_enabled', True) }} style="width: 18px; height: 18px; accent-color: var(--accent);">
+                <span style="font-size: 13px; color: var(--text-secondary);">Enabled</span>
+            </label>
+        </div>
+        <p class="section-description">
+            Adds a summary of your exercises, sets, reps, weights, and calories to the Garmin activity description. Visible in Garmin Connect and connected apps like Strava.
+        </p>
+    </div>
+
     <!-- Advanced Section (FIT Timing) -->
     <div class="card section">
         <details class="advanced-section">
@@ -169,6 +206,26 @@
                 Advanced
             </summary>
             <div class="advanced-content">
+                <!-- Merge Mode Parameters -->
+                <p class="section-description" style="margin-top: 0; font-weight: 600; color: var(--text-secondary);">Watch Activity Matching</p>
+                <p class="section-description">How closely a Garmin watch activity must match a Hevy workout to be enhanced. Lower overlap = more lenient matching, higher = stricter.</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="merge_overlap_pct">Overlap Threshold (%)</label>
+                        <input class="form-input" type="number" id="merge_overlap_pct" name="merge_overlap_pct" value="{{ config.get('merge_overlap_pct', 70) }}" min="50" max="95" step="5">
+                        <div class="form-hint">Minimum temporal overlap between watch and Hevy workout (default 70%)</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="merge_max_drift_min">Start Time Tolerance (minutes)</label>
+                        <input class="form-input" type="number" id="merge_max_drift_min" name="merge_max_drift_min" value="{{ config.get('merge_max_drift_min', 20) }}" min="5" max="60" step="5">
+                        <div class="form-hint">Max difference between Hevy and Garmin start times (default 20 min)</div>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
+
+                <!-- FIT Timing -->
+                <p class="section-description" style="font-weight: 600; color: var(--text-secondary);">FIT File Timing</p>
                 <p class="section-description">Controls how set durations are estimated in the FIT file when exact timing is not available from Hevy.</p>
                 <div class="form-grid">
                     <div class="form-group">

@@ -366,7 +366,7 @@ class TestSyncIntegration:
         mock_gclient.return_value = MagicMock()
         mock_db.is_synced.return_value = False
         call_count = [0]
-        def alt(c, w, d):
+        def alt(c, w, d, **kwargs):
             call_count[0] += 1
             return MergeResult(merged=True, activity_id=111) if call_count[0] == 1 else MergeResult(merged=False, fallback_reason="No match")
         mock_merge.side_effect = alt

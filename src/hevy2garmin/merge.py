@@ -240,7 +240,7 @@ def build_exercise_sets_payload(
 # Orchestrator
 # ---------------------------------------------------------------------------
 
-def attempt_merge(client, hevy_workout: dict, database) -> MergeResult:
+def attempt_merge(client, hevy_workout: dict, database, overlap_threshold: float = 0.70, max_drift_minutes: int = 20) -> MergeResult:
     """Try to merge Hevy exercise data into a matching Garmin activity.
 
     Returns MergeResult with merged=True if successful, or merged=False
@@ -252,7 +252,7 @@ def attempt_merge(client, hevy_workout: dict, database) -> MergeResult:
         return MergeResult(merged=False, fallback_reason="Circuit breaker: too many PUT failures")
 
     # Find matching activity
-    match = find_matching_garmin_activity(client, hevy_workout)
+    match = find_matching_garmin_activity(client, hevy_workout, overlap_threshold=overlap_threshold, max_drift_minutes=max_drift_minutes)
     if not match:
         return MergeResult(merged=False, fallback_reason="No matching Garmin activity found")
 

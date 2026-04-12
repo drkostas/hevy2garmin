@@ -114,6 +114,9 @@ def sync(
         logger.info("Authenticated successfully")
 
     merge_mode = cfg.get("merge_mode", True)
+    merge_overlap_pct = cfg.get("merge_overlap_pct", 70) / 100.0  # convert % to decimal
+    merge_max_drift_min = cfg.get("merge_max_drift_min", 20)
+    description_enabled = cfg.get("description_enabled", True)
     stats = {"synced": 0, "skipped": 0, "failed": 0, "total": len(workouts), "unmapped": [], "merged": 0, "merge_fallback": 0}
 
     if merge_mode:
@@ -142,7 +145,7 @@ def sync(
         try:
             # ── Merge mode: try to enhance a watch-recorded activity ──
             if merge_mode and garmin_client and not dry_run:
-                merge_result = attempt_merge(garmin_client, workout, db)
+                merge_result = attempt_merge(garmin_client, workout, db, overlap_threshold=merge_overlap_pct, max_drift_minutes=merge_max_drift_min)
                 if merge_result.merged:
                     db.mark_synced(
                         hevy_id=wid,
@@ -184,12 +187,13 @@ def sync(
 
                 if activity_id:
                     rename_activity(garmin_client, activity_id, title)
-                    desc = generate_description(
-                        workout,
-                        calories=result.get("calories"),
-                        avg_hr=result.get("avg_hr"),
-                    )
-                    set_description(garmin_client, activity_id, desc)
+                    if description_enabled:
+                        desc = generate_description(
+                            workout,
+                            calories=result.get("calories"),
+                            avg_hr=result.get("avg_hr"),
+                        )
+                        set_description(garmin_client, activity_id, desc)
 
                 sync_method = "upload_fallback" if merge_mode else "upload"
                 db.mark_synced(
