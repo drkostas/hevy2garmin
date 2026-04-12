@@ -346,6 +346,19 @@ When hevy2garmin syncs a workout, it adds a text description to the Garmin activ
 
 This is visible in the activity details on Garmin Connect and any connected apps (Strava, etc.). Cardio exercises show distance and duration instead of weight and reps.
 
+## Enhance Watch Activities (opt-in)
+
+By default, hevy2garmin creates a new Garmin activity from your Hevy workout using your watch's continuous HR monitoring (~2 min sampling). This works without any behavior change.
+
+If you start a **Strength Training** activity on your Garmin watch when you hit the gym, you can enable **Enhance Watch Activities** in the config (`"merge_mode": true`). hevy2garmin will detect the matching watch activity and push your Hevy exercise data directly into it instead of creating a new activity. Benefits:
+
+- **1-second HR sampling** (vs ~2 min in continuous monitoring)
+- **Training effect, EPOC, recovery time, and VO2max impact** all count (Garmin ignores these for manually uploaded activities)
+- **Correct Strava timestamps** (watch-synced activities use the real time, not upload time)
+- **Single activity** on Garmin (no duplicate)
+
+If no matching watch activity is found, hevy2garmin falls back to the default flow automatically. Matching requires 70% temporal overlap with a Strength Training activity within 20 minutes of the Hevy workout start time.
+
 ## How It Works
 
 1. Pulls workouts from the Hevy API
