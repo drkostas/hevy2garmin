@@ -862,9 +862,10 @@ async def api_save_mapping(request: Request):
         _db = db.get_db()
         if hasattr(_db, 'save_custom_mapping'):
             _db.save_custom_mapping(hevy_name, category, subcategory)
-    else:
-        from hevy2garmin.mapper import save_custom_mapping
-        save_custom_mapping(hevy_name, category, subcategory)
+    # Always update in-memory cache (+ filesystem fallback).
+    # Without this, _custom_mappings stays stale until process restart.
+    from hevy2garmin.mapper import save_custom_mapping
+    save_custom_mapping(hevy_name, category, subcategory)
 
     global _unmapped_cache
     _unmapped_cache = None
