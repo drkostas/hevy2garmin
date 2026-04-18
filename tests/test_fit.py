@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from fit_tool.fit_file import FitFile
 from hevy2garmin.fit import generate_fit
 
 
@@ -170,9 +171,31 @@ class TestEdgeCases:
                 "sets": [{"index": 0, "type": "normal", "distance_meters": 5000, "duration_seconds": 1800,
                            "weight_kg": None, "reps": None}]}],
         }
-        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "cardio.fit"), profile=sample_profile)
+        fit_path = str(tmp_path / "cardio.fit")
+        result = generate_fit(workout, hr_samples=None, output_path=fit_path, profile=sample_profile)
         assert result["total_sets"] == 1
-        assert Path(tmp_path / "cardio.fit").stat().st_size > 0
+        assert Path(fit_path).stat().st_size > 0
+
+        # Verify distance is written into the FIT file (session or lap total_distance)
+        fit_file = FitFile.from_file(fit_path)
+        distances = []
+        for record in fit_file.records:
+            msg = record.message
+            if hasattr(msg, "total_distance") and msg.total_distance is not None:
+                distances.append(msg.total_distance)
+        assert any(d >= 5000.0 for d in distances), f"Expected total_distance >= 5000 in FIT, got {distances}"
+
+    def test_cardio_uses_set_duration(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Cardio set with duration_seconds uses that duration, not profile default."""
+        workout = {
+            "id": "cardio-dur", "title": "Bike", "start_time": "2026-04-01T20:00:00+00:00",
+            "end_time": "2026-04-01T20:35:00+00:00",
+            "exercises": [{"index": 0, "title": "Stationary Bike", "exercise_template_id": "X",
+                "sets": [{"index": 0, "type": "normal", "distance_meters": 8000, "duration_seconds": 1200,
+                           "weight_kg": None, "reps": None}]}],
+        }
+        result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "bike.fit"), profile=sample_profile)
+        assert result["total_sets"] == 1
 
     def test_special_chars_in_title(self, sample_profile: dict, tmp_path: Path) -> None:
         """Emoji and unicode in workout title don't crash."""
@@ -208,3 +231,37 @@ class TestEdgeCases:
         result = generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "neg.fit"), profile=sample_profile)
         assert result["total_sets"] == 1
         assert (tmp_path / "neg.fit").exists()
+
+    def test_missing_end_time_raises(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Null end_time raises ValueError, not AttributeError."""
+        workout = {"id": "x", "title": "T", "start_time": "2026-04-01T20:00:00+00:00", "end_time": None, "exercises": []}
+        with pytest.raises(ValueError, match="missing valid start/end time"):
+            generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "x.fit"), profile=sample_profile)
+
+    def test_single_set_workout(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Workout with exactly 1 exercise and 1 set generates valid FIT."""
+        workout = {
+            "id": "single-set", "title": "Quick Pump",
+            "start_time": "2026-04-01T20:00:00+00:00",
+            "end_time": "2026-04-01T20:05:00+00:00",
+            "exercises": [{"index": 0, "title": "Bench Press (Barbell)", "exercise_template_id": "79D0BB3A",
+                "sets": [{"index": 0, "type": "normal", "weight_kg": 60, "reps": 10}]}],
+        }
+        fit_path = str(tmp_path / "single.fit")
+        result = generate_fit(workout, hr_samples=None, output_path=fit_path, profile=sample_profile)
+        assert result["exercises"] == 1
+        assert result["total_sets"] == 1
+        assert result["duration_s"] == 300
+        assert Path(fit_path).stat().st_size > 0
+
+    def test_malformed_timestamp_raises(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Garbage timestamp string raises ValueError, not an unhandled exception."""
+        workout = {"id": "x", "title": "T", "start_time": "not-a-date", "end_time": "2026-04-01T20:00:00+00:00", "exercises": []}
+        with pytest.raises(ValueError, match="missing valid start/end time"):
+            generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "x.fit"), profile=sample_profile)
+
+    def test_numeric_start_time_raises(self, sample_profile: dict, tmp_path: Path) -> None:
+        """Non-string start_time (e.g. int) raises ValueError, not AttributeError."""
+        workout = {"id": "x", "title": "T", "start_time": 12345, "end_time": "2026-04-01T20:00:00+00:00", "exercises": []}
+        with pytest.raises(ValueError, match="missing valid start/end time"):
+            generate_fit(workout, hr_samples=None, output_path=str(tmp_path / "x.fit"), profile=sample_profile)

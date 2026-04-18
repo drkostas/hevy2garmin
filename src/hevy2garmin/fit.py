@@ -178,6 +178,7 @@ def generate_fit(
     # -- Gather exercises and compute timing --
     exercises = hevy_workout.get("exercises", [])
     num_exercises = len(exercises)
+    total_distance_m = 0.0  # accumulate across all sets for lap/session
 
     # Count all sets and compute ideal (unscaled) duration
     all_sets_info: list[dict] = []  # flat list of set info dicts
@@ -314,9 +315,17 @@ def generate_fit(
         if weight is not None:
             active.weight = max(0.0, float(weight))
 
-        # Note: FIT SetMessage doesn't have a distance field.
-        # Cardio data (distance_meters) is captured via set duration timing
-        # (duration_seconds handled above) which is more meaningful for Garmin.
+        # Track distance for lap/session totals (cardio exercises)
+        distance = s.get("distance_meters")
+        if distance is not None and float(distance) > 0:
+            total_distance_m += float(distance)
+
+        # Write a distance RecordMessage for sets with distance_meters
+        if distance is not None and float(distance) > 0:
+            dist_rec = RecordMessage()
+            dist_rec.timestamp = set_end_ms
+            dist_rec.distance = float(distance)
+            timeline.append((set_end_ms, "record", dist_rec))
 
         timeline.append((set_end_ms, "set", active))
         msg_index += 1
@@ -365,6 +374,8 @@ def generate_fit(
     if hr_samples:
         lap.avg_heart_rate = round(sum(hr_samples) / len(hr_samples))
         lap.max_heart_rate = max(hr_samples)
+    if total_distance_m > 0:
+        lap.total_distance = total_distance_m
     lap.total_calories = calories
     builder.add(lap)
 
@@ -384,6 +395,8 @@ def generate_fit(
     if hr_samples:
         session.avg_heart_rate = round(sum(hr_samples) / len(hr_samples))
         session.max_heart_rate = max(hr_samples)
+    if total_distance_m > 0:
+        session.total_distance = total_distance_m
     session.total_calories = calories
     builder.add(session)
 
