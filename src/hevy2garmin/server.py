@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
 from hevy2garmin import db
+from hevy2garmin.auth import auth_enabled, verify_session, sign_session, check_password, SESSION_COOKIE
 from hevy2garmin.config import is_configured, load_config, save_config
 from hevy2garmin.sync import sync
 
@@ -45,6 +46,7 @@ _jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape
 
 def _render(template_name: str, **ctx) -> HTMLResponse:
     t = _jinja_env.get_template(template_name)
+    ctx.setdefault("auth_enabled", auth_enabled())
     return HTMLResponse(t.render(**ctx))
 
 
@@ -285,6 +287,17 @@ async def check_setup(request: Request, call_next):
     if path == "/favicon.ico" or path.startswith("/static"):
         return await call_next(request)
 
+    # ── Dashboard auth gate ──────────────────────────────────────────────
+    # When H2G_PASSWORD is set, all routes except /login and /api/cron/*
+    # require a valid session cookie. Without it, redirect to /login.
+    if auth_enabled() and path not in ("/login",) and not path.startswith("/api/cron/"):
+        session_cookie = request.cookies.get(SESSION_COOKIE)
+        if not verify_session(session_cookie):
+            if path.startswith("/api/"):
+                from starlette.responses import Response
+                return Response("Unauthorized", status_code=401)
+            return RedirectResponse(f"/login?next={path}")
+
     # Auth check for POST /api/* endpoints (CSRF protection).
     # Cron has its own Bearer token check. All others require the cookie or X-Api-Key.
     if secret and request.method == "POST" and path.startswith("/api/") and path != "/api/cron/sync":
@@ -294,7 +307,7 @@ async def check_setup(request: Request, call_next):
             return Response("Unauthorized", status_code=401)
 
     # Setup page and sync endpoints: skip the "is configured?" redirect
-    if path in ("/setup", "/api/sync-one", "/api/cron/sync", "/api/setup-actions", "/api/garmin-ticket"):
+    if path in ("/login", "/setup", "/api/sync-one", "/api/cron/sync", "/api/setup-actions", "/api/garmin-ticket"):
         response = await call_next(request)
     else:
         # Redirect to setup if not configured
@@ -311,6 +324,42 @@ async def check_setup(request: Request, call_next):
     if secret and request.method == "GET" and not request.cookies.get("h2g_auth"):
         response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict", max_age=365 * 86400)
 
+    return response
+
+
+# ── Auth pages ───────────────────────────────────────────────────────────────
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Show login form. Redirects to dashboard if already authenticated or auth disabled."""
+    if not auth_enabled() or verify_session(request.cookies.get(SESSION_COOKIE)):
+        return RedirectResponse("/")
+    error = request.query_params.get("error")
+    return HTMLResponse(_jinja_env.get_template("login.html").render(error=error))
+
+
+@app.post("/login")
+async def login_submit(request: Request, password: str = Form(...)):
+    """Verify password, set session cookie, redirect to dashboard."""
+    next_url = request.query_params.get("next", "/")
+    if not check_password(password):
+        return HTMLResponse(
+            _jinja_env.get_template("login.html").render(error="Wrong password."),
+            status_code=401,
+        )
+    response = RedirectResponse(next_url, status_code=303)
+    response.set_cookie(
+        SESSION_COOKIE, sign_session(),
+        httponly=True, samesite="strict", max_age=30 * 24 * 3600,
+    )
+    return response
+
+
+@app.post("/logout")
+async def logout():
+    """Clear session cookie and redirect to login."""
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie(SESSION_COOKIE)
     return response
 
 

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Login - hevy2garmin</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-primary: #0b0f1a;
+            --bg-card: #1a1f2e;
+            --border: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --red: #ef4444;
+            --radius: 12px;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        body {
+            font-family: var(--font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            width: 100%;
+            max-width: 380px;
+        }
+        .login-card h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .login-card p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
+        .login-card input {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-family: var(--font);
+            margin-bottom: 1rem;
+        }
+        .login-card input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .login-card button {
+            width: 100%;
+            padding: 0.625rem;
+            background: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            font-family: var(--font);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .login-card button:hover { background: var(--accent-hover); }
+        .error {
+            color: var(--red);
+            font-size: 0.8125rem;
+            margin-bottom: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <form class="login-card" method="post" action="/login">
+        <h1>hevy2garmin</h1>
+        <p>Enter the dashboard password to continue.</p>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        <input type="password" name="password" placeholder="Password" autofocus required>
+        <button type="submit">Sign in</button>
+    </form>
+</body>
+</html>

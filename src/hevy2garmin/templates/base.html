@@ -227,6 +227,11 @@
             <a href="/history" {% if request and request.url.path == '/history' %}class="active"{% endif %}>History</a>
             <a href="/mappings" {% if request and request.url.path == '/mappings' %}class="active"{% endif %}>Mappings</a>
             <a href="/settings" {% if request and request.url.path == '/settings' %}class="active"{% endif %}>Settings</a>
+            {% if auth_enabled %}
+            <form method="post" action="/logout" style="display:inline; margin-left: 4px;">
+                <button type="submit" style="background:none; border:none; color:var(--text-muted); font:inherit; font-size:13px; padding:8px 12px; cursor:pointer; border-radius:var(--radius-sm);" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">&times; Sign out</button>
+            </form>
+            {% endif %}
         </div>
     </nav>
 
