@@ -342,6 +342,9 @@ async def login_page(request: Request):
 async def login_submit(request: Request, password: str = Form(...)):
     """Verify password, set session cookie, redirect to dashboard."""
     next_url = request.query_params.get("next", "/")
+    # Prevent open redirect: only allow relative paths
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        next_url = "/"
     if not check_password(password):
         return HTMLResponse(
             _jinja_env.get_template("login.html").render(error="Wrong password."),
