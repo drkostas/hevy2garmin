@@ -43,13 +43,13 @@ Hevy is great for tracking gym workouts but doesn't sync to Garmin. This tool br
 
 - **[Hevy Pro](https://hevyapp.com) subscription** (required for API access)
 - A [Garmin Connect](https://connect.garmin.com) account
-- Python 3.10+ (for local install only, not needed for one-click deploy)
+- Python 3.10+ (for local install only, not needed for the Vercel deploy)
 
 ## Quick Start
 
 Pick the option that fits you best:
 
-### One-Click Deploy (no coding required)
+### Vercel Deploy (no coding required)
 
 Deploy from your phone or computer in about 5 minutes. No terminal or coding needed.
 
@@ -79,7 +79,7 @@ This token lets hevy2garmin set up automatic syncing on your behalf. Open [this 
 
 1. Go to [vercel.com/new](https://vercel.com/new) and sign in with GitHub
 2. Find **hevy2garmin** in your repo list and click **Import**
-3. Under **Integrations**, click **Add** next to **Neon** (free Postgres database). If you don't see it, you can add it after deploy from your project's **Storage** tab.
+3. If you see an **Integrations** section, click **Add** next to **Neon** (this is the free database that stores your sync history). If you don't see it, no problem -- after deploy, go to your project's **Storage** tab and add **Neon Postgres** from there.
 4. **Environment Variables** -- fill in these 4 values:
 
 | Field | What to paste |
@@ -310,6 +310,7 @@ Your Vercel project is linked to your GitHub fork. To get the latest version:
 2. In Vercel dashboard → your project → **Settings** → **Git** → disconnect the old repo
 3. Connect the new fork → redeploy
 4. Your Neon database and env vars stay intact (they're on the Vercel project, not the repo)
+5. You can delete the old standalone copy from GitHub to avoid having two "hevy2garmin" repos
 
 ### pip
 
