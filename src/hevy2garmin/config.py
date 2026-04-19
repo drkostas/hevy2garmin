@@ -80,10 +80,14 @@ def load_config() -> dict[str, Any]:
                                 if creds.get("password"):
                                     config["garmin_password"] = creds["password"]
                         # App settings
-                        cur.execute("SELECT key, value FROM app_cache WHERE key IN ('user_profile', 'timing', 'hr_fusion')")
+                        cur.execute("SELECT key, value FROM app_cache WHERE key IN ('user_profile', 'timing', 'hr_fusion', 'merge_settings')")
                         for row in cur.fetchall():
                             val = row["value"] if isinstance(row["value"], dict) else json.loads(row["value"])
-                            if row["key"] in config and isinstance(config[row["key"]], dict):
+                            if row["key"] == "merge_settings":
+                                # Unpack merge_settings into top-level keys
+                                for mk, mv in val.items():
+                                    config[mk] = mv
+                            elif row["key"] in config and isinstance(config[row["key"]], dict):
                                 config[row["key"]].update(val)
                             else:
                                 config[row["key"]] = val
