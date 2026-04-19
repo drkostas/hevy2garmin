@@ -50,8 +50,6 @@ class TestMergeModeDbPersistence:
         Each row dict: {"key": "...", "value": {...}}
         The mock replaces the Postgres cursor that load_config queries.
         """
-        import types
-
         class FakeCursor:
             def __init__(self, rows):
                 self._rows = rows
