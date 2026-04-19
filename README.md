@@ -71,15 +71,16 @@ This token lets hevy2garmin set up automatic syncing on your behalf. Open [this 
 2. Scroll to the bottom, click **Generate token**
 3. **Copy the token immediately** (starts with `ghp_`). GitHub only shows it once.
 
-**Step 4: Deploy to Vercel**
+**Step 4: Fork the repo**
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdrkostas%2Fhevy2garmin&env=HEVY_API_KEY,GARMIN_EMAIL,GARMIN_PASSWORD,GITHUB_PAT&envDescription=Hevy%20API%20key%2C%20Garmin%20credentials%2C%20and%20GitHub%20PAT%20(repo%2Bworkflow%20scopes)&stores=%5B%7B%22type%22%3A%22postgres%22%7D%5D&project-name=hevy2garmin)
+[Fork hevy2garmin on GitHub](https://github.com/drkostas/hevy2garmin/fork) -- click the green **Create fork** button. This gives you your own copy that stays linked to the original, so you can pull updates later with one click.
 
-Click the button above. Sign in with GitHub if prompted. You'll see a few screens:
+**Step 5: Deploy to Vercel**
 
-1. **Create Git Repository** -- leave the defaults (private is fine) and click **Create**
-2. **Add Products > Neon** -- click **Add**, then **Continue** on the plan screen, select your project from the dropdown, and click **Connect**
-3. **Environment Variables** -- fill in these 4 values:
+1. Go to [vercel.com/new](https://vercel.com/new) and sign in with GitHub
+2. Find **hevy2garmin** in your repo list and click **Import**
+3. Under **Integrations**, click **Add** next to **Neon** (free Postgres database). If you don't see it, you can add it after deploy from your project's **Storage** tab.
+4. **Environment Variables** -- fill in these 4 values:
 
 | Field | What to paste |
 |-------|--------------|
@@ -88,9 +89,9 @@ Click the button above. Sign in with GitHub if prompted. You'll see a few screen
 | `GARMIN_PASSWORD` | Your Garmin Connect password |
 | `GITHUB_PAT` | The token from step 3 |
 
-4. Click **Deploy** and wait about a minute for it to build.
+5. Click **Deploy** and wait about a minute for it to build.
 
-**Step 5: Connect Garmin**
+**Step 6: Connect Garmin**
 
 Click **Continue to Dashboard**, then **Visit** to open your app. Bookmark this URL -- it's your dashboard.
 
@@ -105,7 +106,7 @@ Garmin blocks automated logins from cloud servers (AWS, Azure, Vercel), so hevy2
 
 > **Fallback for edge cases:** on the rare occasion Garmin doesn't accept the direct login (most often when the account has an unusual security configuration), the setup page automatically reveals the old "Sign into Garmin in a new tab and paste the URL back" flow as a safety net. You don't need to do anything differently -- just follow the instructions the page shows you.
 
-**Step 6: Sync your workouts**
+**Step 7: Sync your workouts**
 
 You're on the dashboard. Click **Sync All Workouts** to backfill your history. The app syncs one workout at a time (you can close the page and come back, it picks up where it left off).
 
@@ -294,16 +295,21 @@ See [`.env.example`](.env.example) for all available env vars.
 
 ## Updating
 
-### Vercel (one-click deploy)
+### Vercel (fork-based deploy)
 
-Your Vercel project is linked to a GitHub repo that was created when you first deployed. To get the latest version:
+Your Vercel project is linked to your GitHub fork. To get the latest version:
 
-1. Go to your forked repo on GitHub (e.g. `github.com/your-username/hevy2garmin`)
+1. Go to your fork on GitHub (e.g. `github.com/your-username/hevy2garmin`)
 2. Click **Sync fork** → **Update branch** (this pulls the latest changes from the original repo)
-3. Vercel auto-deploys when your repo updates. Wait ~1 minute for the build to finish.
+3. Vercel auto-deploys when your fork updates. Wait ~1 minute for the build to finish.
 4. Open your dashboard URL and reconnect Garmin if prompted (token format may change between versions)
 
-If you don't see a "Sync fork" button, your repo may have been created as a standalone copy. In that case, go to your Vercel dashboard → project → **Settings** → **Git** → change the repo URL to `drkostas/hevy2garmin`, then trigger a redeploy from the **Deployments** tab.
+**If you deployed before April 2026** using the old one-click button, your repo may be a standalone copy instead of a fork ("Sync fork" button won't appear). To migrate:
+
+1. [Fork hevy2garmin](https://github.com/drkostas/hevy2garmin/fork) to your GitHub account
+2. In Vercel dashboard → your project → **Settings** → **Git** → disconnect the old repo
+3. Connect the new fork → redeploy
+4. Your Neon database and env vars stay intact (they're on the Vercel project, not the repo)
 
 ### pip
 
