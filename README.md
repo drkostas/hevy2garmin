@@ -15,6 +15,10 @@
 </p>
 
 <p align="center">
+  <a href="https://hevy2garmin-demo.gkos.dev"><strong>Try the live demo</strong></a>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="800">
 </p>
 

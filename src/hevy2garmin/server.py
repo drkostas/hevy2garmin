@@ -19,6 +19,7 @@ from jinja2 import Environment, FileSystemLoader
 from hevy2garmin import db
 from hevy2garmin.auth import auth_enabled, verify_session, sign_session, check_password, SESSION_COOKIE
 from hevy2garmin.config import is_configured, load_config, save_config
+from hevy2garmin.demo import is_demo_mode
 from hevy2garmin.sync import sync
 
 logger = logging.getLogger("hevy2garmin")
@@ -47,6 +48,7 @@ _jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape
 def _render(template_name: str, **ctx) -> HTMLResponse:
     t = _jinja_env.get_template(template_name)
     ctx.setdefault("auth_enabled", auth_enabled())
+    ctx.setdefault("demo_mode", is_demo_mode())
     return HTMLResponse(t.render(**ctx))
 
 
@@ -443,6 +445,9 @@ async def setup_save(
     birth_year: int = Form(1990),
     sex: str = Form("male"),
 ):
+    if is_demo_mode():
+        return RedirectResponse("/", status_code=303)
+
     config = load_config()
     if hevy_api_key:
         config["hevy_api_key"] = hevy_api_key
@@ -851,6 +856,9 @@ async def settings_save(
     merge_overlap_pct: int = Form(70),
     merge_max_drift_min: int = Form(20),
 ):
+    if is_demo_mode():
+        return HTMLResponse('<div class="toast toast-error">Settings are read-only in demo mode</div>')
+
     config = load_config()
     if hevy_api_key:
         config["hevy_api_key"] = hevy_api_key
@@ -1028,6 +1036,10 @@ async def api_pull_garmin_profile(request: Request):
 async def api_sync(request: Request):
     global _last_sync_time
 
+    if is_demo_mode():
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"status": "demo", "message": "Sync disabled in demo mode"})
+
     # If GitHub PAT + repo are set (Vercel deploy), trigger sync via GitHub Actions
     github_pat = os.environ.get("GITHUB_PAT")
     github_repo = os.environ.get("GITHUB_REPO")
@@ -1193,6 +1205,10 @@ async def api_unsync_all(request: Request):
 
 @app.post("/api/toggle-autosync", response_class=HTMLResponse)
 async def api_toggle_autosync(request: Request):
+    if is_demo_mode():
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"status": "demo", "message": "Sync disabled in demo mode"})
+
     form = await request.form()
     enabled_raw = form.get("enabled", "false")
     enabled = enabled_raw in ("true", "True", "1", True)
@@ -1461,6 +1477,9 @@ async def api_setup_actions(request: Request):
 async def api_sync_one(request: Request):
     """Sync exactly 1 unsynced workout. Returns JSON with status."""
     from fastapi.responses import JSONResponse
+
+    if is_demo_mode():
+        return JSONResponse({"status": "demo", "message": "Sync disabled in demo mode"})
 
     if not _acquire_sync_lock():
         return JSONResponse({"error": "Sync already running", "busy": True})

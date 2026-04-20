@@ -235,6 +235,12 @@
         </div>
     </nav>
 
+    {% if demo_mode %}
+    <div style="background: var(--amber); color: var(--bg-primary); text-align: center; padding: 8px 16px; font-size: 13px; font-weight: 600;">
+      This is a demo instance with sample data. <a href="https://github.com/drkostas/hevy2garmin" style="color: var(--bg-primary); text-decoration: underline;">Deploy your own</a>
+    </div>
+    {% endif %}
+
     <main class="container" role="main">
         {% block content %}{% endblock %}
     </main>
