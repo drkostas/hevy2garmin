@@ -6,6 +6,40 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0]
+
+### Added
+- **Dashboard password auth** ([#122](https://github.com/drkostas/hevy2garmin/issues/122)) — `H2G_PASSWORD` env var protects all routes behind a login page.
+- **Enhance Watch Activities** ([#117](https://github.com/drkostas/hevy2garmin/issues/117)) — merge Hevy exercise data into watch-recorded Garmin activities (merge mode).
+- **Settings page** ([#120](https://github.com/drkostas/hevy2garmin/issues/120)) — merge mode toggle, description toggle, advanced parameters.
+- **Demo mode** ([#134](https://github.com/drkostas/hevy2garmin/issues/134), [#135](https://github.com/drkostas/hevy2garmin/issues/135), [#136](https://github.com/drkostas/hevy2garmin/issues/136)) — `DEMO_MODE` env var disables sync and shows banner. Public demo at hevy2garmin-demo.gkos.dev.
+- **Fork-based deploy flow** ([#129](https://github.com/drkostas/hevy2garmin/issues/129)) — switched from clone to fork for easier upstream updates.
+
+### Fixed
+- garminconnect 0.3.x compatibility: `client.garth` → `client.client` ([#123](https://github.com/drkostas/hevy2garmin/issues/123)).
+- Merge mode toggle doesn't persist from dashboard settings ([#130](https://github.com/drkostas/hevy2garmin/issues/130)).
+- Exercise mapping not persisting after reload ([#124](https://github.com/drkostas/hevy2garmin/issues/124)).
+- FIT generator hardened: cardio distance fields, null timestamps, edge cases ([#128](https://github.com/drkostas/hevy2garmin/issues/128)).
+- Negative `weight_kg` clamped to 0 ([#103](https://github.com/drkostas/hevy2garmin/issues/103)).
+- Credential masking on setup/settings pages ([#123](https://github.com/drkostas/hevy2garmin/issues/123)).
+- Open redirect on `/login?next=` parameter.
+
+### Changed
+- Merge mode enabled by default ([#119](https://github.com/drkostas/hevy2garmin/issues/119)).
+
+## [0.3.1]
+
+### Added
+- **Inline Garmin login** — authenticate without copy-paste URL tab-switching flow.
+
+## [0.3.0]
+
+### Changed
+- **Breaking:** migrated to garmin-auth 0.3.0 + garminconnect 0.3.0 (new auth flow).
+
+### Added
+- Warmup + working set grammar coverage in tests.
+
 ## [0.2.0]
 
 ### Added
@@ -61,7 +95,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - One-click Vercel + Neon deploy with browser-based Garmin auth via Cloudflare Worker proxy.
 - Auto-sync via GitHub Actions cron.
 
-[Unreleased]: https://github.com/drkostas/hevy2garmin/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/drkostas/hevy2garmin/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/drkostas/hevy2garmin/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/drkostas/hevy2garmin/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/drkostas/hevy2garmin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/drkostas/hevy2garmin/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/drkostas/hevy2garmin/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/drkostas/hevy2garmin/compare/v0.1.0...v0.1.1
