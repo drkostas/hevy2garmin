@@ -114,7 +114,11 @@ def find_activity_by_start_time(
     target_start: str,
     window_minutes: int = 10,
 ) -> int | None:
-    """Find a Garmin activity matching a start time within a window."""
+    """Find a Garmin activity matching a start time within a window.
+
+    Searches by date range so old uploaded workouts are found regardless of
+    how many newer activities exist on the account.
+    """
     from datetime import datetime, timedelta
 
     try:
@@ -122,8 +126,13 @@ def find_activity_by_start_time(
     except (ValueError, TypeError):
         return None
 
+    # Search the workout's date ±1 day to handle timezone edge cases
+    target_naive = target.replace(tzinfo=None) if target.tzinfo else target
+    date_from = (target_naive - timedelta(days=1)).date().isoformat()
+    date_to = (target_naive + timedelta(days=1)).date().isoformat()
+
     try:
-        activities = _limiter.call(client.get_activities, 0, 10)
+        activities = _limiter.call(client.get_activities_by_date, date_from, date_to)
     except Exception:
         return None
 
@@ -139,8 +148,6 @@ def find_activity_by_start_time(
             if "T" not in act_start_str:
                 act_start_str = act_start_str.replace(" ", "T")
             act_start = datetime.fromisoformat(act_start_str)
-            # Both should be UTC now, compare naive
-            target_naive = target.replace(tzinfo=None) if target.tzinfo else target
             act_naive = act_start.replace(tzinfo=None) if act_start.tzinfo else act_start
             if abs((act_naive - target_naive).total_seconds()) < window_minutes * 60:
                 return act.get("activityId")
