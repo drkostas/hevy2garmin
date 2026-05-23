@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
@@ -1477,7 +1477,7 @@ async def api_setup_actions(request: Request):
 
 
 @app.post("/api/sync-one")
-async def api_sync_one(request: Request):
+async def api_sync_one(request: Request, merge_only: bool = Query(False)):
     """Sync exactly 1 unsynced workout. Returns JSON with status."""
     from fastapi.responses import JSONResponse
 
@@ -1488,12 +1488,12 @@ async def api_sync_one(request: Request):
         return JSONResponse({"error": "Sync already running", "busy": True})
 
     try:
-        return await _do_sync_one(request)
+        return await _do_sync_one(request, merge_only=merge_only)
     finally:
         _sync_executing.release()
 
 
-async def _do_sync_one(request: Request):
+async def _do_sync_one(request: Request, merge_only: bool = False):
     """Inner sync logic, called with _sync_executing lock held."""
     from fastapi.responses import JSONResponse
 
@@ -1563,7 +1563,9 @@ async def _do_sync_one(request: Request):
         sync_method = "upload"
 
         # Merge mode: try to enhance a watch-recorded activity with Hevy data
+        merge_attempted = False
         if merge_mode:
+            merge_attempted = True
             merge_result = attempt_merge(garmin_client, unsynced, db.get_db())
             if merge_result.merged:
                 aid = merge_result.activity_id
@@ -1584,6 +1586,15 @@ async def _do_sync_one(request: Request):
                 )
                 remaining = hevy.get_workout_count() - db.get_synced_count()
                 return JSONResponse({"synced": 1, "title": unsynced["title"], "remaining": max(0, remaining), "done": remaining <= 0})
+
+        # merge_only: caller (webhook retry loop) wants merge or nothing.
+        # Don't fall back to a plain FIT upload — leave the workout unsynced so
+        # the next retry attempt can try the merge again once the Garmin watch
+        # activity has had more time to sync.
+        if merge_only and merge_attempted:
+            remaining = hevy.get_workout_count() - db.get_synced_count()
+            logger.info("Webhook merge_only: no Garmin watch activity found yet for '%s', will retry", unsynced["title"])
+            return JSONResponse({"synced": 0, "merge_pending": True, "remaining": max(0, remaining), "done": False})
 
         # Dedup: check if this workout already exists on Garmin before uploading.
         # Prevents duplicates when a prior sync uploaded successfully but crashed
@@ -1659,19 +1670,24 @@ async def _do_sync_one(request: Request):
 
 
 @app.get("/api/cron/sync")
-async def cron_sync(request: Request):
-    """Vercel cron endpoint. Syncs 1 workout per invocation."""
+async def cron_sync(request: Request, merge_only: bool = Query(False)):
+    """Cron/webhook endpoint. Syncs 1 workout per invocation.
+
+    merge_only=True: attempt merge with a Garmin watch activity but do NOT fall
+    back to a plain FIT upload if no match is found.  Used by the oauth_proxy
+    webhook retry loop to avoid marking a workout synced before the watch
+    activity has had time to sync to Garmin Connect.
+    """
     from fastapi.responses import JSONResponse
 
-    # Vercel sets CRON_SECRET to verify cron requests
+    # CRON_SECRET validates calls from nginx/oauth_proxy
     cron_secret = os.environ.get("CRON_SECRET")
     if cron_secret:
         auth = request.headers.get("authorization")
         if auth != f"Bearer {cron_secret}":
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    # Reuse sync-one logic
-    return await api_sync_one(request)
+    return await api_sync_one(request, merge_only=merge_only)
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
