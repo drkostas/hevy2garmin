@@ -45,6 +45,27 @@ def get_client(
     return auth.login()
 
 
+def _sanitize_activity_id(raw: object) -> int | None:
+    """Normalize an activity ID returned by the Garmin API.
+
+    Garmin's upload endpoint occasionally returns ``internalId`` as a string
+    with surrounding single-quotes (e.g. ``"'23126363872'"``).  When that
+    value is stored in the sync DB and later used as a Garmin API argument the
+    API returns 404, breaking rename and all downstream operations.
+
+    This helper strips any surrounding quote characters and converts the result
+    to an int so callers always receive a clean integer ID (or None).
+    """
+    if raw is None:
+        return None
+    cleaned = str(raw).strip("'\"")
+    try:
+        return int(cleaned)
+    except (ValueError, TypeError):
+        logger.warning("Could not parse activity ID %r as int", raw)
+        return None
+
+
 def upload_fit(client: Garmin, fit_path: str | Path, workout_start: str | None = None) -> dict:
     """Upload a FIT file to Garmin Connect.
 
@@ -74,6 +95,7 @@ def upload_fit(client: Garmin, fit_path: str | Path, workout_start: str | None =
             raise RuntimeError(f"Garmin upload failed ({getattr(response, 'status_code', '?')}): {body}") from e
         logger.error("Upload failed (no response): %s", str(e)[:300])
         raise
+
     upload_id = None
     activity_id = None
 
@@ -83,7 +105,9 @@ def upload_fit(client: Garmin, fit_path: str | Path, workout_start: str | None =
         upload_id = detail.get("uploadId")
         successes = detail.get("successes", [])
         if successes and isinstance(successes, list):
-            activity_id = successes[0].get("internalId")
+            # internalId may be returned as a quoted string — sanitize it
+            raw_id = successes[0].get("internalId")
+            activity_id = _sanitize_activity_id(raw_id)
         failures = detail.get("failures", [])
         if failures:
             logger.warning("  Upload failures: %s", failures)
@@ -251,9 +275,6 @@ def find_matching_garmin_activity(
 
         act_end = act_start + timedelta(seconds=act_duration)
 
-        # Check: activity must be finished. Garmin only sets duration > 0
-        # once the activity is saved/stopped. We also reject activities whose
-        # end time is more than 5 minutes into the future (clock skew margin).
         if act_end > datetime.now(timezone.utc) + timedelta(minutes=5):
             continue
 
@@ -287,11 +308,7 @@ def find_matching_garmin_activity(
 
 
 def download_activity_fit(client: Garmin, activity_id: int) -> bytes:
-    """Download an activity's original FIT file and return its raw bytes.
-
-    Garmin returns the ORIGINAL format as a ZIP wrapping one or more files;
-    we pick the first .fit member.
-    """
+    """Download an activity's original FIT file and return its raw bytes."""
     from garminconnect import Garmin as _G
     zip_bytes = _limiter.call(
         client.download_activity, str(activity_id), _G.ActivityDownloadFormat.ORIGINAL
@@ -304,10 +321,7 @@ def download_activity_fit(client: Garmin, activity_id: int) -> bytes:
 
 
 def extract_hr_samples(fit_bytes: bytes) -> list[int]:
-    """Walk a FIT file's records and collect heart_rate values from RecordMessages.
-
-    Returns a list of bpm ints in record order; empty list if the FIT has no HR.
-    """
+    """Walk a FIT file's records and collect heart_rate values from RecordMessages."""
     from fit_tool.fit_file import FitFile
     from fit_tool.profile.messages.record_message import RecordMessage
 
@@ -326,6 +340,20 @@ def delete_activity(client: Garmin, activity_id: int) -> None:
     logger.info("  Deleted activity %s", activity_id)
 
 
+def get_activity_exercise_sets(client: Garmin, activity_id: int) -> dict:
+    """GET exercise sets for a Garmin activity (for backup before merge)."""
+    time.sleep(1.0)
+    return client.get_activity_exercise_sets(activity_id)
+
+
+def push_exercise_sets(client: Garmin, activity_id: int, payload: dict) -> None:
+    """PUT exercise sets to an existing Garmin activity."""
+    url = f"/activity-service/activity/{activity_id}/exerciseSets"
+    time.sleep(1.0)
+    client.client.request("PUT", "connectapi", url, json=payload)
+    logger.info("  Pushed %d exercise sets to activity %s", len(payload.get("exerciseSets", [])), activity_id)
+
+
 def generate_description(workout: dict, calories: int | None = None, avg_hr: int | None = None) -> str:
     """Generate a text description for a gym workout."""
     lines: list[str] = []
@@ -337,7 +365,6 @@ def generate_description(workout: dict, calories: int | None = None, avg_hr: int
     if start and end:
         from datetime import datetime
         try:
-            fmt = "%Y-%m-%dT%H:%M:%S%z" if "T" in start else "%Y-%m-%d %H:%M:%S"
             t0 = datetime.fromisoformat(start.replace("Z", "+00:00"))
             t1 = datetime.fromisoformat(end.replace("Z", "+00:00"))
             duration_s = int((t1 - t0).total_seconds())
@@ -363,12 +390,10 @@ def generate_description(workout: dict, calories: int | None = None, avg_hr: int
             warmup = [s for s in all_sets if s.get("type") == "warmup"]
             if normal:
                 n_label = "set" if len(normal) == 1 else "sets"
-                # Check if this is a cardio exercise (has distance or duration, no weight/reps)
                 has_distance = any(s.get("distance_meters") for s in normal)
                 has_duration = any(s.get("duration_seconds") for s in normal)
                 has_weight = any(s.get("weight_kg") or s.get("weight") for s in normal)
                 if has_distance or (has_duration and not has_weight):
-                    # Cardio: show distance and/or duration
                     total_dist = sum(s.get("distance_meters", 0) or 0 for s in normal)
                     total_dur = sum(s.get("duration_seconds", 0) or 0 for s in normal)
                     parts = [f"{len(normal)} {n_label}"]
