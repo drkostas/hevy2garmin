@@ -7,7 +7,23 @@ from pathlib import Path
 
 import pytest
 
+from unittest.mock import patch
+
 from hevy2garmin.db_sqlite import SQLiteDatabase
+
+
+class TestSQLiteReadOnlyFilesystem:
+    """SQLite must surface an actionable error on read-only/serverless FS (#145).
+
+    Previously the mkdir raised a cryptic FileNotFoundError/OSError that users
+    saw as a blank dashboard / 500 on Vercel deploy (u/mache_pachela).
+    """
+
+    def test_readonly_mkdir_raises_actionable_error(self, tmp_path: Path) -> None:
+        db = SQLiteDatabase(tmp_path / "nope" / "sync.db")
+        with patch.object(Path, "mkdir", side_effect=OSError("read-only file system")):
+            with pytest.raises(RuntimeError, match="read-only filesystem"):
+                db._get_conn()
 
 
 def _make_db(tmp_path):

@@ -666,7 +666,27 @@ def _ensure_custom_loaded() -> None:
 
 
 def save_custom_mapping(hevy_name: str, category: int, subcategory: int) -> None:
-    """Save a custom exercise mapping to disk."""
+    """Persist a custom exercise mapping.
+
+    On cloud deployments (DATABASE_URL set) writes to the DB — the home
+    filesystem is read-only on serverless, so the previous file-only write
+    raised a 500 and the mapping never persisted (#142, #145). Mirrors the
+    DB-first load path in ``_ensure_custom_loaded``. Falls back to the
+    filesystem for local/Docker installs.
+    """
+    # Cloud: persist to the DB
+    try:
+        from hevy2garmin.db import get_database_url, get_db
+        if get_database_url():
+            _db = get_db()
+            if hasattr(_db, "save_custom_mapping"):
+                _db.save_custom_mapping(hevy_name, category, subcategory)
+                _custom_mappings[hevy_name] = (category, subcategory)
+                return
+    except Exception:
+        pass
+
+    # Local/Docker: filesystem
     import json
     from pathlib import Path
     path = Path("~/.hevy2garmin/custom_mappings.json").expanduser()

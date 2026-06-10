@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Version + changelog link in the dashboard footer ([#144](https://github.com/drkostas/hevy2garmin/issues/144)) — confirm which build you're running after an upgrade.
+
+### Fixed
+- **Serverless persistence** ([#145](https://github.com/drkostas/hevy2garmin/issues/145)) — custom exercise mappings and profile/settings now persist to Postgres on cloud deployments instead of the read-only `~/.hevy2garmin` filesystem. Fixes the 500 when saving a mapping on Vercel ([#142](https://github.com/drkostas/hevy2garmin/issues/142)), profile reverting to defaults / Pull-from-Garmin not sticking ([#139](https://github.com/drkostas/hevy2garmin/issues/139)), and the blank-dashboard crash on deploy without a database — now an actionable "set DATABASE_URL" error.
+
 ## [0.4.0]
 
 ### Added
