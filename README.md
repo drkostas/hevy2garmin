@@ -388,6 +388,43 @@ If no matching watch activity is found, hevy2garmin falls back to the default fl
 hevy2garmin map "My Custom Exercise" --category 28 --subcategory 0
 ```
 
+## FAQ
+
+**Is the sync one-way?**
+Yes — Hevy → Garmin only. Anything you record directly on your watch stays on
+Garmin; it does not flow back into Hevy. Keep logging your gym sessions in Hevy
+(it's better for that) and this tool makes sure Garmin knows about them.
+
+**Will my gym workouts get duplicated in Health Connect / on my phone (Android)?**
+hevy2garmin uploads each Hevy workout to Garmin Connect once, as a single
+Strength Training activity (or merges it into a watch-recorded one if you enable
+[Enhance Watch Activities](#enhance-watch-activities-opt-in)). It does not write
+to Health Connect directly — whatever Garmin Connect chooses to mirror into
+Health Connect is Garmin's behavior. If you use Hevy for the gym and Garmin for
+running, your runs are untouched; only your Hevy workouts are added.
+
+**Do I need a Hevy Pro subscription?**
+Yes. The Hevy API key requires an active Hevy Pro subscription, and the key stops
+working once the subscription lapses. See [Getting Your Hevy API Key](#getting-your-hevy-api-key).
+
+**Does it work with non-Garmin watches (Samsung, Amazfit/Zepp, etc.)?**
+The tool reads from **Hevy** and writes to **Garmin Connect** — it's not tied to
+a specific watch. The destination is always Garmin Connect, so you need a Garmin
+account; the watch brand you wear at the gym doesn't matter. It runs in the
+browser/cloud, not on the watch.
+
+**My activity shows the wrong time on Strava.**
+When Garmin pushes an API-uploaded activity to Strava, Strava sometimes uses the
+upload time instead of the workout time. The FIT file and Garmin Connect have the
+correct time — this is a Garmin→Strava quirk for non-watch uploads and isn't
+something hevy2garmin can control.
+
+**Does 2FA / MFA work on Garmin?**
+Native 2FA support is in progress (tracked in
+[#29 on garmin-auth](https://github.com/drkostas/garmin-auth/issues/29)). For now,
+if your Garmin account has 2FA enabled, temporarily disable it, connect through
+hevy2garmin, then re-enable it — the auth tokens persist for months afterward.
+
 ## Development
 
 ```bash
