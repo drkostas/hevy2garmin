@@ -248,6 +248,7 @@
     <footer class="footer">
         <img src="/static/favicon.svg" width="18" height="18" alt="" style="border-radius: 4px; vertical-align: -3px; margin-right: 4px;">
         <a href="https://github.com/drkostas/hevy2garmin">hevy2garmin</a> &middot; Sync Hevy workouts to Garmin Connect
+        {% if version %}&middot; <a href="https://github.com/drkostas/hevy2garmin/blob/main/CHANGELOG.md" title="View changelog">v{{ version }}</a>{% endif %}
     </footer>
 </body>
 </html>

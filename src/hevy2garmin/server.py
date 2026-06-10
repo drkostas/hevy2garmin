@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
-from hevy2garmin import db
+from hevy2garmin import db, __version__
 from hevy2garmin.auth import auth_enabled, verify_session, sign_session, check_password, SESSION_COOKIE
 from hevy2garmin.config import is_configured, load_config, save_config
 from hevy2garmin.demo import is_demo_mode
@@ -49,6 +49,7 @@ def _render(template_name: str, **ctx) -> HTMLResponse:
     t = _jinja_env.get_template(template_name)
     ctx.setdefault("auth_enabled", auth_enabled())
     ctx.setdefault("demo_mode", is_demo_mode())
+    ctx.setdefault("version", __version__)
     return HTMLResponse(t.render(**ctx))
 
 
