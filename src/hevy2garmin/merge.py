@@ -82,30 +82,26 @@ def _category_to_string(cat_id: int) -> str:
     return _CATEGORY_NAMES.get(cat_id, "UNKNOWN")
 
 
-def _exercise_to_string(cat_id: int, sub_id: int) -> str:
-    """Convert FIT category + subcategory IDs to Garmin exercise name string.
+def _exercise_to_string(cat_id: int, sub_id: int) -> str | None:
+    """Resolve FIT (category, subcategory) IDs to Garmin's subcategory enum name.
 
-    Falls back to the category name if the subcategory isn't mapped.
-    Garmin's exerciseSets API accepts the category name as the exercise name.
+    Returns the valid subcategory string (e.g. ``"BARBELL_BENCH_PRESS"``) or
+    ``None`` when it can't be resolved. We must NOT fall back to the parent
+    category name: Garmin's ``exerciseSets`` API renders an unrecognised exercise
+    *name* as **"Unknown"** (#138), whereas a ``null`` name under a valid parent
+    category is accepted and shown as the category's generic label.
     """
     try:
-        from fit_tool.profile.profile_type import ExerciseCategory
-        # fit_tool has per-category exercise enums, but they're not always
-        # available or complete. Try to get the string name.
-        cat_enum = ExerciseCategory(cat_id)
-        # Look for a subcategory enum for this category
-        # e.g., for BENCH_PRESS (0), there's BenchPressExerciseName
-        cat_name = cat_enum.name  # "BENCH_PRESS"
-        # The subcategory enum class name follows a pattern
-        sub_enum_name = cat_name.title().replace("_", "") + "ExerciseName"
         import fit_tool.profile.profile_type as pt
-        sub_enum_cls = getattr(pt, sub_enum_name, None)
-        if sub_enum_cls:
+        from fit_tool.profile.profile_type import ExerciseCategory
+        # e.g. BENCH_PRESS (0) → BenchPressExerciseName enum
+        cat_name = ExerciseCategory(cat_id).name  # "BENCH_PRESS"
+        sub_enum_cls = getattr(pt, cat_name.title().replace("_", "") + "ExerciseName", None)
+        if sub_enum_cls is not None:
             return sub_enum_cls(sub_id).name
     except (ValueError, AttributeError, ImportError):
         pass
-    # Fallback: use category name (Garmin accepts this)
-    return _category_to_string(cat_id)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -190,11 +186,15 @@ def build_exercise_sets_payload(
 
         cat_id, sub_id, _ = lookup_exercise(ex.get("title") or ex.get("name", "Unknown"))
         cat_str = _category_to_string(cat_id)
-        ex_str = _exercise_to_string(cat_id, sub_id)
-        # Garmin rejects UNKNOWN category — fall back to TOTAL_BODY
+        sub_name = _exercise_to_string(cat_id, sub_id)
+        # Garmin rejects an UNKNOWN category, so fall back to the generic
+        # TOTAL_BODY *parent*. But never send the parent name (or "TOTAL_BODY")
+        # as the exercise *name*: Garmin renders an unrecognised name as
+        # "Unknown" (#138). A null name under a valid parent is accepted and
+        # shown as the category's generic label.
         if cat_str == "UNKNOWN":
             cat_str = "TOTAL_BODY"
-            ex_str = "TOTAL_BODY"
+            sub_name = None
 
         set_start = act_start + timedelta(seconds=cursor_s)
         scaled_dur = si["set_dur"] * scale
@@ -204,7 +204,7 @@ def build_exercise_sets_payload(
         weight_kg = s.get("weight_kg")
 
         active_set: dict = {
-            "exercises": [{"category": cat_str, "name": ex_str}],
+            "exercises": [{"category": cat_str, "name": sub_name, "probability": None}],
             "duration": round(scaled_dur, 3),
             "repetitionCount": int(reps) if reps is not None else 0,
             "weight": float(round(weight_kg * 1000)) if weight_kg else 0.0,

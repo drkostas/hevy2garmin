@@ -214,6 +214,52 @@ class TestBuildPayload:
         assert first_active["exercises"][0]["category"] == "BENCH_PRESS"
         assert isinstance(first_active["exercises"][0]["name"], str)
 
+    def test_exercise_objects_match_garmin_shape(self):
+        """Every exercise object must have category (str) + name (str|None) + probability.
+
+        Verified against the real Garmin exerciseSets response shape:
+        {"category": "BENCH_PRESS", "name": "INCLINE_DUMBBELL_BENCH_PRESS", "probability": ...}
+        — `name` is the SUBCATEGORY, never the parent or "TOTAL_BODY", or Garmin
+        renders it as "Unknown" (#138).
+        """
+        payload = build_exercise_sets_payload(
+            HEVY_WORKOUT,
+            activity_id=12345,
+            activity_start_time="2026-03-15 18:00:00",
+            activity_duration_s=45 * 60,
+        )
+        for s in payload["exerciseSets"]:
+            if s["setType"] != "ACTIVE":
+                assert s["exercises"] == []
+                continue
+            for ex in s["exercises"]:
+                assert set(ex) == {"category", "name", "probability"}
+                assert isinstance(ex["category"], str) and ex["category"] != "UNKNOWN"
+                assert ex["name"] is None or isinstance(ex["name"], str)
+                # name must never echo the parent or the TOTAL_BODY placeholder
+                assert ex["name"] != ex["category"]
+                assert ex["name"] != "TOTAL_BODY"
+
+    def test_unknown_exercise_uses_total_body_parent_with_null_name(self):
+        """An unmapped exercise → category=TOTAL_BODY parent, name=None (not 'TOTAL_BODY')."""
+        workout = {
+            "title": "Odd",
+            "start_time": "2026-03-15T18:00:00+00:00",
+            "end_time": "2026-03-15T18:10:00+00:00",
+            "exercises": [
+                {"title": "Totally Invented Movement 9000",
+                 "sets": [{"type": "normal", "weight_kg": 10, "reps": 5}]},
+            ],
+        }
+        payload = build_exercise_sets_payload(
+            workout, activity_id=1, activity_start_time="2026-03-15 18:00:00",
+            activity_duration_s=10 * 60,
+        )
+        active = next(s for s in payload["exerciseSets"] if s["setType"] == "ACTIVE")
+        ex = active["exercises"][0]
+        assert ex["category"] == "TOTAL_BODY"
+        assert ex["name"] is None  # never "TOTAL_BODY" as the name
+
     def test_empty_workout(self):
         """Workout with no exercises produces empty sets list."""
         workout = {**HEVY_WORKOUT, "exercises": []}
@@ -240,6 +286,17 @@ class TestCategoryConversion:
     def test_unknown_category(self):
         assert _category_to_string(65534) == "UNKNOWN"
         assert _category_to_string(9999) == "UNKNOWN"
+
+    def test_subcategory_resolves_to_valid_enum_string(self):
+        # (0, 1) BENCH_PRESS → a real FIT subcategory string
+        result = _exercise_to_string(0, 1)
+        assert isinstance(result, str) and result  # e.g. "BARBELL_BENCH_PRESS"
+
+    def test_subcategory_returns_none_when_unresolvable(self):
+        # Out-of-range subcategory must yield None, NOT the parent name (#138)
+        assert _exercise_to_string(0, 9999) is None
+        # Unknown category likewise yields None (never "UNKNOWN" / parent fallback)
+        assert _exercise_to_string(65534, 0) is None
 
 
 # ---------------------------------------------------------------------------
