@@ -486,12 +486,19 @@ async def setup_save(
         except Exception as e:
             logger.warning("Failed to persist credentials to DB: %s", e)
 
-    # Try server-side Garmin auth
+    # Try server-side Garmin auth — LOCAL/self-host only.
+    #
+    # On cloud (serverless) deployments we deliberately skip this test login:
+    # the datacenter IP is blocked by Garmin, and real auth happens through the
+    # browser-based worker flow. A server-side login here would either fail or
+    # add to Garmin's per-account login rate limit, surfacing a scary error that
+    # reads like setup failed (#148). Credentials are already persisted to the DB
+    # above, so the scheduled sync can authenticate via the worker.
     garmin_pw = garmin_password or os.environ.get("GARMIN_PASSWORD", "")
     garmin_em = garmin_email or config.get("garmin_email", "")
 
     garmin_error = None
-    if garmin_pw and garmin_em:
+    if garmin_pw and garmin_em and not db.get_database_url():
         try:
             from hevy2garmin.garmin import get_client
             get_client(garmin_em, garmin_pw)
@@ -506,9 +513,12 @@ async def setup_save(
                 )
             elif "429" in err or "rate limit" in err.lower():
                 garmin_error = (
-                    "Garmin is temporarily blocking login attempts from this server. "
-                    "This usually resolves within 1-2 hours. Click 'Skip for now' "
-                    "and try again later from the Settings page."
+                    "Garmin has temporarily rate-limited login attempts for your "
+                    "account (this is separate from your password — your Garmin "
+                    "website/app login still works). It clears on its own, usually "
+                    "within a few hours. Don't retry repeatedly, as that resets the "
+                    "timer. Click 'Skip for now'; your credentials are saved and "
+                    "sync will resume automatically."
                 )
             elif "SSO login failed" in err:
                 garmin_error = (
