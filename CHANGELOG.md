@@ -11,6 +11,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - **Serverless persistence** ([#145](https://github.com/drkostas/hevy2garmin/issues/145)) — custom exercise mappings and profile/settings now persist to Postgres on cloud deployments instead of the read-only `~/.hevy2garmin` filesystem. Fixes the 500 when saving a mapping on Vercel ([#142](https://github.com/drkostas/hevy2garmin/issues/142)), profile reverting to defaults / Pull-from-Garmin not sticking ([#139](https://github.com/drkostas/hevy2garmin/issues/139)), and the blank-dashboard crash on deploy without a database — now an actionable "set DATABASE_URL" error.
+- **Activity lookup by date range** ([#140](https://github.com/drkostas/hevy2garmin/issues/140)) — `find_activity_by_start_time` now searches a ±1 day window instead of only the 10 most recent activities, so older uploads are found regardless of account volume. Thanks @zv33 ([#141](https://github.com/drkostas/hevy2garmin/pull/141)).
+- **Quoted activity ID breaks rename** ([#153](https://github.com/drkostas/hevy2garmin/issues/153)) — Garmin sometimes returns `internalId` as a quoted string (`"'123'"`); it's now sanitized to a clean int before storage, so rename no longer 404s. Diagnosed by @frankzotynia10 ([#143](https://github.com/drkostas/hevy2garmin/pull/143)).
 
 ## [0.4.0]
 

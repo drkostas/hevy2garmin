@@ -6,7 +6,36 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hevy2garmin.garmin import find_activity_by_start_time, generate_description
+from hevy2garmin.garmin import (
+    _sanitize_activity_id,
+    find_activity_by_start_time,
+    generate_description,
+)
+
+
+class TestSanitizeActivityId:
+    """Garmin sometimes returns internalId as a quoted string → must coerce to int (#153)."""
+
+    def test_quoted_string(self) -> None:
+        assert _sanitize_activity_id("'23126363872'") == 23126363872
+
+    def test_double_quoted_string(self) -> None:
+        assert _sanitize_activity_id('"23126363872"') == 23126363872
+
+    def test_plain_int(self) -> None:
+        assert _sanitize_activity_id(23126363872) == 23126363872
+
+    def test_plain_numeric_string(self) -> None:
+        assert _sanitize_activity_id("23126363872") == 23126363872
+
+    def test_none(self) -> None:
+        assert _sanitize_activity_id(None) is None
+
+    def test_garbage_returns_none(self) -> None:
+        assert _sanitize_activity_id("not-an-id") is None
+
+    def test_empty_string_returns_none(self) -> None:
+        assert _sanitize_activity_id("") is None
 
 
 class TestFindActivityByStartTime:
