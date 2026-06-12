@@ -39,6 +39,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "hr_fusion": {
         "enabled": True,
     },
+    "merge_activity_types": ["strength_training"],
 }
 
 

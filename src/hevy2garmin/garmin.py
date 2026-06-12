@@ -212,15 +212,21 @@ def find_matching_garmin_activity(
     hevy_workout: dict,
     overlap_threshold: float = 0.70,
     max_drift_minutes: int = 20,
+    activity_types: set[str] | None = None,
 ) -> dict | None:
-    """Find a user-recorded Garmin Strength Training activity matching a Hevy workout.
+    """Find a user-recorded Garmin activity matching a Hevy workout.
 
     Searches for activities that overlap the Hevy workout's time window,
     then scores by temporal overlap and start-time proximity.
 
     Returns the best-matching activity dict, or None if nothing qualifies.
-    Only matches completed activities of type 'strength_training'.
+    Only matches completed activities whose ``activityType.typeKey`` is in
+    ``activity_types`` (default: ``{"strength_training"}``). Pass additional
+    types (e.g. ``"bouldering"``, ``"indoor_climbing"``) to also enhance
+    non-strength watch activities with Hevy exercise data.
     """
+    if activity_types is None:
+        activity_types = {"strength_training"}
     from datetime import datetime, timedelta, timezone
 
     start_raw = hevy_workout.get("start_time") or hevy_workout.get("startTime", "")
@@ -251,9 +257,9 @@ def find_matching_garmin_activity(
     best: dict | None = None
 
     for act in (activities or []):
-        # Hard filter: strength_training only
+        # Hard filter: only configured activity types are eligible for merge
         act_type = act.get("activityType", {}).get("typeKey", "")
-        if act_type != "strength_training":
+        if act_type not in activity_types:
             continue
 
         # Must be a completed activity (has duration)

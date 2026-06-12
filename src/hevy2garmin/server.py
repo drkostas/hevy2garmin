@@ -852,7 +852,10 @@ async def settings_page(request: Request):
             unmapped[name] = count
     except Exception:
         pass
-    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]))
+    merge_extra_types = ", ".join(
+        t for t in config.get("merge_activity_types", ["strength_training"]) if t != "strength_training"
+    )
+    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types)
 
 
 @app.post("/settings")
@@ -866,6 +869,7 @@ async def settings_save(
     description_enabled: str = Form("off"),
     merge_overlap_pct: int = Form(70),
     merge_max_drift_min: int = Form(20),
+    merge_extra_types: str = Form(""),
 ):
     if is_demo_mode():
         return HTMLResponse('<div class="toast toast-error">Settings are read-only in demo mode</div>')
@@ -888,6 +892,14 @@ async def settings_save(
     config["description_enabled"] = description_enabled == "on"
     config["merge_overlap_pct"] = max(50, min(95, merge_overlap_pct))
     config["merge_max_drift_min"] = max(5, min(60, merge_max_drift_min))
+    extra_types = [
+        t.strip().lower().replace(" ", "_")
+        for t in merge_extra_types.split(",")
+        if t.strip()
+    ]
+    config["merge_activity_types"] = ["strength_training"] + [
+        t for t in dict.fromkeys(extra_types) if t != "strength_training"
+    ]
     save_config(config)
 
     # Persist settings to DB on cloud (filesystem is read-only on Vercel)
@@ -902,6 +914,7 @@ async def settings_save(
                 "description_enabled": config["description_enabled"],
                 "merge_overlap_pct": config["merge_overlap_pct"],
                 "merge_max_drift_min": config["merge_max_drift_min"],
+                "merge_activity_types": config["merge_activity_types"],
             })
         except Exception as e:
             logger.warning("Failed to persist settings to DB: %s", e)
@@ -1574,7 +1587,12 @@ async def _do_sync_one(request: Request):
 
         # Merge mode: try to enhance a watch-recorded activity with Hevy data
         if merge_mode:
-            merge_result = attempt_merge(garmin_client, unsynced, db.get_db())
+            merge_result = attempt_merge(
+                garmin_client, unsynced, db.get_db(),
+                overlap_threshold=config.get("merge_overlap_pct", 70) / 100.0,
+                max_drift_minutes=config.get("merge_max_drift_min", 20),
+                activity_types=set(config.get("merge_activity_types", ["strength_training"])),
+            )
             if merge_result.merged:
                 aid = merge_result.activity_id
                 result = {"calories": 0, "avg_hr": None}
