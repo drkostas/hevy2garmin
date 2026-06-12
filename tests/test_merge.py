@@ -101,6 +101,31 @@ class TestFindMatchingActivity:
         match = find_matching_garmin_activity(client, HEVY_WORKOUT)
         assert match is None
 
+    def test_non_strength_type_rejected_by_default(self):
+        """Climbing activity with perfect overlap → no match unless opted in."""
+        from hevy2garmin.garmin import find_matching_garmin_activity
+
+        client = MagicMock()
+        client.get_activities_by_date.return_value = [
+            _make_garmin_activity(type_key="bouldering"),
+        ]
+        match = find_matching_garmin_activity(client, HEVY_WORKOUT)
+        assert match is None
+
+    def test_non_strength_type_matches_when_configured(self):
+        """Climbing activity matches when its type is added to activity_types."""
+        from hevy2garmin.garmin import find_matching_garmin_activity
+
+        client = MagicMock()
+        client.get_activities_by_date.return_value = [
+            _make_garmin_activity(type_key="bouldering"),
+        ]
+        match = find_matching_garmin_activity(
+            client, HEVY_WORKOUT, activity_types={"strength_training", "bouldering"},
+        )
+        assert match is not None
+        assert match["activityId"] == 12345
+
     def test_incomplete_activity_rejected(self):
         """Activity still in progress (end time in future) → no match."""
         from datetime import datetime, timezone

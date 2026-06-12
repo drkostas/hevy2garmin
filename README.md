@@ -370,6 +370,22 @@ If you start a **Strength Training** activity on your Garmin watch when you hit 
 
 If no matching watch activity is found, hevy2garmin falls back to the default flow automatically. Matching requires 70% temporal overlap with a Strength Training activity within 20 minutes of the Hevy workout start time.
 
+### Non-strength watch activities (climbing, etc.)
+
+By default, only watch activities recorded as **Strength Training** are eligible for enhancement. If you record something else on your watch at the same time as your Hevy workout — e.g. a **Climbing** session — it's matched as **Strength Training only**, so it won't be merged and a separate activity is created instead.
+
+To also enhance e.g. climbing sessions, add the Garmin activity type(s) under **Settings → Enhance Watch Activities → Advanced → Additional Watch Activity Types**, using Garmin's internal type names (comma-separated), for example:
+
+```
+bouldering, indoor_climbing
+```
+
+or set `merge_activity_types` directly in `config.json`:
+
+```json
+"merge_activity_types": ["strength_training", "bouldering", "indoor_climbing"]
+```
+
 ## How It Works
 
 1. Pulls workouts from the Hevy API

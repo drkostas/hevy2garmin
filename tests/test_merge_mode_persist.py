@@ -40,6 +40,23 @@ class TestMergeModeFilePersistence:
             config = load_config()
             assert config.get("merge_mode", True) is True
 
+    def test_merge_activity_types_defaults_to_strength_training(self, tmp_path: Path) -> None:
+        """Without any saved config, merge_activity_types defaults to ['strength_training']."""
+        with patch("hevy2garmin.config.CONFIG_FILE", tmp_path / "missing.json"):
+            config = load_config()
+            assert config["merge_activity_types"] == ["strength_training"]
+
+    def test_merge_activity_types_persists(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.json"
+        with patch("hevy2garmin.config.CONFIG_DIR", tmp_path), \
+             patch("hevy2garmin.config.CONFIG_FILE", config_file):
+            config = load_config()
+            config["merge_activity_types"] = ["strength_training", "bouldering", "indoor_climbing"]
+            save_config(config)
+
+            reloaded = load_config()
+            assert reloaded["merge_activity_types"] == ["strength_training", "bouldering", "indoor_climbing"]
+
 
 class TestMergeModeDbPersistence:
     """Verify merge_mode is loaded from DB merge_settings (cloud deployments)."""
@@ -136,3 +153,14 @@ class TestMergeModeDbPersistence:
             assert config["description_enabled"] is False
             assert config["merge_overlap_pct"] == 85
             assert config["merge_max_drift_min"] == 30
+
+    def test_merge_activity_types_loaded_from_db(self, tmp_path: Path) -> None:
+        fake_db = self._make_db_loader([
+            {"key": "merge_settings", "value": {"merge_mode": True, "description_enabled": True,
+                                                  "merge_overlap_pct": 70, "merge_max_drift_min": 20,
+                                                  "merge_activity_types": ["strength_training", "bouldering"]}},
+        ])
+
+        with self._patch_db(tmp_path, fake_db):
+            config = load_config()
+            assert config["merge_activity_types"] == ["strength_training", "bouldering"]
