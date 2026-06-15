@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from hevy2garmin.config import (
     DEFAULT_CONFIG,
@@ -12,6 +14,21 @@ from hevy2garmin.config import (
     load_config,
     save_config,
 )
+
+
+@pytest.fixture(autouse=True)
+def _local_mode(monkeypatch):
+    """File-based config tests run in local mode (no DB autodetect).
+
+    The Postgres CI job sets DATABASE_URL globally; without this, save_config
+    would write to the shared test DB and pollute later load_config() reads.
+    Cloud-specific tests opt back in by patching get_database_url/get_db.
+    """
+    for var in ("DATABASE_URL", "POSTGRES_URL", "STORAGE_URL", "NEON_DATABASE_URL"):
+        monkeypatch.delenv(var, raising=False)
+    import hevy2garmin.db as _db
+
+    _db.reset()
 
 
 class TestLoadConfig:
@@ -78,3 +95,48 @@ class TestIsConfigured:
 
         with patch("hevy2garmin.config.CONFIG_FILE", config_file):
             assert is_configured() is False
+
+
+class TestSaveConfigCloud:
+    """save_config must persist settings to the DB on cloud deployments (#139, #145).
+
+    The home filesystem is read-only on serverless, so a file-only write
+    silently lost profile/timing/hr_fusion changes (e.g. Pull-from-Garmin),
+    which then reverted to defaults on the next stateless invocation.
+    """
+
+    def test_persists_app_keys_to_db_on_cloud(self, tmp_path: Path) -> None:
+        fake_db = MagicMock()
+        cfg = {
+            "user_profile": {"weight_kg": 82.0, "birth_year": 1994, "sex": "male"},
+            "timing": {"working_set_seconds": 45},
+            "hr_fusion": {"enabled": True},
+        }
+        with patch("hevy2garmin.config.CONFIG_DIR", tmp_path), \
+             patch("hevy2garmin.config.CONFIG_FILE", tmp_path / "config.json"), \
+             patch("hevy2garmin.db.get_database_url", return_value="postgresql://x"), \
+             patch("hevy2garmin.db.get_db", return_value=fake_db):
+            save_config(cfg)
+
+        written = {c.args[0]: c.args[1] for c in fake_db.set_app_config.call_args_list}
+        assert set(written) == {"user_profile", "timing", "hr_fusion"}
+        assert written["user_profile"]["weight_kg"] == 82.0
+
+    def test_no_db_write_when_local(self, tmp_path: Path) -> None:
+        fake_db = MagicMock()
+        with patch("hevy2garmin.config.CONFIG_DIR", tmp_path), \
+             patch("hevy2garmin.config.CONFIG_FILE", tmp_path / "config.json"), \
+             patch("hevy2garmin.db.get_database_url", return_value=None), \
+             patch("hevy2garmin.db.get_db", return_value=fake_db):
+            save_config({"user_profile": {"weight_kg": 80.0}})
+        fake_db.set_app_config.assert_not_called()
+
+    def test_db_failure_does_not_raise(self, tmp_path: Path) -> None:
+        fake_db = MagicMock()
+        fake_db.set_app_config.side_effect = RuntimeError("db down")
+        with patch("hevy2garmin.config.CONFIG_DIR", tmp_path), \
+             patch("hevy2garmin.config.CONFIG_FILE", tmp_path / "config.json"), \
+             patch("hevy2garmin.db.get_database_url", return_value="postgresql://x"), \
+             patch("hevy2garmin.db.get_db", return_value=fake_db):
+            # Must not propagate — settings save should never 500 on a DB hiccup
+            save_config({"user_profile": {"weight_kg": 80.0}})

@@ -91,3 +91,46 @@ class TestCustomMappings:
         m._custom_mappings.clear()
         # Should not crash when file doesn't exist
         _ensure_custom_loaded()
+
+
+class TestSaveCustomMappingCloud:
+    """save_custom_mapping must write to the DB on cloud (#142, #145).
+
+    The old file-only write 500'd on Vercel's read-only filesystem, so custom
+    mappings silently failed to persist (u/Zephyro7, u/fastcoconut).
+    """
+
+    def test_writes_to_db_on_cloud(self) -> None:
+        from unittest.mock import MagicMock
+        import hevy2garmin.mapper as m
+        m._custom_mappings.clear()
+        fake_db = MagicMock()
+        with patch("hevy2garmin.db.get_database_url", return_value="postgresql://x"), \
+             patch("hevy2garmin.db.get_db", return_value=fake_db):
+            save_custom_mapping("Agachamento Búlgaro", 28, 9)
+        fake_db.save_custom_mapping.assert_called_once_with("Agachamento Búlgaro", 28, 9)
+        assert m._custom_mappings["Agachamento Búlgaro"] == (28, 9)
+        m._custom_mappings.clear()
+
+    def test_does_not_touch_filesystem_on_cloud(self, tmp_path: Path) -> None:
+        from unittest.mock import MagicMock
+        import hevy2garmin.mapper as m
+        m._custom_mappings.clear()
+        target = tmp_path / "custom_mappings.json"
+        with patch("hevy2garmin.db.get_database_url", return_value="postgresql://x"), \
+             patch("hevy2garmin.db.get_db", return_value=MagicMock()), \
+             patch.object(Path, "expanduser", return_value=target):
+            save_custom_mapping("Foo (Bar)", 1, 2)
+        assert not target.exists()  # DB path used, no file written
+        m._custom_mappings.clear()
+
+    def test_falls_back_to_file_when_local(self, tmp_path: Path) -> None:
+        import hevy2garmin.mapper as m
+        m._custom_mappings.clear()
+        target = tmp_path / "custom_mappings.json"
+        with patch("hevy2garmin.db.get_database_url", return_value=None), \
+             patch.object(Path, "expanduser", return_value=target):
+            save_custom_mapping("Foo (Bar)", 12, 34)
+        assert json.loads(target.read_text())["Foo (Bar)"] == [12, 34]
+        assert m._custom_mappings["Foo (Bar)"] == (12, 34)
+        m._custom_mappings.clear()

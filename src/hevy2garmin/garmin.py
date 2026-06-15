@@ -44,6 +44,28 @@ def get_client(
     return auth.login()
 
 
+def _sanitize_activity_id(raw: object) -> int | None:
+    """Normalize an activity ID returned by the Garmin upload API.
+
+    Garmin occasionally returns ``internalId`` as a string wrapped in quote
+    characters (e.g. ``"'23126363872'"``). Stored verbatim, the literal quotes
+    make every later Garmin API call 404, so rename silently fails and the
+    activity stays named "Strength Training" (#153). Strip surrounding quotes
+    and coerce to int; return None if it cannot be parsed.
+
+    Diagnosed by @frankzotynia10 (#143).
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw
+    cleaned = str(raw).strip().strip("'\"").strip()
+    try:
+        return int(cleaned)
+    except (ValueError, TypeError):
+        return None
+
+
 def upload_fit(client: Garmin, fit_path: str | Path, workout_start: str | None = None) -> dict:
     """Upload a FIT file to Garmin Connect.
 
@@ -82,7 +104,9 @@ def upload_fit(client: Garmin, fit_path: str | Path, workout_start: str | None =
         upload_id = detail.get("uploadId")
         successes = detail.get("successes", [])
         if successes and isinstance(successes, list):
-            activity_id = successes[0].get("internalId")
+            # internalId may come back as a quoted string ("'123'") — sanitize
+            # so the stored ID is a clean int, otherwise rename 404s (#153).
+            activity_id = _sanitize_activity_id(successes[0].get("internalId"))
         failures = detail.get("failures", [])
         if failures:
             logger.warning("  Upload failures: %s", failures)
@@ -114,7 +138,11 @@ def find_activity_by_start_time(
     target_start: str,
     window_minutes: int = 10,
 ) -> int | None:
-    """Find a Garmin activity matching a start time within a window."""
+    """Find a Garmin activity matching a start time within a window.
+
+    Searches by date range so old uploaded workouts are found regardless of
+    how many newer activities exist on the account.
+    """
     from datetime import datetime, timedelta
 
     try:
@@ -122,8 +150,13 @@ def find_activity_by_start_time(
     except (ValueError, TypeError):
         return None
 
+    # Search the workout's date ±1 day to handle timezone edge cases
+    target_naive = target.replace(tzinfo=None) if target.tzinfo else target
+    date_from = (target_naive - timedelta(days=1)).date().isoformat()
+    date_to = (target_naive + timedelta(days=1)).date().isoformat()
+
     try:
-        activities = _limiter.call(client.get_activities, 0, 10)
+        activities = _limiter.call(client.get_activities_by_date, date_from, date_to)
     except Exception:
         return None
 
@@ -139,8 +172,6 @@ def find_activity_by_start_time(
             if "T" not in act_start_str:
                 act_start_str = act_start_str.replace(" ", "T")
             act_start = datetime.fromisoformat(act_start_str)
-            # Both should be UTC now, compare naive
-            target_naive = target.replace(tzinfo=None) if target.tzinfo else target
             act_naive = act_start.replace(tzinfo=None) if act_start.tzinfo else act_start
             if abs((act_naive - target_naive).total_seconds()) < window_minutes * 60:
                 return act.get("activityId")
@@ -181,15 +212,21 @@ def find_matching_garmin_activity(
     hevy_workout: dict,
     overlap_threshold: float = 0.70,
     max_drift_minutes: int = 20,
+    activity_types: set[str] | None = None,
 ) -> dict | None:
-    """Find a user-recorded Garmin Strength Training activity matching a Hevy workout.
+    """Find a user-recorded Garmin activity matching a Hevy workout.
 
     Searches for activities that overlap the Hevy workout's time window,
     then scores by temporal overlap and start-time proximity.
 
     Returns the best-matching activity dict, or None if nothing qualifies.
-    Only matches completed activities of type 'strength_training'.
+    Only matches completed activities whose ``activityType.typeKey`` is in
+    ``activity_types`` (default: ``{"strength_training"}``). Pass additional
+    types (e.g. ``"bouldering"``, ``"indoor_climbing"``) to also enhance
+    non-strength watch activities with Hevy exercise data.
     """
+    if activity_types is None:
+        activity_types = {"strength_training"}
     from datetime import datetime, timedelta, timezone
 
     start_raw = hevy_workout.get("start_time") or hevy_workout.get("startTime", "")
@@ -220,9 +257,9 @@ def find_matching_garmin_activity(
     best: dict | None = None
 
     for act in (activities or []):
-        # Hard filter: strength_training only
+        # Hard filter: only configured activity types are eligible for merge
         act_type = act.get("activityType", {}).get("typeKey", "")
-        if act_type != "strength_training":
+        if act_type not in activity_types:
             continue
 
         # Must be a completed activity (has duration)

@@ -29,7 +29,18 @@ class SQLiteDatabase(Database):
         self.db_path = Path(db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            # Serverless (Vercel/Lambda) home is read-only — the cryptic
+            # FileNotFoundError/OSError here is what users saw as a blank
+            # dashboard / 500 on deploy (#145). Surface an actionable message.
+            raise RuntimeError(
+                "Cannot create a local SQLite database under ~/.hevy2garmin on "
+                "this read-only filesystem. Serverless deployments need Postgres: "
+                "add a Neon database (Vercel → Storage) so DATABASE_URL / "
+                "POSTGRES_URL is set, then redeploy."
+            ) from e
         conn = sqlite3.connect(str(self.db_path))
         conn.execute("""
             CREATE TABLE IF NOT EXISTS synced_workouts (
