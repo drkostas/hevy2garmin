@@ -141,10 +141,11 @@ def generate_fit(
     hevy_workout:
         Hevy workout dict with exercises and sets.
     hr_samples:
-        Heart-rate samples to embed. Can come from Garmin daily monitoring,
-        or be a synthetic list (e.g. [90]*30 for static fallback).
-        If None or empty, _DEFAULT_HR_BPM is used for calorie calculation
-        and no HR records are written.
+        Heart-rate samples to embed. Either a list of bpm ints (distributed
+        evenly across the workout) or timestamped ``{"time": secs_from_start,
+        "hr": bpm}`` dicts from Garmin daily monitoring (placed at their real
+        offsets). If None or empty, _DEFAULT_HR_BPM is used for calorie
+        calculation and no HR records are written.
     output_path:
         Path where the .fit file will be written.
 
@@ -153,8 +154,21 @@ def generate_fit(
     dict with keys: exercises, total_sets, hr_samples, calories, duration_s,
     avg_hr, output_path
     """
-    if hr_samples is None:
-        hr_samples = []
+    # Normalize HR input: callers pass either bpm ints or timestamped dicts.
+    # hr_bpm drives calories + lap/session avg; hr_timed (when present) places
+    # records at their real offsets instead of evenly distributing them.
+    hr_timed: list[tuple[float, int]] | None = None
+    if not hr_samples:
+        hr_bpm: list[int] = []
+    elif isinstance(hr_samples[0], dict):
+        hr_timed = [
+            (max(0.0, float(s.get("time", 0))), int(s["hr"]))
+            for s in hr_samples
+            if s.get("hr") is not None
+        ]
+        hr_bpm = [b for _, b in hr_timed]
+    else:
+        hr_bpm = [int(x) for x in hr_samples]
 
     p = _get_profile(profile)
 
@@ -173,7 +187,7 @@ def generate_fit(
 
     # -- Calculate calories from HR using Keytel formula --
     workout_year = start_dt.year
-    calories = _calc_calories(hr_samples, duration_s, workout_year, p)
+    calories = _calc_calories(hr_bpm, duration_s, workout_year, p)
 
     # -- Gather exercises and compute timing --
     exercises = hevy_workout.get("exercises", [])
@@ -272,14 +286,22 @@ def generate_fit(
     # Build a timeline of events sorted by timestamp
     timeline: list[tuple[int, str, object]] = []  # (ms, type, message)
 
-    # HR record messages distributed evenly across duration
-    if hr_samples:
-        if len(hr_samples) == 1:
+    # HR record messages. Timestamped samples go at their real offsets;
+    # plain bpm lists are distributed evenly across the duration.
+    if hr_timed:
+        for offset_s, hr_val in hr_timed:
+            t_ms = start_ms + round(offset_s * 1000)
+            rec = RecordMessage()
+            rec.timestamp = t_ms
+            rec.heart_rate = hr_val
+            timeline.append((t_ms, "record", rec))
+    elif hr_bpm:
+        if len(hr_bpm) == 1:
             hr_interval_ms = 0
         else:
-            hr_interval_ms = round(duration_s * 1000 / (len(hr_samples) - 1))
-        for i, hr_val in enumerate(hr_samples):
-            t_ms = start_ms + (i * hr_interval_ms if len(hr_samples) > 1 else 0)
+            hr_interval_ms = round(duration_s * 1000 / (len(hr_bpm) - 1))
+        for i, hr_val in enumerate(hr_bpm):
+            t_ms = start_ms + (i * hr_interval_ms if len(hr_bpm) > 1 else 0)
             rec = RecordMessage()
             rec.timestamp = t_ms
             rec.heart_rate = hr_val
@@ -371,9 +393,9 @@ def generate_fit(
     lap.message_index = 0
     lap.event = Event.LAP
     lap.event_type = EventType.STOP
-    if hr_samples:
-        lap.avg_heart_rate = round(sum(hr_samples) / len(hr_samples))
-        lap.max_heart_rate = max(hr_samples)
+    if hr_bpm:
+        lap.avg_heart_rate = round(sum(hr_bpm) / len(hr_bpm))
+        lap.max_heart_rate = max(hr_bpm)
     if total_distance_m > 0:
         lap.total_distance = total_distance_m
     lap.total_calories = calories
@@ -392,9 +414,9 @@ def generate_fit(
     session.num_laps = 1
     session.event = Event.LAP
     session.event_type = EventType.STOP
-    if hr_samples:
-        session.avg_heart_rate = round(sum(hr_samples) / len(hr_samples))
-        session.max_heart_rate = max(hr_samples)
+    if hr_bpm:
+        session.avg_heart_rate = round(sum(hr_bpm) / len(hr_bpm))
+        session.max_heart_rate = max(hr_bpm)
     if total_distance_m > 0:
         session.total_distance = total_distance_m
     session.total_calories = calories
@@ -414,11 +436,11 @@ def generate_fit(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     builder.build().to_file(output_path)
 
-    avg_hr = round(sum(hr_samples) / len(hr_samples)) if hr_samples else None
+    avg_hr = round(sum(hr_bpm) / len(hr_bpm)) if hr_bpm else None
     return {
         "exercises": num_exercises,
         "total_sets": total_sets,
-        "hr_samples": len(hr_samples),
+        "hr_samples": len(hr_bpm),
         "calories": calories,
         "avg_hr": avg_hr,
         "duration_s": duration_s,

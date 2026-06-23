@@ -23,6 +23,12 @@ from hevy2garmin.hevy import HevyClient
 from hevy2garmin.mapper import lookup_exercise
 from hevy2garmin.merge import attempt_merge, reset_circuit_breaker, MergeResult
 
+try:  # rate-limit HR fetches like other Garmin data calls
+    from garmin_auth import RateLimiter
+    _hr_limiter = RateLimiter(delay=1.0)
+except Exception:  # pragma: no cover
+    _hr_limiter = None
+
 logger = logging.getLogger("hevy2garmin")
 
 
@@ -163,9 +169,16 @@ def sync(
                     stats["merge_fallback"] += 1
 
             # ── Standard upload path (FIT generation) ──
+            # Embed merged HR (AirPods-preferred, watch fill) so it reaches
+            # Garmin Connect, not just the dashboard (#158). Best-effort.
+            hr_samples = None
+            if not dry_run:
+                from hevy2garmin.hr import hr_for_sync
+                hr_samples = hr_for_sync(db, garmin_client, workout, cfg, _hr_limiter)
+
             with tempfile.TemporaryDirectory() as tmp:
                 fit_path = str(Path(tmp) / f"{wid}.fit")
-                result = generate_fit(workout, hr_samples=None, output_path=fit_path)
+                result = generate_fit(workout, hr_samples=hr_samples, output_path=fit_path)
                 logger.info(
                     "  FIT: %d exercises, %d sets, %d cal",
                     result["exercises"], result["total_sets"], result["calories"],
