@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-06-23
+
 ### Added
 - **Merge into non-strength watch activities** ([#157](https://github.com/drkostas/hevy2garmin/pull/157)) — a `merge_activity_types` setting (default `["strength_training"]`) lets Enhance Watch Activities fuse Hevy workouts into other Garmin activity types you record on the watch (e.g. Indoor Climbing), instead of creating a duplicate. Configure extra types under Settings → Enhance Watch Activities → Advanced. Thanks @braianrabanal.
 
