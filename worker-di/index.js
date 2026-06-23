@@ -156,19 +156,25 @@ async function handleLogin(request, env) {
     return json({ status: "error", message: "email and password required" }, 400);
   }
 
-  // Try portal (browser-flavoured) first — it's the faster, lower-friction
-  // endpoint. Fall back to mobile when:
-  //   - portal returns Garmin error 427 (MFA-enabled accounts, which
-  //     Garmin forces through the mobile app flow for programmatic auth),
-  //   - portal returns rate_limited (the two endpoints are on different
-  //     rate-limit buckets and mobile may still be open),
-  //   - portal produces any generic error (last-chance retry).
-  const portalResult = await tryLoginFlavour(env, email, password, "portal");
-  if (portalResult.fallback) {
-    const mobileResult = await tryLoginFlavour(env, email, password, "mobile");
-    return mobileResult.response;
-  }
-  return portalResult.response;
+  // Mobile-first: the mobile/app login endpoint is the one Garmin designed for
+  // native MFA, so it's the least likely to reject programmatic logins with a
+  // 427. Fall back to the portal endpoint ONLY on a 427 (MFA-routing). We do
+  // NOT fall back on a 429: Garmin's login rate limit is per-account (it spans
+  // both endpoints), so retrying the other flavour just burns its bucket too
+  // and deepens the throttle that won't clear (#147). On 429 we surface
+  // rate_limited immediately.
+  const first = await tryLoginFlavour(env, email, password, "mobile");
+  if (!first.fallback) return first.response;
+
+  const second = await tryLoginFlavour(env, email, password, "portal");
+  if (!second.fallback) return second.response;
+
+  // 427 on both endpoints → Garmin is steering us to the manual flow.
+  return json({
+    status: "needs_captcha",
+    message:
+      "Garmin returned error 427 on both login flows. Use the manual sign-in fallback.",
+  });
 }
 
 /** Attempt a single login flavour (portal or mobile) and return either a
@@ -261,10 +267,9 @@ async function tryLoginFlavour(env, email, password, flavour) {
 
   // Step 3: parse and branch.
   if (loginResp.status === 429) {
-    // For portal, signal fallback — mobile endpoint uses a different rate
-    // limit bucket and may still be open. For mobile (the last flavour we
-    // try), surface the rate limit to the caller.
-    if (flavour === "portal") return { fallback: true };
+    // Never fall back to the other flavour on a rate limit — Garmin's login
+    // limit is per-account across both endpoints, so retrying just deepens it
+    // (#147). Surface it so the caller can tell the user to wait it out.
     return { response: json({ status: "rate_limited" }) };
   }
   let loginData;
@@ -286,25 +291,13 @@ async function tryLoginFlavour(env, email, password, flavour) {
   // Handle Garmin's custom error envelope.
   const garminErrCode = loginData?.error?.["status-code"];
   if (garminErrCode === "429") {
-    // Same fallback logic as HTTP-level 429.
-    if (flavour === "portal") return { fallback: true };
+    // Per-account rate limit — never retry the other flavour (#147).
     return { response: json({ status: "rate_limited" }) };
   }
   if (garminErrCode === "427") {
-    // Portal endpoint blocks MFA-enabled accounts with 427. Mobile endpoint
-    // should accept them, so signal caller to retry with the other flavour.
-    if (flavour === "portal") {
-      return { fallback: true };
-    }
-    // If we got 427 on the mobile endpoint too, Garmin really is blocking
-    // us. Fall through to the copy-paste UI.
-    return {
-      response: json({
-        status: "needs_captcha",
-        message:
-          "Garmin returned error 427 on both portal and mobile login flows. Use the manual sign-in fallback.",
-      }),
-    };
+    // 427 routes MFA-enabled accounts to a different flow. Signal the caller to
+    // try the other flavour; the caller surfaces needs_captcha if both 427.
+    return { fallback: true };
   }
   if (garminErrCode) {
     return {
