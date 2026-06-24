@@ -714,9 +714,8 @@ async def api_workout_hr(request: Request, hevy_id: str):
         from garmin_auth import RateLimiter
 
         hevy = HevyClient(api_key=config.get("hevy_api_key"))
-        data = hevy.get_workouts(page=1, page_size=10)
-        workouts = data.get("workouts", [])
-        workout = next((w for w in workouts if w["id"] == hevy_id), None)
+        # Fetch by ID so HR works for older workouts too, not just the first page (#165).
+        workout = hevy.get_workout(hevy_id)
         if not workout:
             return JSONResponse({"error": "Workout not found"}, status_code=404)
 
@@ -1139,8 +1138,9 @@ async def api_sync_single(request: Request, workout_id: str):
         force_upload = request.query_params.get("force") == "1"
 
         config = load_config()
-        data = HevyClient(api_key=config.get("hevy_api_key")).get_workouts(page=1, page_size=10)
-        workout = next((w for w in data.get("workouts", []) if w["id"] == workout_id), None)
+        # Fetch the exact workout by ID — scanning only the first page missed
+        # older workouts for users with more than a page of history (#165).
+        workout = HevyClient(api_key=config.get("hevy_api_key")).get_workout(workout_id)
         if not workout:
             return HTMLResponse('<td colspan="5">Workout not found</td>')
 

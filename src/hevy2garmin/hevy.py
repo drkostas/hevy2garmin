@@ -78,6 +78,26 @@ class HevyClient:
         """Get a page of workouts."""
         return self._get("/workouts", {"page": page, "pageSize": page_size})
 
+    def get_workout(self, workout_id: str) -> dict | None:
+        """Fetch a single workout by ID via ``GET /v1/workouts/{id}``.
+
+        Works for ANY workout regardless of age — unlike scanning a page of
+        recent workouts, which misses older ones and made the dashboard
+        "Upload" button report "Workout not found" for users with more than a
+        page of history (#165). Returns the workout dict, or None if not found.
+        """
+        try:
+            data = self._get(f"/workouts/{workout_id}")
+        except Exception:
+            return None
+        if isinstance(data, dict):
+            if "id" in data:
+                return data
+            # Defensive: handle a wrapped {"workout": {...}} shape too.
+            if isinstance(data.get("workout"), dict):
+                return data["workout"]
+        return None
+
     def get_all_workouts(self, since_page: int = 1, page_size: int = 10) -> list[dict]:
         """Fetch all workouts (paginated). Returns list of workout dicts."""
         all_workouts: list[dict] = []

@@ -39,6 +39,26 @@ class TestAPICalls:
             assert len(result["workouts"]) == 1
             mock_get.assert_called_once_with("/workouts", {"page": 1, "pageSize": 10})
 
+    def test_get_workout_by_id(self) -> None:
+        # Fetches the exact workout regardless of age (#165) — directly, not by
+        # scanning a page. The Hevy API returns the workout object at top level.
+        client = HevyClient(api_key="test")
+        wk = {"id": "old-123", "title": "Lower", "exercises": []}
+        with patch.object(client, "_get", return_value=wk) as mock_get:
+            result = client.get_workout("old-123")
+            assert result == wk
+            mock_get.assert_called_once_with("/workouts/old-123")
+
+    def test_get_workout_unwraps_workout_key(self) -> None:
+        client = HevyClient(api_key="test")
+        with patch.object(client, "_get", return_value={"workout": {"id": "x", "title": "P"}}):
+            assert client.get_workout("x") == {"id": "x", "title": "P"}
+
+    def test_get_workout_not_found_returns_none(self) -> None:
+        client = HevyClient(api_key="test")
+        with patch.object(client, "_get", side_effect=RuntimeError("404")):
+            assert client.get_workout("missing") is None
+
     def test_get_exercise_templates(self) -> None:
         client = HevyClient(api_key="test")
         mock_data = {"exercise_templates": [{"id": "e1"}], "page_count": 1}
