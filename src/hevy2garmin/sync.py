@@ -151,6 +151,7 @@ def sync(
 
         try:
             # ── Merge mode: try to enhance a watch-recorded activity ──
+            merge_forced_fresh = False
             if merge_mode and garmin_client and not dry_run:
                 merge_result = attempt_merge(garmin_client, workout, db, overlap_threshold=merge_overlap_pct, max_drift_minutes=merge_max_drift_min, activity_types=merge_activity_types)
                 if merge_result.merged:
@@ -168,6 +169,7 @@ def sync(
                 else:
                     logger.info("  Merge fallback: %s", merge_result.fallback_reason)
                     stats["merge_fallback"] += 1
+                    merge_forced_fresh = merge_result.force_fresh_upload
 
             # ── Standard upload path (FIT generation) ──
             # Embed merged HR (AirPods-preferred, watch fill) so it reaches
@@ -190,8 +192,12 @@ def sync(
                     stats["synced"] += 1
                     continue
 
-                # Dedup: check if activity already exists on Garmin
-                existing_id = find_activity_by_start_time(garmin_client, start_time) if start_time else None
+                # Dedup: check if activity already exists on Garmin. Skip the
+                # check when the merge wants a fresh upload (#159) — otherwise it
+                # would find the watch activity and refuse to upload the named one.
+                existing_id = None
+                if start_time and not merge_forced_fresh:
+                    existing_id = find_activity_by_start_time(garmin_client, start_time)
                 if existing_id:
                     logger.info("  Activity already on Garmin (%s), skipping upload", existing_id)
                     activity_id = existing_id

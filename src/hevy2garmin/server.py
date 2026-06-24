@@ -1584,6 +1584,7 @@ async def _do_sync_one(request: Request):
         workout_start = unsynced.get("start_time")
         merge_mode = config.get("merge_mode", True)
         sync_method = "upload"
+        merge_forced_fresh = False
 
         # Merge mode: try to enhance a watch-recorded activity with Hevy data
         if merge_mode:
@@ -1612,6 +1613,7 @@ async def _do_sync_one(request: Request):
                 )
                 remaining = hevy.get_workout_count() - db.get_synced_count()
                 return JSONResponse({"synced": 1, "title": unsynced["title"], "remaining": max(0, remaining), "done": remaining <= 0})
+            merge_forced_fresh = merge_result.force_fresh_upload
 
         # HR enrichment for the uploaded FIT (#158): merged HR (AirPods-preferred,
         # watch fill), best-effort. Computed after the merge early-return so the
@@ -1621,9 +1623,10 @@ async def _do_sync_one(request: Request):
 
         # Dedup: check if this workout already exists on Garmin before uploading.
         # Prevents duplicates when a prior sync uploaded successfully but crashed
-        # before marking the workout as synced in the DB.
+        # before marking the workout as synced in the DB. Skip it when the merge
+        # asked for a fresh named upload (#159), else it finds the watch activity.
         existing_id = None
-        if workout_start:
+        if workout_start and not merge_forced_fresh:
             existing_id = find_activity_by_start_time(garmin_client, workout_start)
 
         if existing_id:

@@ -12,6 +12,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -38,6 +39,46 @@ class MergeResult:
     merged: bool
     activity_id: int | None = None
     fallback_reason: str | None = None
+    # Set when the merge pushed sets but Garmin dropped the exercise names on a
+    # watch-recorded activity (#159). Tells the caller to upload a SEPARATE
+    # named activity instead of deduping against the watch activity.
+    force_fresh_upload: bool = False
+
+
+def _names_applied(client, activity_id) -> bool:
+    """Check whether Garmin actually kept the exercise identities after a PUT.
+
+    Watch-recorded strength activities accept the sets (HTTP 204) but silently
+    drop the exercise category/name, leaving every set as "Choose an Exercise"
+    (#159, confirmed live). Returns True if at least one active set came back
+    with a real category, False if the names were dropped. Returns True on any
+    read error so an unverifiable merge is not needlessly discarded.
+    """
+    time.sleep(4)  # let Garmin process the PUT before reading back
+    try:
+        after = get_activity_exercise_sets(client, activity_id)
+    except Exception:
+        return True
+    cats = [
+        e.get("category")
+        for s in (after.get("exerciseSets") or [])
+        if s.get("setType") == "ACTIVE"
+        for e in (s.get("exercises") or [])
+    ]
+    if not cats:
+        return False
+    return any(c and c != "UNKNOWN" for c in cats)
+
+
+def _restore_sets(client, activity_id, database) -> None:
+    """Restore an activity's pre-merge exercise sets from the backup."""
+    try:
+        backup = database.get_app_config(f"merge_backup_{activity_id}")
+        original = (backup or {}).get("original_sets")
+        if original and original.get("exerciseSets") is not None:
+            push_exercise_sets(client, activity_id, original)
+    except Exception as e:
+        logger.warning("Could not restore sets for %s: %s", activity_id, e)
 
 
 def reset_circuit_breaker() -> None:
@@ -293,6 +334,22 @@ def attempt_merge(
         _consecutive_failures += 1
         logger.error("PUT exerciseSets failed for activity %s: %s", activity_id, e)
         return MergeResult(merged=False, fallback_reason=f"PUT failed: {e}")
+
+    # The push returns 204 even when Garmin drops the exercise names on a
+    # watch-recorded activity (#159). Verify the names actually applied; if not,
+    # restore the activity and tell the caller to upload a separate named
+    # activity instead (the only way those users get real exercise names).
+    if not _names_applied(client, activity_id):
+        logger.info(
+            "  Exercise names not applied on watch activity %s — restoring and uploading a named activity",
+            activity_id,
+        )
+        _restore_sets(client, activity_id, database)
+        return MergeResult(
+            merged=False,
+            force_fresh_upload=True,
+            fallback_reason="Garmin dropped exercise names on the watch-recorded activity",
+        )
 
     # Rename + set description
     try:

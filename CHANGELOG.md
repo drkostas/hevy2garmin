@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Exercises showing as "Choose an Exercise" on watch-recorded activities** ([#159](https://github.com/drkostas/hevy2garmin/issues/159)). When you record a strength workout on your Garmin watch and the tool merges Hevy data into it, Garmin accepts the sets but ignores the exercise names, so every set stays "Choose an Exercise". The tool now verifies after the merge whether the names actually stuck. When Garmin drops them, it restores the watch activity and uploads a separate, properly named activity instead, so the exercises are named. Confirmed live against a real Garmin account.
+
 ## [0.5.2] - 2026-06-24
 
 ### Fixed
