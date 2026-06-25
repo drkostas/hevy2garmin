@@ -90,13 +90,25 @@ def _acquire_sync_lock() -> bool:
 
 
 def _get_unmapped_exercises() -> list[tuple[str, int]]:
-    """Get unmapped exercises. Uses DB cache (updated during sync)."""
+    """Get unmapped exercises. Uses DB cache (updated during sync).
+
+    Exercises that now have a mapping are filtered out, so a freshly mapped one
+    leaves the list immediately instead of lingering until the next sync (#172).
+    """
+    from hevy2garmin.mapper import lookup_exercise
+
+    def _still_unmapped(items):
+        return sorted(
+            ((name, count) for name, count in items if lookup_exercise(name)[0] == 65534),
+            key=lambda x: -x[1],
+        )
+
     # Try DB cache first (instant)
     try:
         _db = db.get_db()
         cached = _db.get_app_config("unmapped_exercises")
         if cached and isinstance(cached, dict):
-            return sorted(cached.items(), key=lambda x: -x[1])
+            return _still_unmapped(cached.items())
     except Exception:
         pass
 
@@ -952,6 +964,18 @@ async def api_save_mapping(request: Request):
 
     global _unmapped_cache
     _unmapped_cache = None
+
+    # Drop the just-mapped exercise from the cached unmapped list (DB + memory).
+    # The cache is only rebuilt during a sync, so without this the exercise kept
+    # showing as "Unknown" on the Mappings page even after a reload (#172).
+    try:
+        _db2 = db.get_db()
+        cached = _db2.get_app_config("unmapped_exercises")
+        if isinstance(cached, dict) and hevy_name in cached:
+            del cached[hevy_name]
+            _db2.set_app_config("unmapped_exercises", cached)
+    except Exception as e:
+        logger.debug("Could not update unmapped cache after mapping: %s", e)
 
     cat_label = _get_cat_names().get(category, f"Category {category}")
     return HTMLResponse(f'<div class="toast toast-success">Mapped "{hevy_name}" → {cat_label} ({category}:{subcategory}). <a href="/mappings">Reload</a></div>')
