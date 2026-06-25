@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Backfill not reaching older workouts** ([#165](https://github.com/drkostas/hevy2garmin/issues/165)). The "Sync N Workouts" backfill searched only the first few pages of Hevy history, so when the recent workouts were already synced and the unsynced ones were older, it stopped before finding them and reported done. It now scans the whole history. Together with the earlier fetch-by-ID fix, both the bulk backfill and the per-workout Upload reach any workout regardless of age.
+
 ## [0.5.3] - 2026-06-24
 
 ### Fixed

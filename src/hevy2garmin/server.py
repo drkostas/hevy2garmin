@@ -1516,6 +1516,43 @@ async def api_sync_one(request: Request):
         _sync_executing.release()
 
 
+def _scan_for_unsynced(hevy, is_synced, total_count, failed_ids, on_page=None):
+    """Find the first unsynced Hevy workout, scanning the whole history.
+
+    When the recent workouts are already synced and the unsynced ones are older
+    (deep in the list), the search must page far enough back to reach them, so
+    the cap covers the whole history (#165). Breaks as soon as an unsynced
+    workout is found or the last Hevy page is reached. Returns
+    ``(unsynced_workout_or_None, unmapped_counts)``.
+    """
+    from hevy2garmin.mapper import lookup_exercise
+
+    unsynced = None
+    unmapped: dict[str, int] = {}
+    page = 1
+    max_pages = (total_count // 10) + 2
+    while page <= max_pages:
+        data = hevy.get_workouts(page=page, page_size=10)
+        workouts = data.get("workouts", [])
+        if not workouts:
+            break
+        if on_page is not None:
+            on_page(page, data)
+        for w in workouts:
+            if not unsynced and not is_synced(w["id"]) and w["id"] not in failed_ids:
+                unsynced = w
+            for ex in w.get("exercises", []):
+                name = ex.get("title") or ex.get("name", "")
+                if name and lookup_exercise(name)[0] == 65534:
+                    unmapped[name] = unmapped.get(name, 0) + 1
+        if unsynced:
+            break
+        if page >= data.get("page_count", page):
+            break
+        page += 1
+    return unsynced, unmapped
+
+
 async def _do_sync_one(request: Request):
     """Inner sync logic, called with _sync_executing lock held."""
     from fastapi.responses import JSONResponse
@@ -1541,34 +1578,15 @@ async def _do_sync_one(request: Request):
     synced_count = db.get_synced_count()
     remaining = max(0, total_count - synced_count)
 
-    unsynced = None
-    unmapped_found: dict[str, int] = {}
-    page = 1
-    max_pages = min(10, (remaining // 10) + 2)  # Don't search forever
-    while page <= max_pages:
-        data = hevy.get_workouts(page=page, page_size=10)
-        workouts = data.get("workouts", [])
-        if not workouts:
-            break
-        # Refresh the workouts-page cache while we already have the data
+    def _cache_page(pg, data):
         _db.set_app_config(
-            f"hevy_workouts_page_{page}",
-            {"workouts": workouts, "page_count": data.get("page_count", 1)},
+            f"hevy_workouts_page_{pg}",
+            {"workouts": data.get("workouts", []), "page_count": data.get("page_count", 1)},
         )
-        for w in workouts:
-            if not unsynced and not db.is_synced(w["id"]) and w["id"] not in _failed_ids:
-                unsynced = w
-            # Track unmapped exercises while we're iterating
-            from hevy2garmin.mapper import lookup_exercise
-            for ex in w.get("exercises", []):
-                name = ex.get("title") or ex.get("name", "")
-                if name and lookup_exercise(name)[0] == 65534:
-                    unmapped_found[name] = unmapped_found.get(name, 0) + 1
-        if unsynced:
-            break
-        if page >= data.get("page_count", page):
-            break
-        page += 1
+
+    unsynced, unmapped_found = _scan_for_unsynced(
+        hevy, db.is_synced, total_count, _failed_ids, on_page=_cache_page
+    )
     # Update unmapped cache in DB
     if unmapped_found:
         _db.set_app_config("unmapped_exercises", unmapped_found)
