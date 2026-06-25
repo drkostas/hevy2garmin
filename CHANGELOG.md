@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-06-25
+
 ### Fixed
 - **Mapped exercises stayed in the "Unknown" list** ([#172](https://github.com/drkostas/hevy2garmin/issues/172)). After mapping an exercise on the Mappings page, it kept showing as unmapped until the next sync or a restart, even after a reload. The unmapped list now filters out exercises that already have a mapping, and a saved mapping is dropped from the cached list right away. Thanks @KaiBoos.
 
