@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-06-26
+
 ### Fixed
 - **Auto-sync interval always reset to 2 hours** ([#177](https://github.com/drkostas/hevy2garmin/issues/177)). The interval dropdown read its value with `this.value` inside an htmx hx-vals expression, which did not resolve, so every change saved the default (120 min). It now reads the selected value explicitly, so your chosen interval sticks. Thanks @KaiBoos.
 
