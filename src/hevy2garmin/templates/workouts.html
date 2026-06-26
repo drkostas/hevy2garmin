@@ -93,6 +93,13 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             Reload Data
         </button>
+        <button class="btn btn-secondary btn-sm"
+                onclick="unsyncAll(this)"
+                style="margin-top: 8px; margin-left: 8px;"
+                title="Clear the sync status of every workout so the next sync re-imports them all. Useful after a mapping fix. Does not delete anything from Garmin.">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Unsync All
+        </button>
         <div id="reload-toast"></div>
     </div>
     {% if page_count > 1 %}
@@ -522,6 +529,30 @@ async function unsyncWorkout(hevyId, btn) {
         alert('Network error: ' + e.message);
         btn.disabled = false;
         btn.textContent = 'Unsync';
+    }
+}
+
+async function unsyncAll(btn) {
+    if (!confirm('Clear the sync status of ALL workouts?\n\nThe next sync will re-import every workout. This does not delete anything from Garmin. If a workout is still on Garmin it is skipped as a duplicate, so delete it from Garmin first if you want a fresh upload (for example after a mapping fix).')) return;
+    const original = btn.textContent.trim();
+    btn.disabled = true;
+    btn.textContent = 'Working…';
+    try {
+        const form = new FormData();
+        form.append('confirm', 'RESET');
+        const resp = await fetch('/api/unsync-all', { method: 'POST', body: form });
+        const data = await resp.json();
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed: ' + (data.error || 'Unknown error'));
+            btn.disabled = false;
+            btn.textContent = original;
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = original;
     }
 }
 </script>

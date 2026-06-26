@@ -1267,6 +1267,9 @@ async def api_unsync_all(request: Request):
     """Remove ALL sync records. Does not delete from Garmin."""
     from fastapi.responses import JSONResponse
 
+    if is_demo_mode():
+        return JSONResponse({"ok": False, "error": "Read-only in demo mode"}, status_code=403)
+
     form = await request.form()
     confirm = form.get("confirm", "")
     if confirm != "RESET":
