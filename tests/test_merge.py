@@ -414,6 +414,43 @@ class TestAttemptMerge:
         assert "Circuit breaker" in result.fallback_reason
 
 
+@patch("hevy2garmin.merge.find_matching_garmin_activity")
+@patch("hevy2garmin.merge.push_exercise_sets")
+def test_watch_recorded_match_skips_merge(mock_push, mock_find):
+    """A device-recorded match (manufacturer != DEVELOPMENT) is never merged;
+    it forces a fresh named upload, since Garmin ignores pushed names there (#159)."""
+    reset_circuit_breaker()
+    act = _make_garmin_activity()
+    act["manufacturer"] = "GARMIN"  # recorded on a watch
+    mock_find.return_value = act
+
+    result = attempt_merge(MagicMock(), HEVY_WORKOUT, MagicMock())
+
+    assert result.merged is False
+    assert result.force_fresh_upload is True
+    mock_push.assert_not_called()  # we never push to a watch activity
+
+
+@patch("hevy2garmin.merge.time.sleep")
+@patch("hevy2garmin.merge.find_matching_garmin_activity")
+@patch("hevy2garmin.merge.get_activity_exercise_sets")
+@patch("hevy2garmin.merge.push_exercise_sets")
+@patch("hevy2garmin.merge.rename_activity")
+@patch("hevy2garmin.merge.set_description")
+def test_development_upload_still_merges(mock_desc, mock_rename, mock_push, mock_get, mock_find, _sleep):
+    """A hevy2garmin upload (manufacturer DEVELOPMENT) is still merged normally."""
+    reset_circuit_breaker()
+    act = _make_garmin_activity()
+    act["manufacturer"] = "DEVELOPMENT"
+    mock_find.return_value = act
+    mock_get.side_effect = [{"exerciseSets": []}, _APPLIED]
+
+    result = attempt_merge(MagicMock(), HEVY_WORKOUT, MagicMock())
+
+    assert result.merged is True
+    mock_push.assert_called_once()
+
+
 class TestNamesApplied:
     """Verify whether Garmin actually kept the exercise identities (#159)."""
 

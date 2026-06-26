@@ -311,6 +311,26 @@ def attempt_merge(
     if not activity_id or not act_start or not act_duration:
         return MergeResult(merged=False, fallback_reason="Matched activity missing required fields")
 
+    # Garmin only displays pushed exercise identities on activities hevy2garmin
+    # created itself (FIT manufacturer "DEVELOPMENT"). On device-recorded
+    # activities (a watch, manufacturer "GARMIN", etc.) the exerciseSets PUT
+    # returns 204 but Garmin ignores it, so the activity shows "Unknown" with no
+    # reps (#159, confirmed against the live API). Reading the sets back cannot
+    # detect this, since the read reflects stored, not displayed, state. So for
+    # any match we did not create, skip the merge and upload a fresh named
+    # activity instead. HR fusion still pulls the watch heart rate into it.
+    manufacturer = str(match.get("manufacturer") or "").upper()
+    if manufacturer and manufacturer != "DEVELOPMENT":
+        logger.info(
+            "  Match %s was recorded by %s, not hevy2garmin — uploading a named activity instead of merging",
+            activity_id, manufacturer,
+        )
+        return MergeResult(
+            merged=False,
+            force_fresh_upload=True,
+            fallback_reason=f"activity recorded by {manufacturer}; Garmin will not show merged exercise names, uploading a named activity",
+        )
+
     # Backup existing exercise sets
     try:
         existing_sets = get_activity_exercise_sets(client, activity_id)
