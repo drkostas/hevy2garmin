@@ -40,6 +40,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": True,
     },
     "merge_activity_types": ["strength_training"],
+    # What to do when a workout was recorded on a watch (Garmin will not show
+    # pushed exercise names on those). "replace": upload one named activity and
+    # delete the watch recording (default, single activity with named exercises).
+    # "describe": keep the watch activity untouched and just list the exercises in
+    # its description (preserves the watch HR + metrics, structured list stays
+    # generic). (#159)
+    "merge_watch_strategy": "replace",
 }
 
 

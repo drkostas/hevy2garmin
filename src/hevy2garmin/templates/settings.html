@@ -223,7 +223,19 @@
                         <label class="form-label" for="merge_extra_types">Additional Watch Activity Types</label>
                         <input class="form-input" type="text" id="merge_extra_types" name="merge_extra_types" value="{{ merge_extra_types }}" placeholder="bouldering, indoor_climbing">
                         <div class="form-hint">
-                            <strong>Strength Training</strong> is always enhanced. Add other Garmin activity types here (comma-separated, using Garmin's internal name) to also enhance them with the matching Hevy workout — e.g. <code>bouldering</code>, <code>indoor_climbing</code> for climbing sessions.
+                            <strong>Strength Training</strong> is always enhanced. Add other Garmin activity types here (comma-separated, using Garmin's internal name) to also enhance them with the matching Hevy workout, e.g. <code>bouldering</code>, <code>indoor_climbing</code> for climbing sessions.
+                        </div>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="merge_watch_strategy">Workouts recorded on a watch</label>
+                        <select class="form-input" id="merge_watch_strategy" name="merge_watch_strategy">
+                            <option value="replace" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'replace' }}>Replace with one named activity (recommended)</option>
+                            <option value="describe" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'describe' }}>Keep the watch activity, list exercises in its description</option>
+                        </select>
+                        <div class="form-hint">
+                            Garmin does not show exercise names on a workout your watch recorded. <strong>Replace</strong> uploads one named activity (with your heart rate) and deletes the watch copy, so you get a single activity with named exercises and no double-counted calories. <strong>Keep</strong> leaves the watch activity untouched and only lists the exercises in its description.
                         </div>
                     </div>
                 </div>

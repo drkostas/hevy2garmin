@@ -416,19 +416,44 @@ class TestAttemptMerge:
 
 @patch("hevy2garmin.merge.find_matching_garmin_activity")
 @patch("hevy2garmin.merge.push_exercise_sets")
-def test_watch_recorded_match_skips_merge(mock_push, mock_find):
-    """A device-recorded match (manufacturer != DEVELOPMENT) is never merged;
-    it forces a fresh named upload, since Garmin ignores pushed names there (#159)."""
+def test_watch_replace_strategy_forces_upload_and_marks_for_delete(mock_push, mock_find):
+    """Default 'replace' strategy: a watch match forces a named upload and flags
+    the watch activity for deletion, so the workout ends up as one activity (#159)."""
     reset_circuit_breaker()
     act = _make_garmin_activity()
     act["manufacturer"] = "GARMIN"  # recorded on a watch
     mock_find.return_value = act
 
-    result = attempt_merge(MagicMock(), HEVY_WORKOUT, MagicMock())
+    result = attempt_merge(MagicMock(), HEVY_WORKOUT, MagicMock())  # default replace
 
     assert result.merged is False
     assert result.force_fresh_upload is True
+    assert result.delete_after_upload == 12345  # the watch activity id
     mock_push.assert_not_called()  # we never push to a watch activity
+
+
+@patch("hevy2garmin.merge.find_matching_garmin_activity")
+@patch("hevy2garmin.merge.push_exercise_sets")
+@patch("hevy2garmin.merge.rename_activity")
+@patch("hevy2garmin.merge.set_description")
+@patch("hevy2garmin.merge.generate_description")
+def test_watch_describe_strategy_enriches_in_place(mock_gen, mock_desc, mock_rename, mock_push, mock_find):
+    """'describe' strategy keeps the single watch activity, enriching its name and
+    description, with no push and no fresh upload."""
+    reset_circuit_breaker()
+    act = _make_garmin_activity()
+    act["manufacturer"] = "GARMIN"
+    mock_find.return_value = act
+    mock_gen.return_value = "Dumbbell Row: 3 sets"
+
+    result = attempt_merge(MagicMock(), HEVY_WORKOUT, MagicMock(), watch_strategy="describe")
+
+    assert result.merged is True
+    assert result.activity_id == 12345
+    assert result.force_fresh_upload is False
+    mock_push.assert_not_called()      # never pushes sets to a watch activity
+    mock_rename.assert_called_once()   # but does rename + describe it
+    mock_desc.assert_called_once()
 
 
 @patch("hevy2garmin.merge.time.sleep")

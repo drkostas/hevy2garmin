@@ -881,6 +881,7 @@ async def settings_save(
     merge_overlap_pct: int = Form(70),
     merge_max_drift_min: int = Form(20),
     merge_extra_types: str = Form(""),
+    merge_watch_strategy: str = Form("replace"),
 ):
     if is_demo_mode():
         return HTMLResponse('<div class="toast toast-error">Settings are read-only in demo mode</div>')
@@ -911,6 +912,7 @@ async def settings_save(
     config["merge_activity_types"] = ["strength_training"] + [
         t for t in dict.fromkeys(extra_types) if t != "strength_training"
     ]
+    config["merge_watch_strategy"] = merge_watch_strategy if merge_watch_strategy in ("replace", "describe") else "replace"
     save_config(config)
 
     # Persist settings to DB on cloud (filesystem is read-only on Vercel)
@@ -926,6 +928,7 @@ async def settings_save(
                 "merge_overlap_pct": config["merge_overlap_pct"],
                 "merge_max_drift_min": config["merge_max_drift_min"],
                 "merge_activity_types": config["merge_activity_types"],
+                "merge_watch_strategy": config["merge_watch_strategy"],
             })
         except Exception as e:
             logger.warning("Failed to persist settings to DB: %s", e)
@@ -1654,6 +1657,7 @@ async def _do_sync_one(request: Request):
         merge_mode = config.get("merge_mode", True)
         sync_method = "upload"
         merge_forced_fresh = False
+        merge_delete_id = None
 
         # Merge mode: try to enhance a watch-recorded activity with Hevy data
         if merge_mode:
@@ -1662,6 +1666,7 @@ async def _do_sync_one(request: Request):
                 overlap_threshold=config.get("merge_overlap_pct", 70) / 100.0,
                 max_drift_minutes=config.get("merge_max_drift_min", 20),
                 activity_types=set(config.get("merge_activity_types", ["strength_training"])),
+                watch_strategy=config.get("merge_watch_strategy", "replace"),
             )
             if merge_result.merged:
                 aid = merge_result.activity_id
@@ -1683,6 +1688,7 @@ async def _do_sync_one(request: Request):
                 remaining = hevy.get_workout_count() - db.get_synced_count()
                 return JSONResponse({"synced": 1, "title": unsynced["title"], "remaining": max(0, remaining), "done": remaining <= 0})
             merge_forced_fresh = merge_result.force_fresh_upload
+            merge_delete_id = merge_result.delete_after_upload
 
         # HR enrichment for the uploaded FIT (#158): merged HR (AirPods-preferred,
         # watch fill), best-effort. Computed after the merge early-return so the
@@ -1715,6 +1721,15 @@ async def _do_sync_one(request: Request):
                 result = generate_fit(unsynced, hr_samples=hr_samples, output_path=fit_path)
                 upload_result = upload_fit(garmin_client, fit_path, workout_start=workout_start)
                 aid = upload_result.get("activity_id")
+                if aid and merge_delete_id:
+                    # "replace" strategy (#159): named upload succeeded, delete the
+                    # watch recording so the workout is a single activity.
+                    try:
+                        from hevy2garmin.garmin import delete_activity
+                        delete_activity(garmin_client, merge_delete_id)
+                        logger.info("Removed watch copy %s (replaced by %s)", merge_delete_id, aid)
+                    except Exception as e:
+                        logger.warning("Could not delete watch activity %s: %s", merge_delete_id, e)
                 if aid:
                     rename_activity(garmin_client, aid, unsynced["title"])
                     desc = generate_description(unsynced, calories=result.get("calories"), avg_hr=result.get("avg_hr"))

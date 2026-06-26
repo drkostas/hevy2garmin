@@ -195,6 +195,16 @@ def set_description(client: Garmin, activity_id: int, description: str) -> None:
     logger.info("  Description set (%d chars)", len(description))
 
 
+def delete_activity(client: Garmin, activity_id: int) -> None:
+    """Delete a Garmin activity.
+
+    Used to remove a watch-recorded activity after uploading a named
+    replacement, so the workout appears exactly once on Garmin (#159).
+    """
+    _limiter.call(client.delete_activity, activity_id)
+    logger.info("  Deleted activity %s", activity_id)
+
+
 def upload_image(client: Garmin, activity_id: int, image_bytes: bytes, filename: str = "image.png") -> None:
     """Upload an image to a Garmin activity."""
     files = {"file": (filename, io.BytesIO(image_bytes))}

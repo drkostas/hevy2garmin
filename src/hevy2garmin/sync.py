@@ -12,6 +12,7 @@ from hevy2garmin import db
 from hevy2garmin.config import load_config
 from hevy2garmin.fit import generate_fit
 from hevy2garmin.garmin import (
+    delete_activity,
     find_activity_by_start_time,
     generate_description,
     get_client,
@@ -123,6 +124,7 @@ def sync(
     merge_overlap_pct = cfg.get("merge_overlap_pct", 70) / 100.0  # convert % to decimal
     merge_max_drift_min = cfg.get("merge_max_drift_min", 20)
     merge_activity_types = set(cfg.get("merge_activity_types", ["strength_training"]))
+    merge_watch_strategy = cfg.get("merge_watch_strategy", "replace")
     description_enabled = cfg.get("description_enabled", True)
     stats = {"synced": 0, "skipped": 0, "failed": 0, "total": len(workouts), "unmapped": [], "merged": 0, "merge_fallback": 0}
 
@@ -152,8 +154,9 @@ def sync(
         try:
             # ── Merge mode: try to enhance a watch-recorded activity ──
             merge_forced_fresh = False
+            merge_delete_id = None
             if merge_mode and garmin_client and not dry_run:
-                merge_result = attempt_merge(garmin_client, workout, db, overlap_threshold=merge_overlap_pct, max_drift_minutes=merge_max_drift_min, activity_types=merge_activity_types)
+                merge_result = attempt_merge(garmin_client, workout, db, overlap_threshold=merge_overlap_pct, max_drift_minutes=merge_max_drift_min, activity_types=merge_activity_types, watch_strategy=merge_watch_strategy)
                 if merge_result.merged:
                     db.mark_synced(
                         hevy_id=wid,
@@ -170,6 +173,7 @@ def sync(
                     logger.info("  Merge fallback: %s", merge_result.fallback_reason)
                     stats["merge_fallback"] += 1
                     merge_forced_fresh = merge_result.force_fresh_upload
+                    merge_delete_id = merge_result.delete_after_upload
 
             # ── Standard upload path (FIT generation) ──
             # Embed merged HR (AirPods-preferred, watch fill) so it reaches
@@ -204,6 +208,14 @@ def sync(
                 else:
                     upload_result = upload_fit(garmin_client, fit_path, workout_start=start_time)
                     activity_id = upload_result.get("activity_id")
+                    # "replace" strategy (#159): the named upload succeeded, so
+                    # delete the watch recording to keep a single activity.
+                    if activity_id and merge_delete_id:
+                        try:
+                            delete_activity(garmin_client, merge_delete_id)
+                            logger.info("  Removed watch copy %s (replaced by %s)", merge_delete_id, activity_id)
+                        except Exception as e:
+                            logger.warning("Could not delete watch activity %s: %s", merge_delete_id, e)
 
                 if activity_id:
                     rename_activity(garmin_client, activity_id, title)
