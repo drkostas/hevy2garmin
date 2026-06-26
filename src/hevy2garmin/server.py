@@ -981,6 +981,33 @@ async def api_save_mapping(request: Request):
     return HTMLResponse(f'<div class="toast toast-success">Mapped "{hevy_name}" → {cat_label} ({category}:{subcategory}). <a href="/mappings">Reload</a></div>')
 
 
+@app.post("/api/reload-data", response_class=HTMLResponse)
+async def api_reload_data(request: Request):
+    """Clear the cached Hevy workout data so the dashboard refetches from Hevy.
+
+    The workouts page serves cached pages (populated during sync), so editing a
+    workout in Hevy was not reflected until the next sync. This button drops the
+    cached pages and reloads with fresh data (#174).
+    """
+    if is_demo_mode():
+        return HTMLResponse('<div class="toast toast-error">Read-only in demo mode</div>')
+    config = load_config()
+    try:
+        from hevy2garmin.hevy import HevyClient
+        _db = db.get_db()
+        total = HevyClient(api_key=config.get("hevy_api_key")).get_workout_count()
+        _db.set_app_config("hevy_total", {"count": total})
+        for pg in range(1, (total // 10) + 2):
+            _db.set_app_config(f"hevy_workouts_page_{pg}", {})
+        global _unmapped_cache
+        _unmapped_cache = None
+        # HX-Refresh tells htmx to reload the page, which refetches fresh data.
+        return HTMLResponse("", headers={"HX-Refresh": "true"})
+    except Exception as e:
+        logger.warning("Reload data failed: %s", e)
+        return HTMLResponse(f'<div class="toast toast-error">Reload failed: {str(e)[:120]}</div>')
+
+
 @app.post("/api/mapping/delete", response_class=HTMLResponse)
 async def api_delete_mapping(request: Request):
     """Delete a custom exercise mapping."""
