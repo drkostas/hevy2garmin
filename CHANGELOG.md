@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Footer showed the wrong version (e.g. 0.4.0) after a Vercel fork + sync** ([#189](https://github.com/drkostas/hevy2garmin/issues/189)). The version came from the installed package metadata, which the Vercel build can cache stale, so the footer showed an old number even though the code was current. It now reads the version from pyproject.toml in the deployed source, so the footer always matches the running code. Thanks @KaiBoos.
+
 ## [0.5.10] - 2026-06-26
 
 ### Added
