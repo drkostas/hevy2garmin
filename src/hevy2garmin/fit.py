@@ -267,7 +267,7 @@ def generate_fit(
 
     # 3. ExerciseTitleMessage (one per exercise)
     for ex_idx, ex in enumerate(exercises):
-        cat, sub, display_name = lookup_exercise(ex["title"])
+        cat, sub, display_name = lookup_exercise(ex["title"], ex.get("exercise_template_id"))
         etm = ExerciseTitleMessage()
         etm.message_index = ex_idx
         etm.exercise_category = cat
@@ -312,7 +312,7 @@ def generate_fit(
     for si in all_sets_info:
         s = si["set_data"]
         ex_idx = si["ex_idx"]
-        cat, sub, _ = lookup_exercise(exercises[ex_idx]["title"])
+        cat, sub, _ = lookup_exercise(exercises[ex_idx]["title"], exercises[ex_idx].get("exercise_template_id"))
 
         set_start_ms = start_ms + round(si["start_offset_s"] * 1000)
         set_end_ms = start_ms + round(si["end_offset_s"] * 1000)

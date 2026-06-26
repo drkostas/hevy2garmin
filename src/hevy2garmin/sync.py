@@ -145,7 +145,7 @@ def sync(
         # Track unmapped exercises
         for ex in workout.get("exercises", []):
             ex_name = ex.get("title") or ex.get("name", "")
-            cat, _, _ = lookup_exercise(ex_name)
+            cat, _, _ = lookup_exercise(ex_name, ex.get("exercise_template_id"))
             if cat == 65534 and ex_name not in stats["unmapped"]:
                 stats["unmapped"].append(ex_name)
 

@@ -160,7 +160,7 @@ def cmd_unmapped(args: argparse.Namespace) -> None:
         for w in data.get("workouts", []):
             for ex in w.get("exercises", []):
                 name = ex.get("title") or ex.get("name", "")
-                cat, _, _ = lookup_exercise(name)
+                cat, _, _ = lookup_exercise(name, ex.get("exercise_template_id"))
                 if cat == 65534:
                     unmapped[name] = unmapped.get(name, 0) + 1
         if page >= data.get("page_count", page):

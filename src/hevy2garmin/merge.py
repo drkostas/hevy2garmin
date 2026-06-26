@@ -225,7 +225,7 @@ def build_exercise_sets_payload(
         ex_idx = si["ex_idx"]
         ex = exercises[ex_idx]
 
-        cat_id, sub_id, _ = lookup_exercise(ex.get("title") or ex.get("name", "Unknown"))
+        cat_id, sub_id, _ = lookup_exercise(ex.get("title") or ex.get("name", "Unknown"), ex.get("exercise_template_id"))
         cat_str = _category_to_string(cat_id)
         sub_name = _exercise_to_string(cat_id, sub_id)
         # Garmin rejects an UNKNOWN category, so fall back to the generic

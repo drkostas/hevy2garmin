@@ -129,7 +129,7 @@ def _get_unmapped_exercises() -> list[tuple[str, int]]:
             for w in data.get("workouts", []):
                 for ex in w.get("exercises", []):
                     name = ex.get("title") or ex.get("name", "")
-                    if name and lookup_exercise(name)[0] == 65534:
+                    if name and lookup_exercise(name, ex.get("exercise_template_id"))[0] == 65534:
                         unmapped[name] = unmapped.get(name, 0) + 1
             if pg >= data.get("page_count", 1):
                 break
@@ -1594,7 +1594,7 @@ def _scan_for_unsynced(hevy, is_synced, total_count, failed_ids, on_page=None):
                 unsynced = w
             for ex in w.get("exercises", []):
                 name = ex.get("title") or ex.get("name", "")
-                if name and lookup_exercise(name)[0] == 65534:
+                if name and lookup_exercise(name, ex.get("exercise_template_id"))[0] == 65534:
                     unmapped[name] = unmapped.get(name, 0) + 1
         if unsynced:
             break

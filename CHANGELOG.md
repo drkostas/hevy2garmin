@@ -7,6 +7,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Language-independent exercise mapping** ([#173](https://github.com/drkostas/hevy2garmin/issues/173)). Non-English Hevy exercises (German and others) now map to Garmin automatically using Hevy's `exercise_template_id`, which is the same in every language, instead of only the English exercise name. Built from Hevy's global catalog (428 exercises) via `scripts/gen_template_map.py`. You no longer need to map every exercise by hand just because your Hevy is not set to English. Thanks @KaiBoos for the idea.
+
+### Added
 - **"Reload Data" button on the Workouts page** ([#174](https://github.com/drkostas/hevy2garmin/issues/174)). The page serves cached workout data, so editing a workout in Hevy was not reflected until the next sync. The button refetches your latest workouts from Hevy on demand. Thanks @KaiBoos.
 
 ## [0.5.5] - 2026-06-25

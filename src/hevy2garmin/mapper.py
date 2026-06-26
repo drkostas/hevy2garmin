@@ -18,6 +18,8 @@ FIT SDK exercise categories used:
 
 from __future__ import annotations
 
+from hevy2garmin.template_map import TEMPLATE_TO_GARMIN
+
 # --------------------------------------------------------------------------- #
 # Mapping: Hevy exercise name  ->  (FIT exercise category, subcategory)
 # --------------------------------------------------------------------------- #
@@ -702,18 +704,27 @@ def save_custom_mapping(hevy_name: str, category: int, subcategory: int) -> None
     _custom_mappings[hevy_name] = (category, subcategory)
 
 
-def lookup_exercise(hevy_name: str) -> tuple[int, int, str]:
+def lookup_exercise(hevy_name: str, template_id: str | None = None) -> tuple[int, int, str]:
     """Return ``(category, subcategory, display_name)`` for a Hevy exercise.
 
-    Checks custom user mappings first, then the built-in 438-entry table.
-    If not found anywhere, returns sentinel category ``65534``.
+    Resolution order:
+      1. Custom user mapping, keyed by the user's own exercise name.
+      2. Hevy ``exercise_template_id``, which is the same regardless of the
+         user's Hevy language, so non-English exercises map automatically (#173).
+      3. The built-in English-name table.
+    Returns sentinel category ``65534`` if not found anywhere.
     """
     _ensure_custom_loaded()
     # Custom mappings take priority
     if hevy_name in _custom_mappings:
         cat, subcat = _custom_mappings[hevy_name]
         return (cat, subcat, hevy_name)
-    # Built-in mappings
+    # Language-independent template-id match
+    if template_id:
+        pair = TEMPLATE_TO_GARMIN.get(template_id)
+        if pair is not None:
+            return (pair[0], pair[1], hevy_name)
+    # Built-in English-name mappings
     pair = HEVY_TO_GARMIN.get(hevy_name)
     if pair is not None:
         return (pair[0], pair[1], hevy_name)
