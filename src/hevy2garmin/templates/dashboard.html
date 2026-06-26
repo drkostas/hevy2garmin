@@ -165,7 +165,7 @@
                 hx-post="/api/toggle-autosync"
                 hx-target="#autosync-status"
                 hx-swap="innerHTML"
-                hx-vals='js:{"enabled": document.getElementById("autosync-toggle").classList.contains("active"), "interval": this.value}'
+                hx-vals='js:{"enabled": document.getElementById("autosync-toggle").classList.contains("active"), "interval": document.getElementById("autosync-interval").value}'
                 hx-disabled-elt="this, #autosync-toggle"
                 hx-indicator="#autosync-spinner, #autosync-status"
                 hx-trigger="change"
