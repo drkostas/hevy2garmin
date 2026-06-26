@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.11] - 2026-06-26
+
 ### Added
 - **"Unsync All" button** ([#174](https://github.com/drkostas/hevy2garmin/issues/174)). On the Workouts page, next to Reload Data. Clears the sync status of every workout so the next sync re-imports them all, which is handy after a mapping fix instead of unsyncing one at a time. It does not delete anything from Garmin, and workouts still on Garmin are skipped as duplicates on re-sync. Thanks @KaiBoos.
 
