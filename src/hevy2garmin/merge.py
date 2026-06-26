@@ -335,23 +335,24 @@ def attempt_merge(
     # any match we did not create, skip the merge and upload a fresh named
     # activity instead. HR fusion still pulls the watch heart rate into it.
     manufacturer = str(match.get("manufacturer") or "").upper()
-    if manufacturer and manufacturer != "DEVELOPMENT":
-        if watch_strategy == "describe":
-            # Keep the single watch activity (its HR + device metrics) and just
-            # list the exercises in its description. No push (Garmin ignores it
-            # on watch activities anyway) and no upload, so it stays one activity.
-            logger.info(
-                "  Match %s recorded by %s; enriching its description (watch_strategy=describe)",
-                activity_id, manufacturer,
-            )
-            try:
-                _apply_name_and_description(client, activity_id, hevy_workout)
-            except Exception as e:
-                logger.warning("Rename/description failed for %s: %s", activity_id, e)
-            return MergeResult(merged=True, activity_id=activity_id)
+    is_watch = bool(manufacturer) and manufacturer != "DEVELOPMENT"
+    if is_watch and watch_strategy == "describe":
+        # Keep the single watch activity (its HR + device metrics) and just list
+        # the exercises in its description. No push (Garmin ignores names on watch
+        # activities) and no upload, so it stays one activity.
+        logger.info(
+            "  Match %s recorded by %s; enriching its description (watch_strategy=describe)",
+            activity_id, manufacturer,
+        )
+        try:
+            _apply_name_and_description(client, activity_id, hevy_workout)
+        except Exception as e:
+            logger.warning("Rename/description failed for %s: %s", activity_id, e)
+        return MergeResult(merged=True, activity_id=activity_id)
 
-        # Default "replace": upload one named activity, then delete the watch
-        # recording, so the workout shows up exactly once with named exercises.
+    if is_watch and watch_strategy == "replace":
+        # Upload one named activity, then delete the watch recording, so the
+        # workout shows up exactly once with named exercises.
         logger.info(
             "  Match %s recorded by %s; uploading a named activity and removing the watch copy (watch_strategy=replace)",
             activity_id, manufacturer,
@@ -361,6 +362,17 @@ def attempt_merge(
             force_fresh_upload=True,
             delete_after_upload=activity_id,
             fallback_reason=f"activity recorded by {manufacturer}; replacing it with a named upload",
+        )
+
+    if is_watch:
+        # watch_strategy == "merge": push the sets/reps/weights into the single
+        # watch activity, keeping all its native metrics (HR, training effect,
+        # body battery). Garmin will not display the exercise NAMES on a
+        # device-recorded activity, so they show as "Unknown", but the structured
+        # sets/reps/weights land in the activity. One activity, no upload/delete.
+        logger.info(
+            "  Match %s recorded by %s; merging sets in place, names may show as Unknown (watch_strategy=merge)",
+            activity_id, manufacturer,
         )
 
     # Backup existing exercise sets
@@ -387,13 +399,13 @@ def attempt_merge(
         logger.error("PUT exerciseSets failed for activity %s: %s", activity_id, e)
         return MergeResult(merged=False, fallback_reason=f"PUT failed: {e}")
 
-    # The push returns 204 even when Garmin drops the exercise names on a
-    # watch-recorded activity (#159). Verify the names actually applied; if not,
-    # restore the activity and tell the caller to upload a separate named
-    # activity instead (the only way those users get real exercise names).
-    if not _names_applied(client, activity_id):
+    # hevy2garmin's own uploads (DEVELOPMENT) display the pushed names, so verify
+    # there and fall back to a named upload if Garmin dropped them. For
+    # watch_strategy="merge" we intentionally keep the watch activity even though
+    # Garmin will not show the names, so skip the verify and keep the sets.
+    if not (is_watch and watch_strategy == "merge") and not _names_applied(client, activity_id):
         logger.info(
-            "  Exercise names not applied on watch activity %s — restoring and uploading a named activity",
+            "  Exercise names not applied on activity %s, restoring and uploading a named activity",
             activity_id,
         )
         _restore_sets(client, activity_id, database)

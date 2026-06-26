@@ -912,7 +912,7 @@ async def settings_save(
     config["merge_activity_types"] = ["strength_training"] + [
         t for t in dict.fromkeys(extra_types) if t != "strength_training"
     ]
-    config["merge_watch_strategy"] = merge_watch_strategy if merge_watch_strategy in ("replace", "describe") else "replace"
+    config["merge_watch_strategy"] = merge_watch_strategy if merge_watch_strategy in ("replace", "merge", "describe") else "replace"
     save_config(config)
 
     # Persist settings to DB on cloud (filesystem is read-only on Vercel)

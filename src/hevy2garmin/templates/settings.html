@@ -231,11 +231,12 @@
                     <div class="form-group">
                         <label class="form-label" for="merge_watch_strategy">Workouts recorded on a watch</label>
                         <select class="form-input" id="merge_watch_strategy" name="merge_watch_strategy">
-                            <option value="replace" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'replace' }}>Replace with one named activity (recommended)</option>
+                            <option value="replace" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'replace' }}>Replace with one named activity (named exercises)</option>
+                            <option value="merge" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'merge' }}>Merge sets into the watch activity (keeps watch metrics)</option>
                             <option value="describe" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'describe' }}>Keep the watch activity, list exercises in its description</option>
                         </select>
                         <div class="form-hint">
-                            Garmin does not show exercise names on a workout your watch recorded. <strong>Replace</strong> uploads one named activity (with your heart rate) and deletes the watch copy, so you get a single activity with named exercises and no double-counted calories. <strong>Keep</strong> leaves the watch activity untouched and only lists the exercises in its description.
+                            Garmin does not show exercise names on a workout your watch recorded, so you always end up with one activity but with a tradeoff. <strong>Replace</strong> uploads one named activity (with your heart rate) and deletes the watch copy, so exercises are named, but you lose watch-only metrics like training effect. <strong>Merge sets</strong> pushes the sets, reps, and weights into the watch activity and keeps it, so you keep all watch metrics and structured set data, but the exercise names show as "Unknown". <strong>Keep + describe</strong> leaves the watch activity untouched and only lists the exercises in its description, with no structured sets.
                         </div>
                     </div>
                 </div>

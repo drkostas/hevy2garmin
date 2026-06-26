@@ -476,6 +476,33 @@ def test_development_upload_still_merges(mock_desc, mock_rename, mock_push, mock
     mock_push.assert_called_once()
 
 
+@patch("hevy2garmin.merge.time.sleep")
+@patch("hevy2garmin.merge.find_matching_garmin_activity")
+@patch("hevy2garmin.merge.get_activity_exercise_sets")
+@patch("hevy2garmin.merge.push_exercise_sets")
+@patch("hevy2garmin.merge.rename_activity")
+@patch("hevy2garmin.merge.set_description")
+@patch("hevy2garmin.merge.generate_description")
+def test_watch_merge_strategy_pushes_and_keeps(mock_gen, mock_desc, mock_rename, mock_push, mock_get, mock_find, _sleep):
+    """'merge' strategy pushes sets into the watch activity and keeps it as one
+    activity (merged=True), without verifying names or forcing a fresh upload (#159)."""
+    reset_circuit_breaker()
+    act = _make_garmin_activity()
+    act["manufacturer"] = "GARMIN"
+    mock_find.return_value = act
+    mock_get.return_value = {"exerciseSets": []}  # only the backup read; verify is skipped
+    mock_gen.return_value = "Dumbbell Row: 3 sets"
+
+    result = attempt_merge(MagicMock(), HEVY_WORKOUT, MagicMock(), watch_strategy="merge")
+
+    assert result.merged is True
+    assert result.activity_id == 12345
+    assert result.force_fresh_upload is False
+    assert result.delete_after_upload is None
+    mock_push.assert_called_once()     # pushed the sets into the watch activity
+    mock_rename.assert_called_once()   # renamed + described it in place
+
+
 class TestNamesApplied:
     """Verify whether Garmin actually kept the exercise identities (#159)."""
 
