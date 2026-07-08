@@ -130,7 +130,7 @@ def sync(
     merge_activity_types = set(cfg.get("merge_activity_types", ["strength_training"]))
     merge_watch_strategy = cfg.get("merge_watch_strategy", "replace")
     description_enabled = cfg.get("description_enabled", True)
-    stats = {"synced": 0, "skipped": 0, "failed": 0, "total": len(workouts), "unmapped": [], "merged": 0, "merge_fallback": 0, "deferred": 0}
+    stats = {"synced": 0, "skipped": 0, "failed": 0, "total": len(workouts), "unmapped": [], "merged": 0, "merge_fallback": 0, "deferred": 0, "no_hr": 0}
 
     if merge_mode:
         reset_circuit_breaker()
@@ -196,9 +196,14 @@ def sync(
             # Embed merged HR (AirPods-preferred, watch fill) so it reaches
             # Garmin Connect, not just the dashboard (#158). Best-effort.
             hr_samples = None
-            if not dry_run:
+            hr_fusion_on = cfg.get("hr_fusion", {}).get("enabled", True)
+            if not dry_run and hr_fusion_on:
                 from hevy2garmin.hr import hr_for_sync
                 hr_samples = hr_for_sync(db, garmin_client, workout, cfg, _hr_limiter)
+                if not hr_samples:
+                    # One retry — the watch's daily HR for this window may not
+                    # have settled on the first try.
+                    hr_samples = hr_for_sync(db, garmin_client, workout, cfg, _hr_limiter)
 
             with tempfile.TemporaryDirectory() as tmp:
                 fit_path = str(Path(tmp) / f"{wid}.fit")
@@ -254,6 +259,9 @@ def sync(
                     hevy_updated_at=workout.get("updated_at"),
                     sync_method=sync_method,
                 )
+                if hr_fusion_on and not hr_samples:
+                    logger.warning("  ⚠ No heart-rate data available for %s — activity uploaded without HR", wid)
+                    stats["no_hr"] += 1
                 stats["synced"] += 1
                 logger.info("  ✓ Synced → Garmin activity %s", activity_id)
 
