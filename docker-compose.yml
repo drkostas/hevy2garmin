@@ -1,0 +1,11 @@
+services:
+  hevy2garmin:
+    image: ghcr.io/secunit404/hevy2garmin:latest
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "8123:8123"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/config

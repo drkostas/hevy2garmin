@@ -199,38 +199,66 @@ After syncing, check [Garmin Connect](https://connect.garmin.com/modern/activiti
 
 ### Docker
 
+Pull the pre-built image from GHCR — no local build required:
+
 ```bash
-git clone https://github.com/drkostas/hevy2garmin.git
-cd hevy2garmin
-docker build -t hevy2garmin .
+docker pull ghcr.io/secunit404/hevy2garmin:latest
 ```
 
-Before running in Docker, you need Garmin auth tokens. Either:
-- Run `pip install hevy2garmin && hevy2garmin init` locally (if you have Python), or
-- Run `docker run -it -v ~/.garminconnect:/root/.garminconnect hevy2garmin init` to set up inside Docker interactively
+All app state (`config.json`, `sync.db`, cached Garmin tokens) lives under a single `/config` directory in the container — mount that to persist it:
+- `/config/.hevy2garmin` — saved config + sync history (which workouts have already been pushed to Garmin, so restarts don't create duplicates)
+- `/config/.garminconnect` — cached Garmin Connect session tokens (so it doesn't have to log in to Garmin from scratch on every restart)
 
 **Web dashboard with auto-sync:**
 
 ```bash
 docker run -d -p 8123:8123 --restart unless-stopped \
-  -v ~/.hevy2garmin:/root/.hevy2garmin \
-  -v ~/.garminconnect:/root/.garminconnect \
-  -e HEVY_API_KEY=... \
-  -e GARMIN_EMAIL=... \
-  hevy2garmin serve
+  -v ~/hevy2garmin-data:/config \
+  ghcr.io/secunit404/hevy2garmin
 ```
 
-Open [localhost:8123](http://localhost:8123) and enable auto-sync on the dashboard.
+Open [localhost:8123](http://localhost:8123) — with no config yet, it redirects straight to the setup page. Enter your Hevy API key and Garmin email/password there; the login happens right in that form (same setup wizard Vercel deployments use) and the resulting Garmin tokens are cached to `/config/.garminconnect` for future syncs. No separate init step needed. Enable auto-sync once setup is done.
 
-**One-off sync:**
+You can also pass `-e HEVY_API_KEY=... -e GARMIN_EMAIL=... -e GARMIN_PASSWORD=...` on `docker run` to skip typing credentials into the form — purely optional, the dashboard does the same thing either way.
+
+**One-off sync (no dashboard):**
 
 ```bash
 docker run --rm \
-  -v ~/.hevy2garmin:/root/.hevy2garmin \
-  -v ~/.garminconnect:/root/.garminconnect \
+  -v ~/hevy2garmin-data:/config \
   -e HEVY_API_KEY=... \
   -e GARMIN_EMAIL=... \
-  hevy2garmin sync
+  -e GARMIN_PASSWORD=... \
+  ghcr.io/secunit404/hevy2garmin sync
+```
+
+`GARMIN_PASSWORD` is required here on first run (or any run before `/config/.garminconnect` has cached tokens from a prior dashboard login) since there's no browser involved to complete the Garmin login.
+
+**Recurring sync via cron, no dashboard:** if you never plan to open the web UI, seed the Garmin tokens once with the interactive wizard:
+
+```bash
+docker run -it -v ~/hevy2garmin-data:/config ghcr.io/secunit404/hevy2garmin init
+```
+
+Not needed if you've completed setup through the dashboard at least once, or if you always pass `GARMIN_PASSWORD`.
+
+**Docker Compose:** copy [`docker-compose.yml`](docker-compose.yml) and your `.env` (see [`.env.example`](.env.example)) next to each other, then:
+
+```bash
+mkdir -p ./data && chmod 777 ./data   # one-time: see note below
+docker compose up -d
+```
+
+**Running as a specific user/group (Unraid, hardened setups):** the container runs as root by default. To run as a specific uid:gid instead, pass `--user <uid>:<gid>` on `docker run`, or set `PUID`/`PGID` in `.env` for Compose (defaults to `1000:1000`). **Unraid users:** set `PUID=99` and `PGID=100` to match Unraid's default `nobody:users` identity.
+
+> **Note on bind-mount permissions:** when you mount a host folder (`-v ~/hevy2garmin-data:/config` or Compose's `./data:/config`) that doesn't exist yet, Docker creates it owned by `root` — an arbitrary `PUID`/`PGID` won't be able to write to it. Run `mkdir -p <path> && chmod 777 <path>` once before the first start (as shown above), or `chown <PUID>:<PGID> <path>` if you'd rather keep it locked to that user. This is only needed once; after that the folder already has the right permissions.
+
+**Build it yourself instead** (e.g. for a fork or local changes):
+
+```bash
+git clone https://github.com/secunit404/hevy2garmin.git
+cd hevy2garmin
+docker build -t hevy2garmin .
 ```
 
 ### Python API
@@ -325,10 +353,18 @@ pip install --upgrade hevy2garmin
 ### Docker
 
 ```bash
-cd hevy2garmin
-git pull origin main
-docker build -t hevy2garmin .
+docker compose pull
+docker compose up -d
 ```
+
+Or without Compose:
+
+```bash
+docker pull ghcr.io/secunit404/hevy2garmin:latest
+docker restart <container-name>
+```
+
+If you built the image locally instead of pulling from GHCR: `git pull origin main && docker build -t hevy2garmin .`
 
 ### Git clone (local)
 
