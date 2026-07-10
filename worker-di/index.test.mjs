@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
+import worker, {
   hashEmail,
   remainingSeconds,
   cooldownRemaining,
@@ -110,4 +110,80 @@ test("fails open when KV is unavailable", async () => {
     7200,
     "KV put error -> still returns cooldown length",
   );
+});
+
+// ── Integration: drive the Worker's fetch handler with a mocked global fetch ──
+
+function loginRequest(email, password = "pw") {
+  return new Request("https://worker.test/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+test("a 429 from Garmin records a per-account cooldown (#214, constraint 3)", async () => {
+  const env = { MFA_SESSIONS: fakeKV() };
+  const email = "flow@garmin.test";
+  const orig = globalThis.fetch;
+  let loginPosts = 0;
+  globalThis.fetch = async (_url, opts = {}) => {
+    if ((opts.method || "GET") === "POST") {
+      loginPosts += 1;
+      return new Response("", { status: 429 }); // Garmin throttles the login POST
+    }
+    // warmup GET establishes cookies
+    return new Response("", { status: 200, headers: { "set-cookie": "s=1" } });
+  };
+  try {
+    const res = await worker.fetch(loginRequest(email), env);
+    const body = await res.json();
+    assert.equal(body.status, "rate_limited", "surfaces rate_limited");
+    assert.equal(body.retry_after_seconds, 7200, "reports the cooldown length");
+
+    // The cooldown must have landed in KV under THIS account's key.
+    const hash = await hashEmail(email);
+    assert.ok(
+      env.MFA_SESSIONS.store.has("cooldown:" + hash),
+      "cooldown key recorded for the account",
+    );
+    // And it must NOT gate a different account.
+    assert.equal(
+      await cooldownRemaining(env, "other@garmin.test"),
+      0,
+      "different account is not gated",
+    );
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
+test("an active cooldown short-circuits /login WITHOUT calling Garmin (#214 pre-gate)", async () => {
+  const email = "gated@garmin.test";
+  const hash = await hashEmail(email);
+  const env = { MFA_SESSIONS: fakeKV() };
+  // Pre-seed an active cooldown (1h out).
+  env.MFA_SESSIONS.store.set(
+    "cooldown:" + hash,
+    JSON.stringify({ until: Date.now() + 3600_000 }),
+  );
+
+  const orig = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("Garmin must not be contacted during a cooldown");
+  };
+  try {
+    const res = await worker.fetch(loginRequest(email), env);
+    const body = await res.json();
+    assert.equal(body.status, "rate_limited", "short-circuits to rate_limited");
+    assert.ok(
+      body.retry_after_seconds > 3500 && body.retry_after_seconds <= 3600,
+      `reports the decaying remainder, got ${body.retry_after_seconds}`,
+    );
+    assert.equal(fetchCalls, 0, "Garmin was never contacted");
+  } finally {
+    globalThis.fetch = orig;
+  }
 });

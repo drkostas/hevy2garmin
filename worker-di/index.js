@@ -96,8 +96,10 @@ const MFA_SESSION_TTL_SECONDS = 600;
 // cooldown (0.5.14) by POSTing the Worker directly and deepen Garmin's throttle
 // (#147). Keyed per account because this Worker is shared across every
 // self-hosted instance and Garmin throttles per-account, so a global key would
-// let one account's 429 lock out everyone. Matches the local server's 2h base
-// (ratelimit.py) so users see one consistent number. The KV entry's TTL equals
+// let one account's 429 lock out everyone. Uses a flat 2h window (the local
+// server's ratelimit.py base) as a backstop; it intentionally does NOT
+// replicate the client's exponential backoff, so for a repeatedly-throttled
+// account the two layers can report different waits. The KV entry's TTL equals
 // the cooldown, so it self-clears exactly when the window ends.
 const COOLDOWN_KEY_PREFIX = "cooldown:";
 const COOLDOWN_SECONDS = 2 * 3600;
@@ -589,6 +591,7 @@ export async function cooldownRemaining(env, email) {
     const raw = await env.MFA_SESSIONS.get(COOLDOWN_KEY_PREFIX + hash);
     if (!raw) return 0;
     const { until } = JSON.parse(raw);
+    if (typeof until !== "number") return 0;
     return remainingSeconds(until, Date.now());
   } catch {
     return 0;
