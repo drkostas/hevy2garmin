@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.15] - 2026-07-10
+
+### Changed
+- Unified the bulk sync and per-workout cron sync paths behind a single `sync_one_workout()` helper. The Vercel cron now gets the same merge-reliability behavior (grace period, heart-rate retry, duplicate awareness) that the CLI and autosync paths already had. Thanks @donndonn for the contribution (#208, closes #206).
+
+### Fixed
+- The description toggle is now respected on the web sync path, and calories and average heart rate carry through on the merge path.
+
 ## [0.5.14] - 2026-07-09
 
 ### Added
