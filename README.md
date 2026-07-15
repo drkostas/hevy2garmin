@@ -16,6 +16,8 @@
 
 <p align="center">
   <a href="https://hevy2garmin-demo.gkos.dev"><strong>Try the live demo</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://hevy-garmin-explainer.vercel.app"><strong>See how it works</strong></a>
 </p>
 
 <p align="center">
