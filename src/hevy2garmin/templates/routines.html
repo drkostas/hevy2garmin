@@ -9,10 +9,6 @@
   <form hx-post="/api/routines/sync" hx-target="#routines-result" hx-disabled-elt="find button"
         style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
     <button type="submit" class="btn btn-primary">Sync all routines</button>
-    <label style="display:flex; gap:6px; align-items:center; color:var(--text-muted); font-size:14px;">
-      Schedule date (optional):
-      <input type="date" name="date" style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 8px;">
-    </label>
     <label style="display:flex; gap:6px; align-items:center; color:var(--text-muted); font-size:14px;" title="Re-create even routines already synced">
       <input type="checkbox" name="force" value="1"> Force re-create
     </label>
