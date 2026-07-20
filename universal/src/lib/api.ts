@@ -7,6 +7,11 @@ import { useCallback, useEffect, useState } from "react";
  */
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3456";
 
+/** Personal API token for prod (soma.gkos.dev gates /api/* behind a session;
+    the token bypasses that for this native client). Empty in local dev. */
+const API_TOKEN = process.env.EXPO_PUBLIC_API_TOKEN;
+const AUTH_HEADERS: Record<string, string> = API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {};
+
 export interface HevyWorkout {
   title: string;
   date: string;
@@ -31,7 +36,7 @@ export function useHevyStatus() {
   const [reload, setReload] = useState(0);
   useEffect(() => {
     let alive = true;
-    fetch(`${API_BASE}/api/hevy/status`)
+    fetch(`${API_BASE}/api/hevy/status`, { headers: AUTH_HEADERS })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d: HevyStatus) => alive && (setData(d), setError(null)))
       .catch((e) => alive && setError(String(e.message ?? e)));
