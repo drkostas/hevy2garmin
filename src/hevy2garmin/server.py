@@ -26,6 +26,7 @@ from hevy2garmin.ratelimit import record_rate_limit, cooldown_remaining, clear_r
 from hevy2garmin.sync import (
     sync,
     sync_routines,
+    sync_routine,
     routine_schedule_dates,
     schedule_routine,
     unschedule_routine_entry,
@@ -1440,6 +1441,37 @@ async def api_routines_sync(request: Request):
         f'<div class="toast {cls}">Routine sync complete: {msg}</div>',
         headers={"HX-Trigger": "refreshSchedules"},
     )
+
+
+@app.post("/api/routines/{hevy_routine_id}/sync", response_class=HTMLResponse)
+async def api_routine_sync_one(request: Request, hevy_routine_id: str):
+    """Sync a single Hevy routine and swap its table row in place."""
+    if is_demo_mode():
+        return HTMLResponse('<div class="toast toast-success">Sync disabled in demo mode.</div>')
+
+    form = await request.form()
+    force = form.get("force") in ("1", "true", "on")
+
+    if not _acquire_sync_lock():
+        return HTMLResponse('<div class="toast toast-error">Another sync is already running. Please wait.</div>')
+
+    try:
+        result = sync_routine(hevy_routine_id, force=force)
+    except Exception:
+        logger.exception("Routine %s sync failed", hevy_routine_id)
+        return HTMLResponse('<div class="toast toast-error">Routine sync failed. Check the logs for details.</div>')
+    finally:
+        _sync_executing.release()
+
+    outcome = result["outcome"]
+    if outcome == "failed":
+        return HTMLResponse(f'<div class="toast toast-error">Could not sync "{result["row"]["title"]}". Check the logs.</div>')
+    # Toast into #routines-result plus an out-of-band swap of the updated row, so it flips
+    # to "synced" (and gains the Schedule form) without a full page reload. HX-Trigger
+    # refreshes the schedules table since the restore path may have re-booked dates.
+    row_html = _render("routine_row.html", r=result["row"], oob=True).body.decode()
+    toast = f'<div class="toast toast-success">Synced "{result["row"]["title"]}" ({outcome}).</div>'
+    return HTMLResponse(toast + row_html, headers={"HX-Trigger": "refreshSchedules"})
 
 
 @app.post("/api/routines/{hevy_routine_id}/schedule", response_class=HTMLResponse)

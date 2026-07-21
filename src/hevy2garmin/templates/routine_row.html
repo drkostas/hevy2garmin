@@ -1,0 +1,58 @@
+<tr id="routine-row-{{ r.id }}" class="routine-row {{ 'is-synced' if r.synced else 'is-unsynced' }}"
+    style="border-top:1px solid var(--border); vertical-align:top;"
+    {% if oob %}hx-swap-oob="true"{% endif %}>
+  <td style="padding:8px;">{{ r.title }}</td>
+  <td style="padding:8px;">{{ r.exercise_count }}</td>
+  <td style="padding:8px;">
+    {% if r.synced %}<span style="color:var(--green);">✓ synced</span>
+    {% else %}<span style="color:var(--text-muted);">not synced</span>{% endif %}
+    {% if r.scheduled_date %}<br><span style="color:var(--text-muted); font-size:12px;">📅 {{ r.scheduled_date }}</span>{% endif %}
+  </td>
+  <td style="padding:8px;">
+    <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-start;">
+      <button type="button" class="btn btn-secondary"
+              hx-post="/api/routines/{{ r.id }}/sync" hx-target="#routines-result" hx-swap="innerHTML"
+              hx-disabled-elt="this" style="font-size:12px; padding:4px 10px;"
+              title="Sync this routine to Garmin">
+        {{ 'Re-sync' if r.synced else 'Sync' }}
+        <span class="htmx-indicator"><span class="spinner"></span></span>
+      </button>
+      {% if r.synced %}
+      <details>
+        <summary style="cursor:pointer; user-select:none;" title="Schedule on the Garmin calendar">📅 Schedule</summary>
+        <form hx-post="/api/routines/{{ r.id }}/schedule" hx-target="#routines-result" hx-swap="innerHTML" hx-disabled-elt="find button"
+              style="margin-top:8px; display:flex; flex-direction:column; gap:8px; font-size:13px; max-width:320px;">
+          <label style="display:flex; gap:6px; align-items:center;">
+            <input type="radio" name="mode" value="once" checked> One-off
+            <input type="date" name="date"
+                   style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
+          </label>
+          <label style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <input type="radio" name="mode" value="recurring"> Weekly on
+            <select name="weekday" style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
+              <option value="0">Monday</option>
+              <option value="1">Tuesday</option>
+              <option value="2">Wednesday</option>
+              <option value="3">Thursday</option>
+              <option value="4">Friday</option>
+              <option value="5">Saturday</option>
+              <option value="6">Sunday</option>
+            </select>
+          </label>
+          <label style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; color:var(--text-muted);">
+            from <input type="date" name="start_date"
+                   style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
+            for <input type="number" name="weeks" min="1" max="52" value="4" style="width:60px; background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;"> weeks
+          </label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button type="submit" class="btn btn-primary">Add to calendar</button>
+            <span class="htmx-indicator" style="align-items:center; gap:6px; color:var(--text-muted);">
+              <span class="spinner"></span> Scheduling…
+            </span>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+  </td>
+</tr>
