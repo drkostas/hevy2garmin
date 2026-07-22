@@ -48,6 +48,35 @@
   .timeline-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex:none; }
   .timeline-name { margin-right:auto; font-weight:600; font-size:14px; }
   .timeline-wd { color:var(--text-muted); font-size:12px; }
+
+  /* ── Mobile (matches the app-wide 640px breakpoint in base.html) ── */
+  @media (max-width: 640px) {
+    /* Stat pod spans the row and spreads its three figures edge-to-edge. */
+    #routines-page .routines-summary { align-items:stretch; }
+    #routines-page .stat-pod { width:100%; justify-content:space-between; }
+
+    /* Full-width sync button instead of squeezing next to the checkbox. */
+    #routines-page .sync-bar-row { align-items:stretch; }
+    #routines-page .sync-bar-row > button[type="submit"] { width:100%; justify-content:center; }
+
+    /* Segmented filter fills the row; search drops to its own full-width line. */
+    #routines-page .seg { width:100%; }
+    #routines-page .seg-btn { flex:1; }
+    #routines-page .routine-search { min-width:0; width:100%; }
+
+    /* Card row wraps: name on line 1, badge+date on line 2, action buttons
+       right-aligned on their own line 3 (two buttons won't fit beside the date). */
+    #routines-page .routine-row { flex-wrap:wrap; }
+    #routines-page .routine-main { flex-basis:100%; }
+    #routines-page .routine-actions { flex:0 0 100%; justify-content:flex-end; }
+
+    /* Timeline row wraps so the Remove button stays reachable. */
+    #routines-page .timeline-row { flex-wrap:wrap; }
+    #routines-page .timeline-row .btn { margin-left:auto; }
+
+    /* "Upcoming schedule" header stacks its title above the filter form. */
+    #routines-page .card-header { flex-wrap:wrap; gap:12px; }
+  }
 </style>
 {% endblock %}
 {% block content %}
