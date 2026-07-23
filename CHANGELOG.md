@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-07-23
+
+### Fixed
+- Credentials with leading or trailing whitespace (a pasted newline is the classic case) no longer break sync ([#257](https://github.com/drkostas/hevy2garmin/issues/257)). The Hevy API key, Garmin email and password are normalized on read, so a stray newline can't break the API call and an existing bad value already stored in the database is cleaned automatically on the next load. On the Vercel deploy the stored value takes precedence over the environment variable, so this also fixes the case where a bad key couldn't be cleared by editing the env var.
+
 ## [0.6.1] - 2026-07-23
 
 ### Added

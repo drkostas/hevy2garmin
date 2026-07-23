@@ -72,6 +72,22 @@ class TestLoadConfig:
             config = load_config()
             assert config["user_profile"]["weight_kg"] == 80.0
 
+    def test_strips_whitespace_from_credentials(self, tmp_path: Path) -> None:
+        # A stray leading/trailing newline on a pasted credential (#257) is
+        # normalized on read, so it can't break the API call and an existing bad
+        # value self-heals on the next load.
+        config_file = tmp_path / "config.json"
+        config_file.write_text(json.dumps({
+            "hevy_api_key": "  abc123\n",
+            "garmin_email": "\tuser@example.com ",
+            "garmin_password": " pw ",
+        }))
+        with patch("hevy2garmin.config.CONFIG_FILE", config_file):
+            config = load_config()
+            assert config["hevy_api_key"] == "abc123"
+            assert config["garmin_email"] == "user@example.com"
+            assert config["garmin_password"] == "pw"
+
 
 class TestIsConfigured:
     def test_false_without_api_key(self, tmp_path: Path) -> None:

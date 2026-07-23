@@ -118,6 +118,14 @@ def load_config() -> dict[str, Any]:
     if not config.get("garmin_password") and os.environ.get("GARMIN_PASSWORD"):
         config["garmin_password"] = os.environ["GARMIN_PASSWORD"]
 
+    # Normalize credential whitespace. A stray leading/trailing newline (the classic
+    # copy-paste mistake) breaks the API call, and on the Vercel deploy the stored DB
+    # value takes precedence over the env var, so the user can't clear it by editing
+    # the variable. Stripping on read fixes new and existing values alike. (#257)
+    for _cred in ("hevy_api_key", "garmin_email", "garmin_password"):
+        if isinstance(config.get(_cred), str):
+            config[_cred] = config[_cred].strip()
+
     return config
 
 
