@@ -240,6 +240,18 @@ class TestHardenedHelpers:
             sig = hmac.new(_secret(), f"v1.{ts}".encode(), hashlib.sha256).hexdigest()[:32]
             assert verify_session(f"v1.{ts}.{sig}") is True
 
+    def test_v1_cookie_revoked_by_epoch_bump(self) -> None:
+        import hashlib
+        import hmac
+        import time
+        with patch.dict(os.environ, {"H2G_PASSWORD": "secret123"}):
+            from hevy2garmin.auth import _secret
+            ts = str(int(time.time()))
+            sig = hmac.new(_secret(), f"v1.{ts}".encode(), hashlib.sha256).hexdigest()[:32]
+            cookie = f"v1.{ts}.{sig}"
+            assert verify_session(cookie, 0) is True    # accepted before any sign-out-everywhere
+            assert verify_session(cookie, 1) is False   # revoked once the epoch is bumped
+
     def test_session_ttl_default(self) -> None:
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("H2G_SESSION_TTL_DAYS", None)

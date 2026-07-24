@@ -327,7 +327,7 @@ The dashboard has no login by default (fine for a private local install). **If y
 - **Set a password.** Set `H2G_PASSWORD` to require login on every page and API route. Without it the dashboard is open, so **always set a password before putting it on a public URL**.
 - **Avoid plaintext (optional).** Run `hevy2garmin hash-password` to generate an argon2 hash and set it as `H2G_PASSWORD_HASH` instead of `H2G_PASSWORD`, so the plaintext password never lives in your environment.
 - **Brute-force protection.** Failed logins are rate-limited per IP with exponential backoff and a global cap; repeated attempts get HTTP 429 with a cooldown.
-- **Sessions.** Login sets a signed, `HttpOnly`, `SameSite=Strict` cookie (30-day TTL by default, configurable via `H2G_SESSION_TTL_DAYS`), marked `Secure` over HTTPS. Set an optional `H2G_SECRET` to sign sessions with a dedicated key (so rotating the password doesn't sign everyone out). Use **Sign out all** in the nav to invalidate every active session at once.
+- **Sessions.** Login sets a signed, `HttpOnly`, `SameSite=Strict` cookie (30-day TTL by default, configurable via `H2G_SESSION_TTL_DAYS`), marked `Secure` over HTTPS. Setting `H2G_SECRET` (recommended, especially with `H2G_PASSWORD_HASH`) signs sessions with a dedicated key, so rotating the password doesn't sign everyone out. **Sign out all devices** (Settings → Sessions &amp; Security) invalidates every active session at once.
 
 See [`.env.example`](.env.example) for all the related variables.
 

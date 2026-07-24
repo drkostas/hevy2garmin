@@ -531,7 +531,11 @@ async def logout_all():
         store.set_app_config("session_epoch", {"n": n + 1})
         _epoch_cache = n + 1
     except Exception:
+        # Don't pretend success: the epoch never advanced, so other devices are
+        # still signed in. Keep this session and surface the error so the admin
+        # can retry, instead of redirecting to /login as if it worked.
         logger.warning("could not bump session epoch for /logout-all", exc_info=True)
+        return RedirectResponse("/settings?err=logout_all", status_code=303)
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE)
     return response
@@ -1121,7 +1125,7 @@ async def settings_page(request: Request):
     merge_extra_types = ", ".join(
         t for t in config.get("merge_activity_types", ["strength_training"]) if t != "strength_training"
     )
-    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types)
+    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types, err=request.query_params.get("err"))
 
 
 @app.post("/settings")

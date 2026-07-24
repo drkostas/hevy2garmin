@@ -282,6 +282,11 @@
         <span class="card-title">Sessions &amp; Security</span>
     </div>
     <p class="section-description">Manage where you're signed in. Signing out everywhere invalidates every active session cookie on all devices &mdash; you'll need to sign in again on each one.</p>
+    {% if err == 'logout_all' %}
+    <div style="background: rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#f87171; border-radius: var(--radius-sm); padding:10px 14px; font-size:13px; margin-bottom:14px;">
+        Couldn't sign out all devices &mdash; the database write failed. Please try again.
+    </div>
+    {% endif %}
     <div class="list-item" style="background: var(--bg-secondary); border:1px solid var(--border); border-radius: var(--radius-sm); padding:14px 16px;">
         <div style="display:flex; align-items:center; gap:12px;">
             <span style="width:36px; height:36px; border-radius:8px; background:rgba(16,185,129,0.12); display:grid; place-items:center;">

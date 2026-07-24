@@ -79,9 +79,10 @@ def sign_session(epoch: int = 0) -> str:
 def verify_session(cookie: str | None, current_epoch: int = 0) -> bool:
     """Verify a session cookie: valid signature, not expired, current epoch.
 
-    Accepts both ``v2`` (with epoch) and legacy ``v1`` (epoch-less) cookies so
-    sessions issued before an upgrade survive until their TTL. Returns True when
-    auth is disabled (backward-compatible).
+    Accepts both ``v2`` (with epoch) and legacy ``v1`` cookies. ``v1`` cookies
+    carry no epoch, so they are treated as epoch 0: accepted before any
+    "sign out everywhere" bump and revoked by it (same as ``v2``). Returns True
+    when auth is disabled (backward-compatible).
     """
     if not auth_enabled():
         return True
@@ -96,6 +97,8 @@ def verify_session(cookie: str | None, current_epoch: int = 0) -> bool:
             payload = f"v2.{parts[1]}.{parts[2]}"
             sig = parts[3]
         elif parts[0] == "v1" and len(parts) == 3:
+            if int(current_epoch) != 0:  # v1 has an implicit epoch of 0 → any bump revokes it
+                return False
             ts = int(parts[1])
             payload = f"v1.{parts[1]}"
             sig = parts[2]

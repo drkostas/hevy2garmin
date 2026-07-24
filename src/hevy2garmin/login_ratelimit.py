@@ -104,6 +104,9 @@ def record_failure(db, client_key: str) -> int:
     afterwards, since the global counter may trip independently.
     """
     per_ip = _bump(db, _PREFIX + client_key, _MAX_FAILS, _BASE_SECONDS, _MAX_SECONDS)
+    # Tradeoff: the global counter can, via a spoofed X-Forwarded-For, briefly lock
+    # out the legit admin too (availability DoS). Acceptable for a single-admin tool
+    # — it only delays login by minutes and never persists past the rolling window.
     _bump(db, _GLOBAL_KEY, _GLOBAL_MAX_FAILS, _GLOBAL_SECONDS, _GLOBAL_SECONDS)
     return per_ip
 
