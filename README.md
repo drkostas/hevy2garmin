@@ -320,6 +320,17 @@ See [`.env.example`](.env.example) for all available env vars.
 
 > **Cloud deploys (Vercel):** Garmin blocks automated logins from cloud servers, so hevy2garmin routes the login through a Cloudflare Worker (`hevy2garmin-exchange-di.gkos.workers.dev`) that runs on Cloudflare's edge network. The Worker accepts your email + password from the setup page, completes the login (including 2FA if enabled), and returns a DI OAuth token that hevy2garmin stores in your Postgres database. This happens in a single click from the setup wizard. On the rare occasion Garmin rejects the direct login, the setup page automatically falls back to a "sign in via browser, paste the URL back" flow.
 
+## Securing the dashboard
+
+The dashboard has no login by default (fine for a private local install). **If you deploy it to a public URL, protect it** — otherwise anyone who finds the URL can see your data.
+
+- **Set a password.** Set `H2G_PASSWORD` to require login on every page and API route. Without it the dashboard is open, so **always set a password before putting it on a public URL**.
+- **Avoid plaintext (optional).** Run `hevy2garmin hash-password` to generate an argon2 hash and set it as `H2G_PASSWORD_HASH` instead of `H2G_PASSWORD`, so the plaintext password never lives in your environment.
+- **Brute-force protection.** Failed logins are rate-limited per IP with exponential backoff and a global cap; repeated attempts get HTTP 429 with a cooldown.
+- **Sessions.** Login sets a signed, `HttpOnly`, `SameSite=Strict` cookie (30-day TTL by default, configurable via `H2G_SESSION_TTL_DAYS`), marked `Secure` over HTTPS. Setting `H2G_SECRET` (recommended, especially with `H2G_PASSWORD_HASH`) signs sessions with a dedicated key, so rotating the password doesn't sign everyone out. **Sign out all devices** (Settings → Sessions &amp; Security) invalidates every active session at once.
+
+See [`.env.example`](.env.example) for all the related variables.
+
 ## Updating
 
 ### Vercel (fork-based deploy)

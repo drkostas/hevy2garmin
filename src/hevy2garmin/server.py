@@ -17,9 +17,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
-from hevy2garmin import db, __version__
+from hevy2garmin import db, login_ratelimit, __version__
 from hevy2garmin.db_interface import NoWritableDatabaseError
-from hevy2garmin.auth import auth_enabled, verify_session, sign_session, check_password, SESSION_COOKIE
+from hevy2garmin.auth import (
+    auth_enabled, verify_session, sign_session, check_password, SESSION_COOKIE, session_ttl,
+)
 from hevy2garmin.config import is_configured, load_config, save_config
 from hevy2garmin.demo import is_demo_mode
 from hevy2garmin.ratelimit import record_rate_limit, cooldown_remaining, clear_rate_limit, format_cooldown
@@ -330,6 +332,53 @@ async def _startup_autosync() -> None:
         _schedule_autosync(interval)
 
 
+def client_ip(request: Request) -> str:
+    """Best-effort real client IP.
+
+    Behind Vercel/Cloudflare the edge populates ``X-Forwarded-For`` and the
+    leftmost entry is the original client (proxies append their hops on the
+    right). Falls back to ``X-Real-IP``, then the socket peer, and finally the
+    literal ``"unknown"`` bucket for header-less clients (so a missing header
+    can't create unbounded rate-limit buckets).
+    """
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    xrip = request.headers.get("x-real-ip")
+    if xrip:
+        return xrip.strip()
+    return request.client.host if request.client else "unknown"
+
+
+def is_https(request: Request) -> bool:
+    """True when the original request was HTTPS.
+
+    On Vercel, TLS terminates at the edge and the app sees ``http`` plus an
+    ``X-Forwarded-Proto: https`` header, so we check both.
+    """
+    if request.url.scheme == "https":
+        return True
+    return request.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https"
+
+
+_epoch_cache = 0
+
+
+def _session_epoch() -> int:
+    """Current 'sign out everywhere' epoch from app_config.
+
+    Best-effort: on a DB error, return the last value we successfully read
+    (default 0) so a transient outage never spuriously invalidates sessions.
+    """
+    global _epoch_cache
+    try:
+        v = db.get_db().get_app_config("session_epoch")
+        _epoch_cache = int(v.get("n", 0)) if isinstance(v, dict) else 0
+    except Exception:
+        return _epoch_cache
+    return _epoch_cache
+
+
 _is_configured_cache: bool | None = None
 
 @app.middleware("http")
@@ -343,11 +392,11 @@ async def check_setup(request: Request, call_next):
         return await call_next(request)
 
     # ── Dashboard auth gate ──────────────────────────────────────────────
-    # When H2G_PASSWORD is set, all routes except /login and /api/cron/*
+    # When a password is set, all routes except /login and /api/cron/*
     # require a valid session cookie. Without it, redirect to /login.
     if auth_enabled() and path not in ("/login",) and not path.startswith("/api/cron/"):
         session_cookie = request.cookies.get(SESSION_COOKIE)
-        if not verify_session(session_cookie):
+        if not verify_session(session_cookie, _session_epoch()):
             if path.startswith("/api/"):
                 from starlette.responses import Response
                 return Response("Unauthorized", status_code=401)
@@ -377,8 +426,33 @@ async def check_setup(request: Request, call_next):
     # Auto-set auth cookie on every GET so it survives cookie clears and new devices.
     # SameSite=strict prevents cross-origin POSTs from using it (CSRF protection).
     if secret and request.method == "GET" and not request.cookies.get("h2g_auth"):
-        response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict", max_age=365 * 86400)
+        response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict",
+                            secure=is_https(request), max_age=365 * 86400)
 
+    return response
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Defense-in-depth response headers. Registered after check_setup so it is
+    the outermost middleware and stamps every response — including redirects and
+    the lock/DB pages."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    # Pragmatic CSP: only the high-value, no-cost directives. A strict
+    # script/style policy is deferred because the templates use inline JS and
+    # load scripts from CDNs (would need 'unsafe-inline').
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "frame-ancestors 'none'; form-action 'self'; base-uri 'self'",
+    )
+    if is_https(request):
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
     return response
 
 
@@ -387,7 +461,7 @@ async def check_setup(request: Request, call_next):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Show login form. Redirects to dashboard if already authenticated or auth disabled."""
-    if not auth_enabled() or verify_session(request.cookies.get(SESSION_COOKIE)):
+    if not auth_enabled() or verify_session(request.cookies.get(SESSION_COOKIE), _session_epoch()):
         return RedirectResponse("/")
     error = request.query_params.get("error")
     return HTMLResponse(_jinja_env.get_template("login.html").render(error=error))
@@ -395,20 +469,44 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login_submit(request: Request, password: str = Form(...)):
-    """Verify password, set session cookie, redirect to dashboard."""
+    """Verify password (rate-limited), set session cookie, redirect to dashboard."""
     next_url = request.query_params.get("next", "/")
     # Prevent open redirect: only allow relative paths
     if not next_url.startswith("/") or next_url.startswith("//"):
         next_url = "/"
-    if not check_password(password):
+
+    key = client_ip(request)
+    try:
+        store = db.get_db()
+    except Exception:
+        store = None  # DB unavailable → skip the limiter (never lock the admin out on an outage)
+
+    def _error(msg: str, status: int) -> HTMLResponse:
         return HTMLResponse(
-            _jinja_env.get_template("login.html").render(error="Wrong password."),
-            status_code=401,
+            _jinja_env.get_template("login.html").render(error=msg),
+            status_code=status,
         )
+
+    # Rate limit: check the lockout BEFORE comparing credentials.
+    remaining = login_ratelimit.lockout_remaining(store, key) if store else 0
+    if remaining > 0:
+        return _error(f"Too many attempts. Try again in {format_cooldown(remaining)}.", 429)
+
+    if not check_password(password):
+        remaining = 0
+        if store:
+            login_ratelimit.record_failure(store, key)
+            remaining = login_ratelimit.lockout_remaining(store, key)
+        if remaining > 0:
+            return _error(f"Too many attempts. Try again in {format_cooldown(remaining)}.", 429)
+        return _error("Wrong password.", 401)
+
+    if store:
+        login_ratelimit.clear_failures(store, key)
     response = RedirectResponse(next_url, status_code=303)
     response.set_cookie(
-        SESSION_COOKIE, sign_session(),
-        httponly=True, samesite="strict", max_age=30 * 24 * 3600,
+        SESSION_COOKIE, sign_session(_session_epoch()),
+        httponly=True, samesite="strict", secure=is_https(request), max_age=session_ttl(),
     )
     return response
 
@@ -416,6 +514,28 @@ async def login_submit(request: Request, password: str = Form(...)):
 @app.post("/logout")
 async def logout():
     """Clear session cookie and redirect to login."""
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
+@app.post("/logout-all")
+async def logout_all():
+    """Sign out everywhere: bump the server-side epoch so every outstanding
+    session cookie (on all devices) stops validating."""
+    global _epoch_cache
+    try:
+        store = db.get_db()
+        cur = store.get_app_config("session_epoch")
+        n = int(cur.get("n", 0)) if isinstance(cur, dict) else 0
+        store.set_app_config("session_epoch", {"n": n + 1})
+        _epoch_cache = n + 1
+    except Exception:
+        # Don't pretend success: the epoch never advanced, so other devices are
+        # still signed in. Keep this session and surface the error so the admin
+        # can retry, instead of redirecting to /login as if it worked.
+        logger.warning("could not bump session epoch for /logout-all", exc_info=True)
+        return RedirectResponse("/settings?err=logout_all", status_code=303)
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE)
     return response
@@ -533,6 +653,7 @@ async def setup_page(request: Request):
 
 @app.post("/setup")
 async def setup_save(
+    request: Request,
     hevy_api_key: str = Form(""),
     garmin_email: str = Form(""),
     garmin_password: str = Form(""),
@@ -668,7 +789,8 @@ async def setup_save(
     # Set auth cookie if HEVY2GARMIN_SECRET is configured (cloud deployments)
     secret = os.environ.get("HEVY2GARMIN_SECRET")
     if secret:
-        response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict", max_age=365 * 86400)
+        response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict",
+                            secure=is_https(request), max_age=365 * 86400)
     return response
 
 
@@ -1003,7 +1125,7 @@ async def settings_page(request: Request):
     merge_extra_types = ", ".join(
         t for t in config.get("merge_activity_types", ["strength_training"]) if t != "strength_training"
     )
-    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types)
+    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types, err=request.query_params.get("err"))
 
 
 @app.post("/settings")

@@ -227,11 +227,49 @@
             <a href="/routines" {% if request and request.url.path == '/routines' %}class="active"{% endif %}>Routines</a>
             <a href="/history" {% if request and request.url.path == '/history' %}class="active"{% endif %}>History</a>
             <a href="/mappings" {% if request and request.url.path == '/mappings' %}class="active"{% endif %}>Mappings</a>
+            {% if not auth_enabled %}
             <a href="/settings" {% if request and request.url.path == '/settings' %}class="active"{% endif %}>Settings</a>
+            {% endif %}
             {% if auth_enabled %}
-            <form method="post" action="/logout" style="display:inline; margin-left: 4px;">
-                <button type="submit" style="background:none; border:none; color:var(--text-muted); font:inherit; font-size:13px; padding:8px 12px; cursor:pointer; border-radius:var(--radius-sm);" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">&times; Sign out</button>
-            </form>
+            <div class="account-menu" style="position:relative; margin-left:8px;">
+                <button type="button" id="accountMenuBtn" aria-haspopup="menu" aria-expanded="false"
+                        onclick="var m=document.getElementById('accountMenu'),o=this.getAttribute('aria-expanded')==='true';this.setAttribute('aria-expanded',(!o).toString());m.style.display=o?'none':'block';"
+                        style="display:flex; align-items:center; gap:8px; padding:5px 8px 5px 5px; border:1px solid var(--border); background:transparent; border-radius:999px; cursor:pointer;">
+                    <span style="width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--blue)); display:grid; place-items:center; color:#fff; font-size:13px; font-weight:700;">{{ user_initials or 'ME' }}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="accountMenu" role="menu" style="display:none; position:absolute; right:0; top:calc(100% + 10px); width:264px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 16px 40px rgba(0,0,0,0.5); overflow:hidden; z-index:60;">
+                    <div style="display:flex; align-items:center; gap:12px; padding:16px;">
+                        <span style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--blue)); display:grid; place-items:center; color:#fff; font-size:15px; font-weight:700; flex-shrink:0;">{{ user_initials or 'ME' }}</span>
+                        <div style="min-width:0;">
+                            <div style="font-size:14px; font-weight:600; color:var(--text-primary);">Signed in</div>
+                            <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:5px; margin-top:1px;">
+                                <span style="width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent);"></span>
+                                This device &middot; active now
+                            </div>
+                        </div>
+                    </div>
+                    <div style="height:1px; background:var(--border-subtle);"></div>
+                    <a href="/settings" role="menuitem" style="display:flex; align-items:center; gap:10px; padding:11px 16px; font-size:14px; font-weight:500; color:var(--text-secondary);">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        Settings &amp; sessions
+                    </a>
+                    <form method="post" action="/logout" style="padding:6px 10px 10px; margin:0;">
+                        <button type="submit" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; border-radius:var(--radius-sm); border:1px solid rgba(239,68,68,0.25); background:rgba(239,68,68,0.08); color:#f87171; font:inherit; font-size:14px; font-weight:600; cursor:pointer;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            Sign out
+                        </button>
+                        <div style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:8px;">Signs out this device only.</div>
+                    </form>
+                </div>
+            </div>
+            <script>
+            document.addEventListener('click', function (e) {
+                var b = document.getElementById('accountMenuBtn'), m = document.getElementById('accountMenu');
+                if (!b || !m) return;
+                if (!b.contains(e.target) && !m.contains(e.target)) { m.style.display = 'none'; b.setAttribute('aria-expanded', 'false'); }
+            });
+            </script>
             {% endif %}
         </div>
     </nav>

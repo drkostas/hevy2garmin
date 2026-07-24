@@ -348,6 +348,27 @@ def cmd_skip(args: argparse.Namespace) -> None:
     print(f"✓ Skipped {args.hevy_id}")
 
 
+def cmd_hash_password(args: argparse.Namespace) -> None:
+    """Generate an argon2 hash for the H2G_PASSWORD_HASH dashboard secret."""
+    import nacl.pwhash
+
+    pw = args.password
+    if not pw:
+        pw = getpass.getpass("Dashboard password: ")
+        if pw != getpass.getpass("Confirm password: "):
+            print("✗ Passwords do not match", file=sys.stderr)
+            sys.exit(1)
+    if not pw:
+        print("✗ Empty password", file=sys.stderr)
+        sys.exit(1)
+    print(nacl.pwhash.argon2id.str(pw.encode()).decode())
+    print(
+        "\nSet this value as H2G_PASSWORD_HASH (and leave H2G_PASSWORD unset) so the "
+        "plaintext password never lives in your environment.",
+        file=sys.stderr,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="hevy2garmin",
@@ -422,6 +443,11 @@ def main() -> None:
     serve_parser.add_argument("-p", "--port", type=int, default=8123, help="Port (default: 8123)")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
 
+    # hash-password
+    hashpw_parser = subparsers.add_parser(
+        "hash-password", help="Generate an argon2 hash for H2G_PASSWORD_HASH")
+    hashpw_parser.add_argument("password", nargs="?", help="Password (omit to be prompted securely)")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -452,6 +478,7 @@ def main() -> None:
             "abandon-pending": cmd_abandon_pending,
             "mark-synced": cmd_mark_synced,
             "skip": cmd_skip,
+            "hash-password": cmd_hash_password,
         }
         commands[args.command](args)
     except RuntimeError as e:
