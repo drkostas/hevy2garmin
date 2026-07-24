@@ -1,113 +1,201 @@
 {% extends "base.html" %}
+{% block head %}
+<style>
+  .routines-summary { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  .stat-pod { display:flex; align-items:center; gap:14px; background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius); padding:12px 18px; }
+  .stat-pod .n { font-size:22px; font-weight:700; line-height:1; }
+  .stat-pod .l { font-size:11px; color:var(--text-muted); margin-top:4px; }
+  .stat-pod .sep { width:1px; height:30px; background:var(--border); }
+
+  .sync-bar { background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius); padding:18px; margin-bottom:20px; }
+  .sync-bar-row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .progress-track { height:8px; border-radius:100px; background:var(--bg-secondary); margin-top:14px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg, var(--accent), #34d399); transition:width .3s; }
+
+  .routine-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .seg { display:inline-flex; background:var(--bg-secondary); border:1px solid var(--border); border-radius:10px; padding:3px; }
+  .seg-btn { border:none; cursor:pointer; font-family:var(--font); font-size:13px; font-weight:600; padding:6px 14px; border-radius:8px; background:transparent; color:var(--text-secondary); }
+  .seg-btn.active { background:var(--accent); color:#04120b; }
+  .routine-search { flex:1; min-width:180px; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border); border-radius:10px; padding:9px 14px; font-family:var(--font); font-size:14px; }
+  .routine-search:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+
+  .routine-list { display:flex; flex-direction:column; gap:10px; }
+  .routine-card { background:var(--bg-card); border:1px solid var(--border-subtle); border-left:3px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .routine-card.is-synced { border-left-color:var(--accent); }
+  .routine-row { display:flex; align-items:center; gap:14px; padding:14px 16px; }
+  .routine-main { margin-right:auto; min-width:0; }
+  .routine-name { font-weight:600; font-size:15px; }
+  .ex-toggle { margin-top:4px; display:inline-flex; align-items:center; gap:6px; background:transparent; border:none; color:var(--text-muted); font-family:var(--font); font-size:12px; font-weight:500; cursor:pointer; padding:0; }
+  .ex-toggle .chev { display:inline-block; transition:transform .15s; }
+  .routine-card.ex-open .ex-toggle .chev { transform:rotate(180deg); }
+  .ex-list { display:none; padding:2px 16px 16px; flex-wrap:wrap; gap:8px; }
+  .routine-card.ex-open .ex-list { display:flex; }
+  .ex-chip { display:inline-flex; align-items:center; gap:8px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 12px; font-size:13px; }
+  .ex-chip .sets { color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .sched-date { display:inline-flex; align-items:center; gap:4px; color:var(--text-muted); font-size:12px; white-space:nowrap; }
+  .routine-actions { display:flex; gap:8px; align-items:center; }
+  .icon-btn { background:transparent; color:var(--text-secondary); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 12px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font); }
+  .icon-btn:hover:not(:disabled) { color:var(--text-primary); border-color:var(--text-muted); }
+  .icon-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .sched-panel { display:none; padding:0 16px 16px; }
+  .routine-card.sched-open .sched-panel { display:block; }
+
+  .empty-state { background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius); padding:28px; text-align:center; color:var(--text-muted); font-size:14px; }
+
+  .timeline { display:flex; flex-direction:column; }
+  .timeline-row { display:flex; align-items:center; gap:16px; padding:10px 0; border-top:1px solid var(--border-subtle); }
+  .timeline-date { width:64px; font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .timeline-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex:none; }
+  .timeline-name { margin-right:auto; font-weight:600; font-size:14px; }
+  .timeline-wd { color:var(--text-muted); font-size:12px; }
+
+  /* ── Mobile (matches the app-wide 640px breakpoint in base.html) ── */
+  @media (max-width: 640px) {
+    /* Stat pod spans the row and spreads its three figures edge-to-edge. */
+    #routines-page .routines-summary { align-items:stretch; }
+    #routines-page .stat-pod { width:100%; justify-content:space-between; }
+
+    /* Full-width sync button instead of squeezing next to the checkbox. */
+    #routines-page .sync-bar-row { align-items:stretch; }
+    #routines-page .sync-bar-row > button[type="submit"] { width:100%; justify-content:center; }
+
+    /* Segmented filter fills the row; search drops to its own full-width line. */
+    #routines-page .seg { width:100%; }
+    #routines-page .seg-btn { flex:1; }
+    #routines-page .routine-search { min-width:0; width:100%; }
+
+    /* Card row wraps: name on line 1, badge+date on line 2, action buttons
+       right-aligned on their own line 3 (two buttons won't fit beside the date). */
+    #routines-page .routine-row { flex-wrap:wrap; }
+    #routines-page .routine-main { flex-basis:100%; }
+    #routines-page .routine-actions { flex:0 0 100%; justify-content:flex-end; }
+
+    /* Timeline row wraps so the Remove button stays reachable. */
+    #routines-page .timeline-row { flex-wrap:wrap; }
+    #routines-page .timeline-row .btn { margin-left:auto; }
+
+    /* "Upcoming schedule" header stacks its title above the filter form. */
+    #routines-page .card-header { flex-wrap:wrap; gap:12px; }
+  }
+</style>
+{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1>Routines</h1>
-  <p class="subtitle">Create Garmin planned workouts from your Hevy routines.</p>
-</div>
+<div id="routines-page">
+  <div class="routines-summary">
+    <div>
+      <h1 style="font-size:26px; font-weight:700; letter-spacing:-0.02em;">Routines</h1>
+      <p style="color:var(--text-secondary); margin-top:4px; font-size:14px;">Create Garmin planned workouts from your Hevy routines.</p>
+    </div>
+    <div class="stat-pod">
+      <div style="text-align:center;"><div class="n" style="color:var(--accent);">{{ stats.synced }}</div><div class="l">On Garmin</div></div>
+      <div class="sep"></div>
+      <div style="text-align:center;"><div class="n">{{ stats.total }}</div><div class="l">In Hevy</div></div>
+      <div class="sep"></div>
+      <div style="text-align:center;"><div class="n" style="color:var(--amber);">{{ stats.pending }}</div><div class="l">Pending</div></div>
+    </div>
+  </div>
 
-<div class="card" style="margin-bottom:16px;">
-  <form hx-post="/api/routines/sync" hx-target="#routines-result" hx-disabled-elt="find button"
-        style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-    <button type="submit" class="btn btn-primary">Sync all routines</button>
-    <label style="display:flex; gap:6px; align-items:center; color:var(--text-muted); font-size:14px;" title="Re-create even routines already synced">
-      <input type="checkbox" name="force" value="1"> Force re-create
-    </label>
-    <span class="htmx-indicator" style="align-items:center; gap:6px; color:var(--text-muted); font-size:14px;">
-      <span class="spinner"></span> Syncing…
-    </span>
-  </form>
-  <div id="routines-result" style="margin-top:12px;"></div>
-</div>
+  {% if not fetch_error %}
+  <div class="sync-bar">
+    <form hx-post="/api/routines/sync" hx-target="#routines-result" hx-disabled-elt="find button" class="sync-bar-row">
+      <div style="margin-right:auto;">
+        <div style="font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px;"><span style="color:var(--accent);">⚡</span> {{ stats.synced }} of {{ stats.total }} routines on Garmin</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+          {% if stats.pending %}{{ stats.pending }} still pending — sync them in one go.{% else %}Everything is on your Garmin calendar.{% endif %}
+        </div>
+      </div>
+      <label style="display:flex; gap:6px; align-items:center; color:var(--text-muted); font-size:13px;" title="Re-create even routines already synced">
+        <input type="checkbox" name="force" value="1"> Force re-create
+      </label>
+      <button type="submit" class="btn btn-primary">
+        <span class="htmx-hide">Sync all</span>
+        <span class="htmx-indicator"><span class="spinner"></span> Syncing…</span>
+      </button>
+    </form>
+    <div class="progress-track"><div class="progress-fill" style="width:{{ stats.pct }}%;"></div></div>
+    <div id="routines-result" style="margin-top:12px;"></div>
+  </div>
 
-{% if fetch_error %}
-<div class="toast toast-error">Could not load routines: {{ fetch_error }}</div>
-{% else %}
-<div class="card">
   {% if routines %}
-  <table style="width:100%; border-collapse:collapse;">
-    <thead>
-      <tr style="text-align:left; color:var(--text-muted); font-size:13px;">
-        <th style="padding:8px;">Routine</th>
-        <th style="padding:8px;">Exercises</th>
-        <th style="padding:8px;">Status</th>
-        <th style="padding:8px;">Schedule</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in routines %}
-      <tr style="border-top:1px solid var(--border); vertical-align:top;">
-        <td style="padding:8px;">{{ r.title }}</td>
-        <td style="padding:8px;">{{ r.exercise_count }}</td>
-        <td style="padding:8px;">
-          {% if r.synced %}<span style="color:var(--green);">✓ synced</span>
-          {% else %}<span style="color:var(--text-muted);">not synced</span>{% endif %}
-          {% if r.scheduled_date %}<br><span style="color:var(--text-muted); font-size:12px;">📅 {{ r.scheduled_date }}</span>{% endif %}
-        </td>
-        <td style="padding:8px;">
-          {% if r.synced %}
-          <details>
-            <summary style="cursor:pointer; user-select:none;" title="Schedule on the Garmin calendar">📅 Schedule</summary>
-            <form hx-post="/api/routines/{{ r.id }}/schedule" hx-target="#routines-result" hx-swap="innerHTML" hx-disabled-elt="find button"
-                  style="margin-top:8px; display:flex; flex-direction:column; gap:8px; font-size:13px; max-width:320px;">
-              <label style="display:flex; gap:6px; align-items:center;">
-                <input type="radio" name="mode" value="once" checked> One-off
-                <input type="date" name="date"
-                       style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
-              </label>
-              <label style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                <input type="radio" name="mode" value="recurring"> Weekly on
-                <select name="weekday" style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
-                  <option value="0">Monday</option>
-                  <option value="1">Tuesday</option>
-                  <option value="2">Wednesday</option>
-                  <option value="3">Thursday</option>
-                  <option value="4">Friday</option>
-                  <option value="5">Saturday</option>
-                  <option value="6">Sunday</option>
-                </select>
-              </label>
-              <label style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; color:var(--text-muted);">
-                from <input type="date" name="start_date"
-                       style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
-                for <input type="number" name="weeks" min="1" max="52" value="4" style="width:60px; background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;"> weeks
-              </label>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <button type="submit" class="btn btn-primary">Add to calendar</button>
-                <span class="htmx-indicator" style="align-items:center; gap:6px; color:var(--text-muted);">
-                  <span class="spinner"></span> Scheduling…
-                </span>
-              </div>
-            </form>
-          </details>
-          {% else %}
-          <span style="color:var(--text-muted); font-size:12px;">sync first</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p style="color:var(--text-muted);">No routines found in your Hevy account.</p>
-  {% endif %}
-</div>
-{% endif %}
+  <div class="routine-toolbar">
+    <div class="seg" role="tablist">
+      <button type="button" class="seg-btn active" data-filter="all">All</button>
+      <button type="button" class="seg-btn" data-filter="synced">On Garmin</button>
+      <button type="button" class="seg-btn" data-filter="pending">Pending</button>
+    </div>
+    <input type="text" id="routine-search" class="routine-search" placeholder="Search routines…" autocomplete="off">
+  </div>
 
-<div class="card" style="margin-top:16px;">
-  <div class="card-header" style="margin-bottom:12px;"><span class="card-title">Scheduled workouts</span></div>
-  <form hx-get="/api/routines/schedules" hx-target="#scheduled-table" hx-swap="outerHTML"
-        hx-trigger="submit, change, keyup changed delay:400ms"
-        style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; font-size:13px; color:var(--text-muted);"
-        onsubmit="return false;">
-    <label style="display:flex; gap:6px; align-items:center;">
-      From <input type="date" name="start" value="{{ start_date }}"
-             style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
-    </label>
-    <label style="display:flex; gap:6px; align-items:center;">
-      Routine <input type="text" name="q" value="{{ title_query }}" placeholder="filter by name"
-             style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
-    </label>
-  </form>
-  {% include "routine_schedules.html" %}
+  <div class="routine-list" id="routines-list">
+    {% for r in routines %}
+    {% include "routine_row.html" %}
+    {% endfor %}
+    <div id="filter-empty" class="empty-state" style="display:none;">No routines match this filter.</div>
+  </div>
+  {% else %}
+  <div class="empty-state">No routines found in your Hevy account.</div>
+  {% endif %}
+  {% else %}
+  <div class="toast toast-error">Could not load routines: {{ fetch_error }}</div>
+  {% endif %}
+
+  <div class="card" style="margin-top:20px;">
+    <div class="card-header" style="margin-bottom:12px;"><span class="card-title">Upcoming schedule</span>
+      <form hx-get="/api/routines/schedules" hx-target="#scheduled-table" hx-swap="outerHTML"
+            hx-trigger="submit, change, keyup changed delay:400ms"
+            style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--text-muted);"
+            onsubmit="return false;">
+        <label style="display:flex; gap:6px; align-items:center;">From
+          <input type="date" name="start" value="{{ start_date }}" class="form-input" style="min-height:auto; padding:5px 8px; width:auto;"></label>
+        <label style="display:flex; gap:6px; align-items:center;">
+          <input type="text" name="q" value="{{ title_query }}" placeholder="filter by name" class="form-input" style="min-height:auto; padding:5px 10px; width:auto;"></label>
+      </form>
+    </div>
+    {% include "routine_schedules.html" %}
+  </div>
 </div>
+
+<script>
+(function () {
+  var page = document.getElementById('routines-page');
+  if (!page) return;
+  var search = page.querySelector('#routine-search');
+  var segBtns = page.querySelectorAll('.seg-btn');
+  var filterEmpty = page.querySelector('#filter-empty');
+  var filter = 'all', q = '';
+
+  function apply() {
+    var visible = 0;
+    page.querySelectorAll('.routine-card').forEach(function (c) {
+      var synced = c.dataset.synced === '1';
+      var okF = filter === 'all' || (filter === 'synced' && synced) || (filter === 'pending' && !synced);
+      var okQ = !q || c.dataset.title.indexOf(q) !== -1;
+      var show = okF && okQ;
+      c.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    if (filterEmpty) filterEmpty.style.display = visible ? 'none' : '';
+  }
+
+  segBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      filter = b.dataset.filter;
+      segBtns.forEach(function (x) { x.classList.toggle('active', x === b); });
+      apply();
+    });
+  });
+  if (search) search.addEventListener('input', function (e) { q = e.target.value.trim().toLowerCase(); apply(); });
+
+  page.addEventListener('click', function (e) {
+    var ex = e.target.closest('.ex-toggle');
+    if (ex) { ex.closest('.routine-card').classList.toggle('ex-open'); return; }
+    var sc = e.target.closest('.sched-toggle');
+    if (sc) { sc.closest('.routine-card').classList.toggle('sched-open'); }
+  });
+
+  // A per-routine sync swaps its card in via hx-swap-oob; re-apply the active
+  // filter/search so the refreshed card respects the current view.
+  document.body.addEventListener('htmx:afterSwap', apply);
+})();
+</script>
 {% endblock %}

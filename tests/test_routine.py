@@ -282,6 +282,28 @@ class TestSyncRoutines:
         create_mock.assert_called_once()
         assert store.get_synced_routine("r1")["garmin_workout_id"] == "777"
 
+    def test_sync_single_routine_creates_and_returns_row(self, tmp_path: Path) -> None:
+        routines = [{"id": "r1", "title": "Push", "updated_at": "2026-01-01T00:00:00Z",
+                     "exercises": [{"title": "Bench Press (Barbell)",
+                                    "sets": [{"type": "normal", "reps": 5, "weight_kg": 60}]}]}]
+        store, create_mock, _, patches = self._patched(tmp_path, routines)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7]:
+            result = sync_module.sync_routine("r1")
+        assert result["outcome"] == "created"
+        assert result["row"] == {
+            "id": "r1", "title": "Push",
+            "exercises": [{"name": "Bench Press (Barbell)", "sets": 1}],
+            "exercise_count": 1, "synced": True, "scheduled_date": None}
+        create_mock.assert_called_once()
+        assert store.get_synced_routine("r1")["garmin_workout_id"] == "777"
+
+    def test_sync_single_routine_not_found_raises(self, tmp_path: Path) -> None:
+        routines = [{"id": "r1", "title": "Push", "exercises": []}]
+        store, _, _, patches = self._patched(tmp_path, routines)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7]:
+            with pytest.raises(ValueError, match="not found"):
+                sync_module.sync_routine("missing")
+
     def _hash_for(self, routine: dict) -> str:
         # Mirror how sync_routines builds the payload (no timing config → 75s default).
         payload = routine_to_garmin_workout(routine, weight_unit="kilogram", default_rest_seconds=75)
@@ -705,8 +727,9 @@ class TestScheduledWorkoutsUI:
             page2 = client.get("/api/routines/schedules?page=2").text
             clamped = client.get("/api/routines/schedules?page=99").text
         assert "Page 1 of 2" in page1
-        assert "2999-01-11" not in page1  # the 11th entry is on page 2
-        assert "Page 2 of 2" in page2 and "2999-01-11" in page2
+        # The timeline humanizes dates ("Jan 11"); the 11th entry sits on page 2.
+        assert "Jan 11" not in page1
+        assert "Page 2 of 2" in page2 and "Jan 11" in page2
         # Out-of-range page clamps to the last page rather than erroring.
         assert "Page 2 of 2" in clamped
 
@@ -794,6 +817,45 @@ class TestScheduledWorkoutsUI:
         # Transient failure surfaces an error toast and keeps the entry tracked.
         assert "toast-error" in resp.text
         assert set(store.get_routine_schedule_ids("r1")) == {"s0", "s1"}
+
+
+class TestRoutineSyncUI:
+    def _client(self, store: SQLiteDatabase):
+        srv._is_configured_cache = True  # skip the "not configured → /setup" redirect
+        return patch.object(srv.db, "get_db", return_value=store), TestClient(srv.app)
+
+    def test_sync_route_swaps_row_and_toasts(self, tmp_path: Path) -> None:
+        store = SQLiteDatabase(tmp_path / "ui.db")
+        db_patch, client = self._client(store)
+        row = {"id": "r1", "title": "Push", "exercise_count": 3, "synced": True, "scheduled_date": None}
+        with db_patch, client, patch.object(
+            srv, "sync_routine", return_value={"outcome": "created", "row": row}
+        ):
+            resp = client.post("/api/routines/r1/sync")
+        assert resp.status_code == 200
+        assert "toast-success" in resp.text
+        # The updated row is returned as an out-of-band swap so it flips to synced.
+        assert 'id="routine-row-r1"' in resp.text and 'hx-swap-oob="true"' in resp.text
+        assert "Re-sync" in resp.text  # synced rows offer re-sync
+        assert resp.headers.get("HX-Trigger") == "refreshSchedules"
+
+    def test_sync_route_reports_failure(self, tmp_path: Path) -> None:
+        store = SQLiteDatabase(tmp_path / "ui.db")
+        db_patch, client = self._client(store)
+        row = {"id": "r1", "title": "Push", "exercise_count": 3, "synced": False, "scheduled_date": None}
+        with db_patch, client, patch.object(
+            srv, "sync_routine", return_value={"outcome": "failed", "row": row}
+        ):
+            resp = client.post("/api/routines/r1/sync")
+        assert "toast-error" in resp.text
+        assert "hx-swap-oob" not in resp.text  # no row swap on failure
+
+    def test_sync_route_demo_mode(self, tmp_path: Path) -> None:
+        store = SQLiteDatabase(tmp_path / "ui.db")
+        db_patch, client = self._client(store)
+        with db_patch, client, patch.object(srv, "is_demo_mode", return_value=True):
+            resp = client.post("/api/routines/r1/sync")
+        assert "demo mode" in resp.text
 
 
 class TestDbFacade:

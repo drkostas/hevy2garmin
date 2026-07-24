@@ -1,0 +1,66 @@
+<div id="routine-row-{{ r.id }}" class="routine-card {% if r.synced %}is-synced{% endif %}"
+     data-title="{{ r.title|lower }}" data-synced="{{ 1 if r.synced else 0 }}"
+     {% if oob %}hx-swap-oob="true"{% endif %}>
+  <div class="routine-row">
+    <div class="routine-main">
+      <div class="routine-name">{{ r.title }}</div>
+      <button type="button" class="ex-toggle" aria-label="Toggle exercises">{{ r.exercise_count }} exercises <span class="chev">▾</span></button>
+    </div>
+    {% if r.synced %}<span class="badge badge-success">✓ Synced</span>{% else %}<span class="badge badge-pending">Not synced</span>{% endif %}
+    {% if r.scheduled_date %}<span class="sched-date">📅 {{ r.scheduled_date }}</span>{% endif %}
+    <div class="routine-actions">
+      <form hx-post="/api/routines/{{ r.id }}/sync" hx-target="#routines-result" hx-disabled-elt="find button" style="display:inline-flex;">
+        {% if r.synced %}<input type="hidden" name="force" value="1">{% endif %}
+        <button type="submit" class="btn btn-primary btn-sm" title="{% if r.synced %}Re-create this planned workout on Garmin{% else %}Create this planned workout on Garmin{% endif %}">
+          <span class="htmx-hide">{% if r.synced %}Re-sync{% else %}Sync{% endif %}</span>
+          <span class="htmx-indicator"><span class="spinner"></span></span>
+        </button>
+      </form>
+      {% if r.synced %}
+      <button type="button" class="icon-btn sched-toggle" title="Schedule on the Garmin calendar">📅 Schedule</button>
+      {% else %}
+      <button type="button" class="icon-btn" disabled title="Sync this routine first">📅 Schedule</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if r.exercises %}
+  <div class="ex-list">
+    {% for ex in r.exercises %}
+    <span class="ex-chip"><span>{{ ex.name }}</span>{% if ex.sets %}<span class="sets">{{ ex.sets }}×</span>{% endif %}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if r.synced %}
+  <div class="sched-panel">
+    <form hx-post="/api/routines/{{ r.id }}/schedule" hx-target="#routines-result" hx-swap="innerHTML" hx-disabled-elt="find button"
+          style="display:flex; flex-direction:column; gap:8px; font-size:13px; max-width:360px;">
+      <label style="display:flex; gap:6px; align-items:center;">
+        <input type="radio" name="mode" value="once" checked> One-off
+        <input type="date" name="date" class="form-input" style="min-height:auto; padding:4px 6px; width:auto;">
+      </label>
+      <label style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <input type="radio" name="mode" value="recurring"> Weekly on
+        <select name="weekday" class="form-select" style="min-height:auto; padding:4px 6px; width:auto;">
+          <option value="0">Monday</option>
+          <option value="1">Tuesday</option>
+          <option value="2">Wednesday</option>
+          <option value="3">Thursday</option>
+          <option value="4">Friday</option>
+          <option value="5">Saturday</option>
+          <option value="6">Sunday</option>
+        </select>
+      </label>
+      <label style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; color:var(--text-muted);">
+        from <input type="date" name="start_date" class="form-input" style="min-height:auto; padding:4px 6px; width:auto;">
+        for <input type="number" name="weeks" min="1" max="52" value="4" class="form-input" style="min-height:auto; padding:4px 6px; width:60px;"> weeks
+      </label>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button type="submit" class="btn btn-primary btn-sm">Add to calendar</button>
+        <span class="htmx-indicator" style="align-items:center; gap:6px; color:var(--text-muted);"><span class="spinner"></span> Scheduling…</span>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</div>

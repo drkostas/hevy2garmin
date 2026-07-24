@@ -4,44 +4,36 @@
      hx-target="#scheduled-table"
      hx-swap="outerHTML">
   {% if scheduled_workouts %}
-  <table style="width:100%; border-collapse:collapse;">
-    <thead>
-      <tr style="text-align:left; color:var(--text-muted); font-size:13px;">
-        <th style="padding:8px;">Date</th>
-        <th style="padding:8px;">Routine</th>
-        <th style="padding:8px; width:1px;"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in scheduled_workouts %}
-      <tr style="border-top:1px solid var(--border-subtle);">
-        <td style="padding:8px; font-variant-numeric:tabular-nums; color:var(--text-secondary);">📅 {{ s.scheduled_date }}</td>
-        <td style="padding:8px;">{{ s.title or 'Routine' }}</td>
-        <td style="padding:8px; text-align:right; white-space:nowrap;">
-          {% if not demo_mode %}
-          <button type="button" class="btn btn-secondary"
-                  hx-post="/api/routines/{{ s.hevy_routine_id }}/schedule/{{ s.schedule_id }}/unschedule?page={{ page }}&start={{ start_date }}&q={{ title_query|urlencode }}&size={{ page_size }}"
-                  hx-target="#scheduled-table" hx-swap="outerHTML"
-                  hx-confirm="Remove this scheduled workout from your Garmin calendar?"
-                  hx-disabled-elt="this" style="font-size:12px; padding:4px 10px;">
-            Remove <span class="htmx-indicator"><span class="spinner"></span></span>
-          </button>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="timeline">
+    {% for s in scheduled_workouts %}
+    {% set p = sched_parts(s.scheduled_date) %}
+    <div class="timeline-row">
+      <span class="timeline-date">{{ p.short }}</span>
+      <span class="timeline-dot"></span>
+      <span class="timeline-name">{{ s.title or 'Routine' }}</span>
+      <span class="timeline-wd">{{ p.weekday }}</span>
+      {% if not demo_mode %}
+      <button type="button" class="btn btn-secondary btn-sm"
+              hx-post="/api/routines/{{ s.hevy_routine_id }}/schedule/{{ s.schedule_id }}/unschedule?page={{ page }}&start={{ start_date }}&q={{ title_query|urlencode }}&size={{ page_size }}"
+              hx-target="#scheduled-table" hx-swap="outerHTML"
+              hx-confirm="Remove this scheduled workout from your Garmin calendar?"
+              hx-disabled-elt="this" style="font-size:12px; padding:5px 12px; min-height:auto;">
+        Remove <span class="htmx-indicator"><span class="spinner"></span></span>
+      </button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
   {% if total_pages > 1 %}
-  <div style="display:flex; gap:12px; align-items:center; justify-content:flex-end; margin-top:12px; font-size:13px; color:var(--text-muted);">
-    <button type="button" class="btn btn-secondary"
-            style="font-size:12px; padding:4px 10px;{% if page <= 1 %} opacity:0.4; cursor:not-allowed;{% endif %}"
+  <div style="display:flex; gap:12px; align-items:center; justify-content:flex-end; margin-top:14px; font-size:13px; color:var(--text-muted);">
+    <button type="button" class="btn btn-secondary btn-sm"
+            style="font-size:12px; padding:4px 10px; min-height:auto;{% if page <= 1 %} opacity:0.4; cursor:not-allowed;{% endif %}"
             hx-get="/api/routines/schedules?page={{ page - 1 }}&start={{ start_date }}&q={{ title_query|urlencode }}&size={{ page_size }}"
             hx-target="#scheduled-table" hx-swap="outerHTML"
             {% if page <= 1 %}disabled{% endif %}>Prev</button>
     <span>Page {{ page }} of {{ total_pages }}</span>
-    <button type="button" class="btn btn-secondary"
-            style="font-size:12px; padding:4px 10px;{% if page >= total_pages %} opacity:0.4; cursor:not-allowed;{% endif %}"
+    <button type="button" class="btn btn-secondary btn-sm"
+            style="font-size:12px; padding:4px 10px; min-height:auto;{% if page >= total_pages %} opacity:0.4; cursor:not-allowed;{% endif %}"
             hx-get="/api/routines/schedules?page={{ page + 1 }}&start={{ start_date }}&q={{ title_query|urlencode }}&size={{ page_size }}"
             hx-target="#scheduled-table" hx-swap="outerHTML"
             {% if page >= total_pages %}disabled{% endif %}>Next</button>
@@ -52,7 +44,7 @@
     <select name="size"
             hx-get="/api/routines/schedules?start={{ start_date }}&q={{ title_query|urlencode }}"
             hx-target="#scheduled-table" hx-swap="outerHTML" hx-trigger="change"
-            style="background:var(--bg-primary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 6px;">
+            class="form-select" style="min-height:auto; padding:4px 6px; width:auto;">
       {% for sz in page_sizes %}
       <option value="{{ sz }}" {% if sz == page_size %}selected{% endif %}>{{ sz }}</option>
       {% endfor %}
