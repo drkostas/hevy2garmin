@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-07-24
+
+### Fixed
+- Replace now works on watch activities whose FIT file contains a non-UTF-8 byte in a string field ([#244](https://github.com/drkostas/hevy2garmin/issues/244)). Some devices (a Garmin Fenix 7 Pro was the first confirmed) write a manufacturer or product name with a byte that isn't valid UTF-8, and fit-tool decoded FIT strings strictly, so a single bad byte raised an error that aborted the entire heart-rate extraction. HR extraction now decodes FIT strings leniently, so the file parses and the heart rate comes through, letting Replace upload a named activity instead of falling back to keeping the watch copy (which showed exercise names as "unknown").
+
 ## [0.6.3] - 2026-07-24
 
 ### Fixed

@@ -28,6 +28,32 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+
+def _patch_fit_tool_lenient_strings() -> None:
+    """Make fit-tool tolerate non-UTF-8 bytes in FIT string fields.
+
+    Some device FITs (a Garmin Fenix 7 Pro was the first confirmed, #244) carry a
+    non-UTF-8 byte in a string field such as a manufacturer or product name.
+    fit-tool decodes string containers with strict UTF-8, so a single bad byte
+    raised UnicodeDecodeError and aborted the whole parse, losing all heart rate
+    and silently dropping Replace to the merge fallback (names then "unknown").
+    Decode leniently instead: the bad byte becomes the Unicode replacement
+    character and the rest of the file, including the HR records, still parses.
+    Idempotent, and safe because hevy2garmin only ever reads these FITs.
+    """
+    from fit_tool.field import Field
+
+    if getattr(Field.read_strings_from_bytes, "_h2g_lenient", False):
+        return
+
+    def read_strings_from_bytes(self, bytes_buffer: bytes) -> None:
+        string_container = bytes_buffer.decode("utf-8", errors="replace")
+        strings = [s for s in string_container.split(chr(0))[:-1] if s]
+        self.encoded_values = list(strings)
+
+    read_strings_from_bytes._h2g_lenient = True  # type: ignore[attr-defined]
+    Field.read_strings_from_bytes = read_strings_from_bytes  # type: ignore[method-assign]
+
 _HR_BACKUP_PREFIX = "hr_backup_"
 
 
@@ -155,6 +181,7 @@ def fetch_activity_hr(
         fit_logger = logging.getLogger("fit_tool")
         previous_level = fit_logger.level
         fit_logger.setLevel(logging.ERROR)
+        _patch_fit_tool_lenient_strings()
         try:
             fit_file = FitFile.from_bytes(fit_bytes, check_crc=False)
         finally:

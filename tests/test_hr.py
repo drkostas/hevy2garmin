@@ -177,6 +177,23 @@ class TestFetchActivityHR:
         assert [s["hr"] for s in samples] == [111, 145]
         assert all(s["time"] >= 0 for s in samples)
 
+    def test_fit_string_decode_tolerates_non_utf8_bytes(self):
+        # Regression #244: a device FIT (first seen on a Fenix 7 Pro) carried a
+        # non-UTF-8 byte in a string field, and fit-tool's strict UTF-8 decode
+        # raised UnicodeDecodeError, aborting the whole parse and losing all HR.
+        # The lenient shim must let the parse through.
+        from fit_tool.base_type import BaseType
+        from fit_tool.field import Field
+
+        from hevy2garmin.hr import _patch_fit_tool_lenient_strings
+
+        _patch_fit_tool_lenient_strings()
+        field = Field(name="product", field_id=0, base_type=BaseType.STRING)
+        # "Garmin" <0x9f> NUL "Fenix" NUL — the 0x9f is the invalid start byte.
+        buf = b"Garmin" + bytes([0x9F, 0]) + b"Fenix" + bytes([0])
+        field.read_strings_from_bytes(buf)  # must not raise
+        assert any("Fenix" in v for v in field.encoded_values)
+
     def test_falls_back_to_daily_hr_when_original_download_fails(self):
         client = MagicMock()
         client.download_activity.side_effect = RuntimeError("not downloadable")
