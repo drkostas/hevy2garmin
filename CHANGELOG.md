@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-24
+
 ### Added
 - Hardened dashboard authentication. Failed logins are now rate-limited per client IP with exponential backoff and a global cap (HTTP 429 on lockout), so the login can't be brute-forced. The dashboard password can be supplied pre-hashed via `H2G_PASSWORD_HASH` (argon2, generated with `hevy2garmin hash-password`) so the plaintext never sits in the environment; session cookies gain the `Secure` flag over HTTPS and are signed with an optional dedicated `H2G_SECRET` (session lifetime configurable via `H2G_SESSION_TTL_DAYS`, default 30 days); a "Sign out everywhere" action invalidates every active session; and standard security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, a baseline CSP) are sent on every response. Existing password-only deployments keep working unchanged.
 
