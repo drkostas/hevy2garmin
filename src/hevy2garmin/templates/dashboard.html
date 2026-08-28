@@ -411,6 +411,12 @@
 <script>
 let _syncStopped = false;
 
+function escapeHtml(value) {
+    const node = document.createElement('div');
+    node.textContent = String(value);
+    return node.innerHTML;
+}
+
 function stopSync() {
     _syncStopped = true;
     document.getElementById('sync-stop-btn').style.display = 'none';
@@ -440,10 +446,28 @@ async function syncNow() {
     while (!_syncStopped) {
         try {
             const resp = await fetch(window.APP_PREFIX + '/api/sync-one', { method: 'POST' });
-            const data = await resp.json();
+            // API middleware can return plain text (for example a 401 after an
+            // expired dashboard session), so do not assume every response is JSON.
+            const raw = await resp.text();
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch (parseError) {
+                throw new Error('Sync request failed (HTTP ' + resp.status + '): ' + raw.slice(0, 160));
+            }
+
+            if (!resp.ok) {
+                const message = data.error || ('Sync request failed (HTTP ' + resp.status + ')');
+                errors++;
+                text.textContent = message;
+                result.innerHTML = '<div class="toast toast-error">' + escapeHtml(message) + '</div>';
+                break;
+            }
 
             if (data.busy) {
+                errors++;
                 text.textContent = 'Another sync is already running. Please wait.';
+                result.innerHTML = '<div class="toast toast-error">Another sync is already running. Please wait.</div>';
                 break;
             }
 
@@ -463,6 +487,25 @@ async function syncNow() {
                 } else {
                     text.textContent = 'Sync error. ' + (synced > 0 ? synced + ' synced before error.' : 'Try again.');
                 }
+                break;
+            }
+
+            // These are unfinished states, not a reason to poll in a tight loop.
+            // A pending upload must be reconciled from the Workouts page; a
+            // state mismatch needs fresh Hevy data or a database inspection.
+            if (data.processing > 0 || data.merge_pending || data.needs_review) {
+                errors++;
+                text.textContent = data.needs_review
+                    ? 'A pending upload needs review.'
+                    : 'A previous upload is still being processed.';
+                result.innerHTML = '<div class="toast toast-error">' + escapeHtml(text.textContent) + ' Open Workouts to reconcile it.</div>';
+                break;
+            }
+
+            if (data.state_mismatch || data.skipped_error || data.failed) {
+                errors++;
+                text.textContent = data.error || 'The workout could not be synced.';
+                result.innerHTML = '<div class="toast toast-error">' + escapeHtml(text.textContent) + '</div>';
                 break;
             }
 
@@ -493,7 +536,7 @@ async function syncNow() {
             }
         } catch (e) {
             errors++;
-            text.textContent = 'Network error. ' + (synced > 0 ? synced + ' synced so far. ' : '') + 'Try again.';
+            text.textContent = e.message || ('Network error. ' + (synced > 0 ? synced + ' synced so far. ' : '') + 'Try again.');
             break;
         }
     }
