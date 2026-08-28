@@ -1518,10 +1518,21 @@ async def _sync_one_recorded(
 
     from fastapi.responses import JSONResponse
 
+    logger.info("Sync request started (trigger=%s)", trigger)
+
+    # Failed ids are only a per-run quarantine. A later manual click is a new
+    # attempt and must be allowed to retry the workout; keeping this process
+    # global forever can turn one transient upload error into a permanent
+    # remaining=1 / no-candidate state.
+    if trigger.startswith("manual") and _failed_ids:
+        logger.info("Clearing %d previously failed workout quarantine(s)", len(_failed_ids))
+        _failed_ids.clear()
+
     if is_demo_mode():
         return JSONResponse({"status": "demo", "message": "Sync disabled in demo mode"})
 
     if not syncstate.acquire_sync_lock():
+        logger.info("Sync request rejected: another sync is already running")
         return JSONResponse({"error": "Sync already running", "busy": True})
 
     try:
@@ -1598,14 +1609,17 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
     hevy_api_key = config.get("hevy_api_key")
 
     if not hevy_api_key:
+        logger.error("Sync stopped: Hevy API key is not configured")
         return JSONResponse({"error": "Hevy API key not configured"}, status_code=400)
 
     from hevy2garmin.hevy import HevyClient
 
+    logger.info("Connecting to Hevy API")
     hevy = HevyClient(api_key=hevy_api_key)
 
     # Find first unsynced workout, paginating through recent history
     total_count = hevy.get_workout_count()
+    logger.info("Connected to Hevy API: %d workouts reported", total_count)
     # Cache total for dashboard
     _db = db.get_db()
     _db.set_app_config("hevy_total", {"count": total_count})
@@ -1627,6 +1641,13 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
     unsynced = None
     unmapped_found: dict[str, int] = {}
     garmin_client = None
+
+    logger.info(
+        "Sync state: %d Hevy workouts, %d synced in database, %d pending uploads",
+        total_count,
+        synced_count,
+        len(pending_rows),
+    )
 
     from hevy2garmin.sync import _workout_within_grace, reconcile_pending, sync_one_workout
 
@@ -1680,6 +1701,27 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
                     "done": remaining <= 0,
                 })
             remaining = max(0, total_count - db.get_synced_count())
+            if remaining > 0 and not pending_ids:
+                logger.error(
+                    "Sync stopped: Hevy reports %d workouts but no unsynced workout was found "
+                    "after scanning; database has %d synced records",
+                    total_count,
+                    db.get_synced_count(),
+                )
+                return JSONResponse(
+                    {
+                        "synced": 0,
+                        "processing": 0,
+                        "remaining": remaining,
+                        "done": False,
+                        "state_mismatch": True,
+                        "error": (
+                            "Hevy reports an unsynced workout, but it was not returned by the "
+                            "workout list. Open Workouts, click Reload Data, and try again."
+                        ),
+                    },
+                    status_code=409,
+                )
             return JSONResponse({
                 "synced": 0, "processing": len(pending_ids),
                 "remaining": remaining, "done": remaining <= len(pending_ids),
@@ -1705,7 +1747,10 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
                 reset_circuit_breaker()
 
             if garmin_client is None:
+                logger.info("Connecting to Garmin Connect")
                 garmin_client = get_client(config.get("garmin_email"))
+                logger.info("Connected to Garmin Connect")
+            logger.info("Syncing Hevy workout: %s (%s)", unsynced.get("title", "?"), unsynced.get("id", "?"))
             one = sync_one_workout(
                 unsynced,
                 cfg=config,
