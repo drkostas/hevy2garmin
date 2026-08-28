@@ -16,7 +16,9 @@ interface RecentWorkout {
   hevy_id: string;
   title: string;
   synced_at: string | null;
-  calories: number;
+  calories: number | null;
+  avg_hr: number | null;
+  garmin_activity_id: string | null;
   status: string;
 }
 
@@ -45,19 +47,21 @@ export async function GET() {
     return NextResponse.json(EMPTY);
   }
 
-  // Connection status from platform_credentials. `.catch` guards a missing table
-  // (fresh deploy that hasn't run the Python schema bootstrap yet).
+  // Python stores live rows as `active`, and Garmin DI tokens live under
+  // `garmin_tokens`.
   const connected = await sql`
     SELECT platform, status
     FROM platform_credentials
-    WHERE platform IN ('hevy', 'garmin')
+    WHERE platform IN ('hevy', 'garmin', 'garmin_tokens')
   `.catch(() => [] as Array<{ platform: string; status: string }>);
 
   const hevyConnected = connected.some(
-    (r) => r.platform === "hevy" && r.status === "connected",
+    (r) => r.platform === "hevy" && r.status !== "disconnected",
   );
   const garminConnected = connected.some(
-    (r) => r.platform === "garmin" && r.status === "connected",
+    (r) =>
+      (r.platform === "garmin" || r.platform === "garmin_tokens") &&
+      r.status !== "disconnected",
   );
 
   // Aggregate counts over synced_workouts (success terminal state only).
@@ -75,7 +79,8 @@ export async function GET() {
   const syncedThisWeek = counts[0]?.week ?? 0;
 
   const recentRows = await sql`
-    SELECT hevy_id, title, synced_at, calories, COALESCE(status, 'success') AS status
+    SELECT hevy_id, title, synced_at, calories, avg_hr, garmin_activity_id,
+           COALESCE(status, 'success') AS status
     FROM synced_workouts
     ORDER BY synced_at DESC
     LIMIT 8
@@ -86,6 +91,8 @@ export async function GET() {
         title: string | null;
         synced_at: string | null;
         calories: number | null;
+        avg_hr: number | null;
+        garmin_activity_id: string | null;
         status: string;
       }>,
   );
@@ -94,7 +101,9 @@ export async function GET() {
     hevy_id: r.hevy_id,
     title: r.title ?? "",
     synced_at: r.synced_at ?? null,
-    calories: Number(r.calories) || 0,
+    calories: r.calories != null ? Number(r.calories) : null,
+    avg_hr: r.avg_hr != null ? Number(r.avg_hr) : null,
+    garmin_activity_id: r.garmin_activity_id ?? null,
     status: r.status,
   }));
 
@@ -102,8 +111,8 @@ export async function GET() {
     // If we have synced rows, Hevy has been talking to us even absent an explicit
     // platform_credentials row.
     hevyConnected: hevyConnected || totalSynced > 0,
-    // Any row with a garmin_activity_id proves the Garmin link worked.
-    garminConnected,
+    // A token row or a previously resolved activity proves the Garmin link.
+    garminConnected: garminConnected || recent.some((r) => r.garmin_activity_id != null),
     totalSynced,
     syncedThisWeek,
     recent,

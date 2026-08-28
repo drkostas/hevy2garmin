@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import { assertProdEnv } from "./lib/env";
+
+// Fail during production builds instead of deploying a site with missing DB or
+// dashboard credentials. This function was previously defined but never used.
+assertProdEnv();
 
 const nextConfig: NextConfig = {
   // `standalone` is for Docker self-hosting. On Vercel it corrupts the Edge

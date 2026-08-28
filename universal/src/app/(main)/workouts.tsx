@@ -50,7 +50,7 @@ export default function WorkoutsScreen() {
         </View>
 
         {error ? (
-          <Card><Text variant="body" className="text-danger">API: {error} — is soma running on :3456?</Text></Card>
+          <Card><Text variant="body" className="text-danger">API: {error} — check EXPO_PUBLIC_API_URL.</Text></Card>
         ) : null}
 
         {/* Rollup */}

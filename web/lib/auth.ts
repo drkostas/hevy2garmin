@@ -1,22 +1,20 @@
 /**
- * Shared-password session auth for the hevy2garmin web app.
+ * Shared-password session auth for the web app.
  *
- * Wire-compatible with the existing Python FastAPI dashboard
- * (src/hevy2garmin/auth.py): cookie value is `v1.<ts>.<sig>`, the signature is
- * the HMAC-SHA256 of `v1.<ts>` under a key, rendered as hex and TRUNCATED to the
- * first 32 hex chars, and sessions expire after 30 days.
+ * The Python FastAPI dashboard is the canonical implementation. Keep the
+ * cookie wire format and environment names identical here:
+ *   - signing seed: H2G_SECRET, then H2G_PASSWORD, then H2G_PASSWORD_HASH
+ *   - key: SHA-256("h2g-session-" + seed)
+ *   - cookie: v2.<ts>.<epoch>.<sig>, with legacy v1 accepted during migration
+ *   - password: plaintext H2G_PASSWORD or Argon2 H2G_PASSWORD_HASH
  *
- * Key derivation (matches the Python behaviour so a cookie minted by either
- * implementation verifies against the other):
- *   - If HEVY2GARMIN_SECRET is set, the raw secret bytes are the HMAC key.
- *   - Otherwise the key is SHA-256("h2g-session-" + H2G_PASSWORD) — the exact
- *     derivation used by auth.py, so existing password-only deployments keep
- *     working with no cookie rotation.
- *
- * `check_password` compares the login candidate against H2G_PASSWORD.
+ * HEVY2GARMIN_SECRET is deliberately not used here: Python uses that variable
+ * for CSRF/API protection, not dashboard session signing.
  */
 
-const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+import argon2 from "argon2";
+
+const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const CLOCK_SKEW_SECONDS = 300;
 
 export const SESSION_COOKIE = "h2g_session";
@@ -30,30 +28,33 @@ function toHex(buf: ArrayBuffer): string {
 
 let cachedKey: { material: string; key: CryptoKey } | null = null;
 
+export function sessionTtlSeconds(): number {
+  const raw = process.env.H2G_SESSION_TTL_DAYS;
+  const days = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isInteger(days) && days > 0
+    ? days * 24 * 60 * 60
+    : DEFAULT_SESSION_TTL_SECONDS;
+}
+
+function signingSeed(): string {
+  const seed = process.env.H2G_SECRET || process.env.H2G_PASSWORD || process.env.H2G_PASSWORD_HASH;
+  if (!seed) {
+    throw new Error("Set H2G_PASSWORD or H2G_PASSWORD_HASH to enable dashboard auth.");
+  }
+  return seed;
+}
+
 /**
- * Resolve the HMAC signing key. Prefers HEVY2GARMIN_SECRET; falls back to the
- * password-derived key so it stays wire-compatible with the Python dashboard.
+ * Resolve the HMAC signing key using the same derivation as Python auth.py.
  */
 async function getKey(): Promise<CryptoKey> {
-  const secret = process.env.HEVY2GARMIN_SECRET;
-  const password = process.env.H2G_PASSWORD;
-
-  let material: string;
-  let rawKey: Uint8Array;
-
-  if (secret) {
-    material = `secret:${secret}`;
-    rawKey = new TextEncoder().encode(secret);
-  } else {
-    if (!password) throw new Error("H2G_PASSWORD not set (and no HEVY2GARMIN_SECRET)");
-    material = `password:${password}`;
-    // SHA-256("h2g-session-" + password) — matches auth.py `_secret()`.
-    const digest = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(`h2g-session-${password}`),
-    );
-    rawKey = new Uint8Array(digest);
-  }
+  const seed = signingSeed();
+  const material = `seed:${seed}`;
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`h2g-session-${seed}`),
+  );
+  const rawKey = new Uint8Array(digest);
 
   if (cachedKey && cachedKey.material === material) return cachedKey.key;
 
@@ -75,31 +76,45 @@ async function hmacHex32(data: string): Promise<string> {
   return toHex(sig).slice(0, 32);
 }
 
-/** True when auth is configured (either a secret or a password is present). */
+/** True when a password verifier is configured, matching Python auth_enabled(). */
 export function authEnabled(): boolean {
-  return Boolean(process.env.HEVY2GARMIN_SECRET || process.env.H2G_PASSWORD);
+  return Boolean(process.env.H2G_PASSWORD || process.env.H2G_PASSWORD_HASH);
 }
 
-/** Create a signed session cookie value: `v1.<ts>.<sig>`. */
-export async function signSession(issuedAt?: number): Promise<string> {
+/** Create a signed session cookie value: `v2.<ts>.<epoch>.<sig>`. */
+export async function signSession(issuedAt?: number, epoch = 0): Promise<string> {
   const ts = issuedAt ?? Math.floor(Date.now() / 1000);
-  const payload = `v1.${ts}`;
+  const payload = `v2.${ts}.${epoch}`;
   const sig = await hmacHex32(payload);
   return `${payload}.${sig}`;
 }
 
-/** Verify a session cookie is well-formed, unexpired, and correctly signed. */
-export async function verifySession(cookie: string | null): Promise<boolean> {
+/** Verify a v2 cookie, or a legacy v1 cookie while it is still valid. */
+export async function verifySession(cookie: string | null, currentEpoch = 0): Promise<boolean> {
   if (!cookie) return false;
-  const m = cookie.match(/^v1\.(\d+)\.([0-9a-f]{32})$/);
-  if (!m) return false;
-  const ts = Number(m[1]);
-  const sig = m[2];
+  const parts = cookie.split(".");
+  let ts: number;
+  let payload: string;
+  let sig: string;
+  if (parts[0] === "v2" && parts.length === 4) {
+    ts = Number(parts[1]);
+    if (Number(parts[2]) !== currentEpoch) return false;
+    payload = `v2.${parts[1]}.${parts[2]}`;
+    sig = parts[3];
+  } else if (parts[0] === "v1" && parts.length === 3) {
+    if (currentEpoch !== 0) return false;
+    ts = Number(parts[1]);
+    payload = `v1.${parts[1]}`;
+    sig = parts[2];
+  } else {
+    return false;
+  }
+  if (!Number.isSafeInteger(ts) || !/^\d+$/.test(parts[1]) || !/^[0-9a-f]{32}$/.test(sig)) return false;
   const now = Math.floor(Date.now() / 1000);
-  if (now - ts > SESSION_TTL_SECONDS) return false;
+  if (now - ts > sessionTtlSeconds()) return false;
   if (ts > now + CLOCK_SKEW_SECONDS) return false;
   try {
-    const expected = await hmacHex32(`v1.${ts}`);
+    const expected = await hmacHex32(payload);
     if (sig.length !== expected.length) return false;
     // Constant-time compare.
     let diff = 0;
@@ -110,8 +125,16 @@ export async function verifySession(cookie: string | null): Promise<boolean> {
   }
 }
 
-/** Constant-time comparison of a login candidate against H2G_PASSWORD. */
-export function checkPassword(candidate: string): boolean {
+/** Verify plaintext or Argon2 dashboard credentials. */
+export async function checkPassword(candidate: string): Promise<boolean> {
+  const hash = process.env.H2G_PASSWORD_HASH;
+  if (hash) {
+    try {
+      return await argon2.verify(hash, candidate);
+    } catch {
+      return false;
+    }
+  }
   const pw = process.env.H2G_PASSWORD;
   if (!pw) return false;
   if (candidate.length !== pw.length) return false;

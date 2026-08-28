@@ -61,7 +61,7 @@ async function loadDashboard(): Promise<DashboardData> {
     sql`
       SELECT platform, status
       FROM platform_credentials
-      WHERE platform IN ('hevy', 'garmin')
+      WHERE platform IN ('hevy', 'garmin', 'garmin_tokens')
     `.catch(() => [] as Array<{ platform: string; status: string }>),
     sql`
       SELECT
@@ -103,7 +103,11 @@ async function loadDashboard(): Promise<DashboardData> {
       connected.some((r) => r.platform === "hevy" && r.status !== "disconnected") ||
       recent.length > 0,
     garminConnected:
-      connected.some((r) => r.platform === "garmin" && r.status !== "disconnected") ||
+      connected.some(
+        (r) =>
+          (r.platform === "garmin" || r.platform === "garmin_tokens") &&
+          r.status !== "disconnected",
+      ) ||
       recent.some((r) => r.garmin_activity_id != null),
     totalSynced: counts[0]?.total ?? 0,
     syncedThisWeek: counts[0]?.week ?? 0,

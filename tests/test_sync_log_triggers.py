@@ -32,7 +32,7 @@ def recorded(monkeypatch):
 def client(monkeypatch):
     os.environ.pop("HEVY2GARMIN_SECRET", None)
     os.environ.pop("DEMO_MODE", None)
-    os.environ.pop("CRON_SECRET", None)
+    monkeypatch.setenv("CRON_SECRET", "test-cron")
     # /api/sync hands off to GitHub Actions when both of these are set, which
     # would skip the sync under test *and* fire a real repository_dispatch at
     # api.github.com from whatever machine runs the suite.
@@ -92,7 +92,7 @@ class TestFailuresAreDistinguishableFromNoWork:
 
     def test_failed_upload_on_the_cron_path_too(self, client, recorded, monkeypatch):
         _stub_sync_one(monkeypatch, {"synced": 0, "failed": 1, "title": "Push", "done": False})
-        client.get("/api/cron/sync")
+        client.get("/api/cron/sync", headers={"Authorization": "Bearer test-cron"})
         assert recorded == [({"synced": 0, "failed": 1}, "cron")]
 
     def test_in_flight_statuses_are_not_counted_as_failures(self, client, recorded, monkeypatch):
@@ -118,7 +118,7 @@ class TestFailuresAreDistinguishableFromNoWork:
 class TestCronIsRecorded:
     def test_cron_sync_records_with_its_own_trigger(self, client, recorded, monkeypatch):
         _stub_sync_one(monkeypatch, {"synced": 1, "title": "Pull"})
-        resp = client.get("/api/cron/sync")
+        resp = client.get("/api/cron/sync", headers={"Authorization": "Bearer test-cron"})
         assert resp.status_code == 200
         assert recorded == [({"synced": 1, "failed": 0}, "cron")]
 
@@ -135,7 +135,7 @@ class TestCronIsRecorded:
             return JSONResponse({"synced": 0, "deferred": 1})
 
         monkeypatch.setattr(server, "_do_sync_one", _fake)
-        client.get("/api/cron/sync")
+        client.get("/api/cron/sync", headers={"Authorization": "Bearer test-cron"})
         assert seen["respect_grace"] is True
 
     def test_sync_now_still_bypasses_grace(self, client, recorded, monkeypatch):
@@ -158,6 +158,14 @@ class TestCronIsRecorded:
         monkeypatch.setenv("CRON_SECRET", "s3cret")
         resp = client.get("/api/cron/sync")
         assert resp.status_code == 401
+        assert recorded == []
+
+    def test_unconfigured_cron_fails_closed(self, client, recorded, monkeypatch):
+        _stub_sync_one(monkeypatch, {"synced": 1})
+        monkeypatch.delenv("CRON_SECRET")
+        resp = client.get("/api/cron/sync")
+        assert resp.status_code == 503
+        assert "CRON_SECRET" in resp.json()["error"]
         assert recorded == []
 
 

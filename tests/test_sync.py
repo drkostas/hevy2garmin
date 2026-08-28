@@ -162,19 +162,21 @@ class TestSync:
             ("failed", "failed"),
         ],
     )
-    def test_preskips_parked_workout_with_phase_stats(
+    def test_reconciles_parked_workout_with_phase_stats(
         self, sample_workout: dict, phase: str, bucket: str,
     ) -> None:
         with patch("hevy2garmin.sync.HevyClient") as MockHevy, \
              patch("hevy2garmin.sync.db") as mock_db, \
-             patch("hevy2garmin.sync.get_client"), \
+             patch("hevy2garmin.sync.get_client") as mock_gclient, \
              patch("hevy2garmin.sync.sync_one_workout") as mock_one, \
+             patch("hevy2garmin.sync.reconcile_pending") as mock_reconcile, \
              patch("hevy2garmin.reconcile.detect_duplicates", return_value=[]):
             mock_hevy = MockHevy.return_value
             mock_hevy.get_workout_count.return_value = 1
             mock_hevy.get_workouts.return_value = {"workouts": [sample_workout], "page_count": 1}
             mock_db.is_synced.return_value = False
             mock_db.list_pending.return_value = [{"hevy_id": sample_workout["id"], "phase": phase}]
+            mock_reconcile.return_value = MagicMock(status=phase)
 
             result = sync(
                 config={"hevy_api_key": "test", "merge_mode": False},
@@ -184,6 +186,7 @@ class TestSync:
             )
 
             mock_one.assert_not_called()
+            mock_reconcile.assert_called_once_with(mock_db, mock_gclient.return_value, sample_workout["id"])
             assert result[bucket] == 1
             assert result["synced"] == 0
 

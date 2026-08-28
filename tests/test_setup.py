@@ -43,7 +43,7 @@ class TestSetupNoRedundantLogin:
     def test_cloud_skips_server_side_test_login(self, client):
         """DATABASE_URL set → no get_client() test login during setup (#148)."""
         fake_db = MagicMock()
-        with patch("hevy2garmin.server.save_config"), \
+        with patch("hevy2garmin.pages.save_config"), \
              patch("hevy2garmin.db.get_database_url", return_value="postgresql://x"), \
              patch("hevy2garmin.db.get_db", return_value=fake_db), \
              patch("hevy2garmin.garmin.get_client") as mock_get_client:
@@ -53,7 +53,7 @@ class TestSetupNoRedundantLogin:
 
     def test_local_performs_test_login(self, client):
         """No DATABASE_URL → setup still does the real test login locally."""
-        with patch("hevy2garmin.server.save_config"), \
+        with patch("hevy2garmin.pages.save_config"), \
              patch("hevy2garmin.db.get_database_url", return_value=None), \
              patch("hevy2garmin.garmin.get_client") as mock_get_client:
             resp = _post(client)
@@ -74,7 +74,7 @@ class TestSetupNoRedundantLogin:
             def set_app_config(self, key, value):
                 self._state[key] = value
 
-        with patch("hevy2garmin.server.save_config"), \
+        with patch("hevy2garmin.pages.save_config"), \
              patch("hevy2garmin.db.get_database_url", return_value=None), \
              patch("hevy2garmin.db.get_db", return_value=FakeDB()), \
              patch("hevy2garmin.garmin.get_client") as mock_get_client:

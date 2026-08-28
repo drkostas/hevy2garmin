@@ -8,7 +8,7 @@ tests lock in the guard.
 
 from __future__ import annotations
 
-from hevy2garmin.server import _daily_hr_to_samples
+from hevy2garmin.pages import _daily_hr_to_samples
 
 
 class TestDailyHrToSamples:

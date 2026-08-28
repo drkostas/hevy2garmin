@@ -3,7 +3,8 @@ import { Text, Card, Badge, Sparkline } from "soma-style";
 import { useHevyStatus, usePullRefresh } from "../../lib/api";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function fmtDate(iso: string): string {
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
   const d = new Date(iso);
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
@@ -13,9 +14,8 @@ export default function HistoryScreen() {
   const { data, error, refetch } = useHevyStatus();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const recent = data?.recent ?? [];
-  const kcalSeries = [...recent].reverse().map((w) => w.kcal);
-  const totalKcal = recent.reduce((s, w) => s + (w.kcal || 0), 0);
-  const totalSets = recent.reduce((s, w) => s + (w.sets || 0), 0);
+  const kcalSeries = [...recent].reverse().map((w) => w.calories ?? 0);
+  const totalKcal = recent.reduce((s, w) => s + (w.calories || 0), 0);
 
   return (
     <ScrollView
@@ -27,7 +27,7 @@ export default function HistoryScreen() {
         <Text variant="headline">History</Text>
 
         {error ? (
-          <Card><Text variant="body" className="text-danger">API: {error} — is soma running on :3456?</Text></Card>
+          <Card><Text variant="body" className="text-danger">API: {error} — check EXPO_PUBLIC_API_URL.</Text></Card>
         ) : null}
 
         {/* Rollup + calorie trend */}
@@ -37,7 +37,6 @@ export default function HistoryScreen() {
               {[
                 ["Workouts", `${recent.length}`],
                 ["Total kcal", totalKcal.toLocaleString()],
-                ["Total sets", `${totalSets}`],
               ].map(([label, val]) => (
                 <View key={label} className="items-center gap-0.5">
                   <Text variant="micro" className="text-text-muted">{label}</Text>
@@ -52,15 +51,18 @@ export default function HistoryScreen() {
         {/* Full list */}
         <View className="gap-2">
           {recent.map((w, i) => (
-            <Card key={`${w.title}-${w.date}-${i}`} className="gap-2">
+            <Card key={`${w.hevy_id}-${i}`} className="gap-2">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-2">
                   <Text variant="body" className="text-text" numberOfLines={1}>{w.title}</Text>
                   <Text variant="micro">
-                    {fmtDate(w.date)} · {w.kcal} kcal · {w.exercises} ex · {w.sets} sets
+                    {fmtDate(w.synced_at)} · {w.calories ?? "—"} kcal
                   </Text>
                 </View>
-                <Badge label={w.synced ? "Synced" : w.status} tone={w.synced ? "success" : "warm"} />
+                <Badge
+                  label={w.status === "success" ? "Synced" : w.status}
+                  tone={w.status === "success" ? "success" : "warm"}
+                />
               </View>
             </Card>
           ))}
