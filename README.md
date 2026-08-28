@@ -414,7 +414,7 @@ A webhook that synced immediately would be *worse* than polling for watch users,
 
 Every attempt but the last is merge-only; only the final one falls back to a plain upload, so nothing is left unsynced. Retry state is in memory, so a restart drops it — auto-sync stays the safety net, and is worth leaving enabled at a long interval.
 
-`CRON_SECRET` must be set for the endpoint to work at all — with no secret configured it answers `503` rather than accepting unauthenticated calls, since it is internet-facing and is deliberately exempt from the dashboard password. At most `WEBHOOK_MAX_INFLIGHT` (4) staged syncs run at once; past that a request is acknowledged but not staged, because the ones already running plus auto-sync cover the work.
+`CRON_SECRET` must be set for both cron and webhook endpoints to work at all — with no secret configured they answer `503` rather than accepting unauthenticated calls, since they are internet-facing and deliberately exempt from the dashboard password. At most `WEBHOOK_MAX_INFLIGHT` (4) staged syncs run at once; past that a request is acknowledged but not staged, because the ones already running plus auto-sync cover the work.
 
 **On serverless this staging cannot run**, because the function is frozen as soon as it responds and Python on Vercel has no `waitUntil`. The endpoint detects that and does the only safe thing instead: with the watch merge on it defers to the scheduled cron (and logs that it did); with the watch merge off there is nothing to wait for, so it syncs inline — which on Vercel's Hobby plan replaces a once-a-day cron with a sync per workout.
 

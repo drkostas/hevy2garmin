@@ -569,6 +569,10 @@ def sync_one_workout(
                 # The request may have reached Garmin. Park it; never resubmit automatically.
                 merge_store.update_pending(wid, phase="processing", last_error=str(exc)[:1000])
                 return SyncOneResult(status="processing", merge_fallback=merge_fallback)
+            # Only count the HR warning after Garmin accepted the upload. A
+            # deduplicated/matched activity must not be reported as an upload
+            # without HR, and rejected/parked uploads must not be counted.
+            uploaded = True
             raw_id = upload_result.get("activity_id")
             activity_id = int(raw_id) if raw_id and str(raw_id).isdigit() else None
             upload_id = upload_result.get("upload_id")
@@ -714,9 +718,18 @@ def sync(
         pending = pending_by_id.get(wid)
         if pending:
             phase = pending.get("phase")
-            bucket = _pending_status(pending)
-            logger.debug("Skipping %s (%s) — pending upload is %s", wid, title, phase)
-            stats[bucket] += 1
+            logger.debug("Reconciling %s (%s) — pending upload is %s", wid, title, phase)
+            try:
+                one = reconcile_pending(store, garmin_client, wid)
+                if one.status == "synced":
+                    stats["synced"] += 1
+                elif one.status in ("failed", "processing", "needs_review"):
+                    stats[one.status] += 1
+                else:
+                    stats["processing"] += 1
+            except Exception as e:
+                logger.error("  ✗ Failed to reconcile %s: %s", wid, e)
+                stats["failed"] += 1
             continue
 
         for ex in workout.get("exercises", []):

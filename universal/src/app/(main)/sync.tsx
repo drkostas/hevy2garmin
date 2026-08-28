@@ -3,18 +3,19 @@ import { Text, Card, Badge, ProgressBar, Sparkline } from "soma-style";
 import { useHevyStatus, usePullRefresh } from "../../lib/api";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function fmtDate(iso: string): string {
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
   const d = new Date(iso);
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
-/** hevy2garmin sync dashboard — live from the soma DB via /api/hevy/status. */
+/** hevy2garmin sync dashboard — live via /api/hevy/status. */
 export default function SyncScreen() {
   const { data, error, refetch } = useHevyStatus();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const recent = data?.recent ?? [];
   // recent is newest-first; a sparkline reads oldest→newest.
-  const kcalSeries = [...recent].reverse().map((w) => w.kcal);
+  const kcalSeries = [...recent].reverse().map((w) => w.calories ?? 0);
 
   return (
     <ScrollView
@@ -32,7 +33,7 @@ export default function SyncScreen() {
         </View>
 
         {error ? (
-          <Card><Text variant="body" className="text-danger">API: {error} — is soma running on :3456?</Text></Card>
+          <Card><Text variant="body" className="text-danger">API: {error} — check EXPO_PUBLIC_API_URL.</Text></Card>
         ) : null}
 
         {/* Connection cards */}
@@ -83,15 +84,18 @@ export default function SyncScreen() {
         <View className="gap-2">
           <Text variant="eyebrow">Latest</Text>
           {recent.slice(0, 3).map((w, i) => (
-            <Card key={`${w.title}-${w.date}-${i}`} className="gap-2">
+            <Card key={`${w.hevy_id}-${i}`} className="gap-2">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-2">
                   <Text variant="body" className="text-text" numberOfLines={1}>{w.title}</Text>
                   <Text variant="micro">
-                    {fmtDate(w.date)} · {w.kcal} kcal · {w.exercises} ex · {w.sets} sets
+                    {fmtDate(w.synced_at)} · {w.calories ?? "—"} kcal
                   </Text>
                 </View>
-                <Badge label={w.synced ? "Synced" : w.status} tone={w.synced ? "success" : "warm"} />
+                <Badge
+                  label={w.status === "success" ? "Synced" : w.status}
+                  tone={w.status === "success" ? "success" : "warm"}
+                />
               </View>
             </Card>
           ))}

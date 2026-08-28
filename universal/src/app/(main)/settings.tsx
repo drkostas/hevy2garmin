@@ -22,7 +22,7 @@ export default function SettingsScreen() {
         <Text variant="headline">Settings</Text>
 
         {error ? (
-          <Card><Text variant="body" className="text-danger">API: {error} — is soma running on :3456?</Text></Card>
+          <Card><Text variant="body" className="text-danger">API: {error} — check EXPO_PUBLIC_API_URL.</Text></Card>
         ) : null}
 
         {/* Connections */}

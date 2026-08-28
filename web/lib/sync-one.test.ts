@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- Mock the package: generateFit is deterministic; the Garmin ops are spies. ---
 const uploadFit = vi.fn();
 const findActivityByStartTime = vi.fn();
+const connectapi = vi.fn();
 const renameActivity = vi.fn();
 const setDescription = vi.fn();
 vi.mock("hevy2garmin", () => ({
@@ -74,7 +75,11 @@ const sql = {} as ReturnType<typeof import("./db").getDb>;
 
 // A fake Garmin client — findExistingActivity/upload/etc. are the mocked
 // package fns above, so this object only needs to exist.
-const fakeClient = { domain: "garmin.com", di_token: "x" } as unknown as GarminClient;
+const fakeClient = {
+  domain: "garmin.com",
+  di_token: "x",
+  connectapi: (...a: unknown[]) => connectapi(...a),
+} as unknown as GarminClient;
 const garminClientFactory = vi.fn(async () => fakeClient);
 
 const WORKOUT = {
@@ -111,6 +116,7 @@ beforeEach(() => {
   loadPendingIds.mockResolvedValue(new Set<string>());
   isSynced.mockResolvedValue(false);
   findActivityByStartTime.mockResolvedValue(null);
+  connectapi.mockResolvedValue([]);
   claimPending.mockResolvedValue(true);
   uploadFit.mockResolvedValue({ uploadId: 99, activityId: 555 });
 });
@@ -128,7 +134,7 @@ describe("syncOneWorkout — dry-run is the DEFAULT and never writes", () => {
     expect(res.workout?.hevy_id).toBe("hevy-1");
     expect(res.fitStats?.calories).toBe(321);
     // The layer-2 read IS allowed (it's a read), but NO write happens.
-    expect(findActivityByStartTime).toHaveBeenCalledTimes(1);
+    expect(connectapi).toHaveBeenCalledTimes(1);
     expectNoWrites();
   });
 
@@ -176,7 +182,9 @@ describe("dedup layer 1 — already-synced is skipped, never uploaded", () => {
 
 describe("dedup layer 2 — existing Garmin activity → match, NOT upload", () => {
   it("dry-run: reports the match, no writes", async () => {
-    findActivityByStartTime.mockResolvedValue(4242);
+    connectapi.mockResolvedValue([
+      { activityId: 4242, startTimeGMT: WORKOUT.start_time, activityTypeKey: "strength_training" },
+    ]);
     const res = await syncOneWorkout(sql, {
       fetchWorkouts: fetchOne(),
       garminClientFactory,
@@ -191,7 +199,9 @@ describe("dedup layer 2 — existing Garmin activity → match, NOT upload", () 
   });
 
   it("live: matches + renames the existing activity, NEVER uploads a FIT", async () => {
-    findActivityByStartTime.mockResolvedValue(4242);
+    connectapi.mockResolvedValue([
+      { activityId: 4242, startTimeGMT: WORKOUT.start_time, activityTypeKey: "strength_training" },
+    ]);
     const res = await syncOneWorkout(sql, {
       dryRun: false,
       fetchWorkouts: fetchOne(),
@@ -260,6 +270,32 @@ describe("dedup layer 3 + live upload — fresh workout on the live path", () =>
       sql,
     );
     expect(completePending).not.toHaveBeenCalled();
+  });
+
+  it("accepted upload without an activity id stays processing for reconciliation", async () => {
+    uploadFit.mockResolvedValue({ uploadId: 100, activityId: null });
+    const res = await syncOneWorkout(sql, {
+      dryRun: false,
+      fetchWorkouts: fetchOne(),
+      garminClientFactory,
+    });
+
+    expect(res.status).toBe("processing");
+    expect(res.error).toContain("activity ID is not resolved");
+    expect(uploadFit).toHaveBeenCalledTimes(1);
+    expect(renameActivity).not.toHaveBeenCalled();
+    expect(setDescription).not.toHaveBeenCalled();
+    expect(completePending).not.toHaveBeenCalled();
+    expect(updatePending).toHaveBeenLastCalledWith(
+      "hevy-1",
+      expect.objectContaining({
+        phase: "processing",
+        next_step: "resolve_activity",
+        upload_id: "100",
+        garmin_activity_id: null,
+      }),
+      sql,
+    );
   });
 });
 

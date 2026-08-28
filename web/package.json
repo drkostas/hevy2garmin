@@ -17,7 +17,7 @@
     "e2e:mobile": "playwright test --project=mobile"
   },
   "dependencies": {
-    "@garmin/fitsdk": "^21.212.0",
+    "argon2": "^0.41.1",
     "garmin-auth": "^0.4.1",
     "hevy2garmin": "^0.1.4",
     "next": "^16.1.0",

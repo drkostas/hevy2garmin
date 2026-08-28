@@ -94,6 +94,7 @@ class TestCronGraceDeferral:
         hevy = MagicMock()
         hevy.get_workout_count.return_value = 1
         database = MagicMock()
+        database.list_pending.return_value = []
 
         with (
             patch.object(
