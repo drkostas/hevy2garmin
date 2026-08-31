@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { workerLoginMfa } from "@/lib/garmin-login-worker";
-import { toResponse } from "@/app/api/garmin-login/route";
+import { toResponse } from "@/lib/garmin-login-response";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

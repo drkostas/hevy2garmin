@@ -13,7 +13,8 @@ describe("dashboard auth contract", () => {
     const cookie = await signSession();
     expect(cookie).toMatch(/^v2\.\d+\.0\.[0-9a-f]{32}$/);
     await expect(verifySession(cookie)).resolves.toBe(true);
-    await expect(verifySession(`${cookie.slice(0, -1)}0`)).resolves.toBe(false);
+    const tampered = `${cookie.slice(0, -1)}${cookie.endsWith("0") ? "1" : "0"}`;
+    await expect(verifySession(tampered)).resolves.toBe(false);
   });
 
   it("binds sessions to the current epoch", async () => {
