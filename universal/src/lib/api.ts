@@ -1,24 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 
 /**
- * hevy2garmin universal data. The sync state lives in the soma DB
- * (workout_enrichment, populated by the TS hevy-sync cron), exposed at
- * /api/hevy/status. Override the host with EXPO_PUBLIC_API_URL for device/prod.
+ * hevy2garmin universal data, exposed at /api/hevy/status. Override the host
+ * with EXPO_PUBLIC_API_URL for device/prod.
  */
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3456";
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8123";
 
-/** Personal API token for prod (soma.gkos.dev gates /api/* behind a session;
-    the token bypasses that for this native client). Empty in local dev. */
+/** Personal API token for a hosted deployment whose API is session-gated.
+    Empty in local development. */
 const API_TOKEN = process.env.EXPO_PUBLIC_API_TOKEN;
 const AUTH_HEADERS: Record<string, string> = API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {};
 
 export interface HevyWorkout {
+  hevy_id: string;
   title: string;
-  date: string;
-  kcal: number;
-  exercises: number;
-  sets: number;
-  synced: boolean;
+  synced_at: string | null;
+  calories: number | null;
+  avg_hr: number | null;
+  garmin_activity_id: string | null;
   status: string;
 }
 

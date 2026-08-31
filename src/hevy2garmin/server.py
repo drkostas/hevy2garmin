@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextvars
 import hmac
 import logging
 import os
@@ -13,22 +12,31 @@ from datetime import date, datetime, timezone
 from html import escape
 from math import ceil
 from pathlib import Path
-from typing import Any
 
 from fastapi import FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
-from jinja2 import Environment, FileSystemLoader
 
-from hevy2garmin import autosync, db, garmin_login, login_ratelimit, syncstate, __version__
+from hevy2garmin import autosync, db, garmin_login, login_ratelimit, mapper, pages, syncstate
 from hevy2garmin.db_interface import NoWritableDatabaseError
 from hevy2garmin.auth import (
     auth_enabled, verify_session, sign_session, check_password, SESSION_COOKIE, session_ttl,
 )
 from hevy2garmin.config import is_configured, load_config, save_config
 from hevy2garmin.demo import is_demo_mode
-from hevy2garmin.ratelimit import record_rate_limit, cooldown_remaining, clear_rate_limit, format_cooldown
+from hevy2garmin.ratelimit import record_rate_limit, cooldown_remaining, format_cooldown
+from hevy2garmin.webctx import (
+    _apply_prefix,
+    _jinja_env,
+    _prefix_location,
+    _render,
+    _url_prefix,
+    _validated_prefix,
+    client_ip,
+    is_https,
+    trust_forwarded_prefix,
+)
 from hevy2garmin.sync import (
     sync,
     sync_routines,
@@ -40,147 +48,7 @@ from hevy2garmin.sync import (
 
 logger = logging.getLogger("hevy2garmin")
 
-TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
-
-# Sub-path this app is served under when it sits behind a reverse proxy that
-# mounts it below the origin root (X-Forwarded-Prefix, e.g. "/apps/hevy2garmin").
-# Empty for a normal root install; set per request by the middleware.
-#
-# Every URL this app emits is root-absolute ("/workouts", "/api/sync-one"), which
-# is correct at the root and wrong one level down, so all three kinds are moved
-# onto the prefix: HTML attributes and redirect Locations server-side (below),
-# and the URLs the page's JavaScript builds at runtime via `window.APP_PREFIX`
-# (base.html). A proxy cannot fix the third kind, so the app has to own all of it.
-_url_prefix: contextvars.ContextVar[str] = contextvars.ContextVar("url_prefix", default="")
-
-# Root-absolute URL in an attribute that navigates or fetches. Deliberately not
-# every attribute: only these carry a URL the browser resolves against the origin.
-_ROOT_ABSOLUTE_ATTR = re.compile(
-    r'(\s(?:href|src|action|hx-get|hx-post|hx-put|hx-patch|hx-delete)=")/(?!/)'
-)
-
-# A prefix is a single-origin absolute path and nothing else. The character class
-# excludes ":" (no scheme), quotes and angle brackets (no breaking out of an
-# attribute or a script tag), and the explicit "//" rejection blocks a
-# protocol-relative value, which would silently re-point every URL on the page at
-# another host.
-_SAFE_PREFIX = re.compile(r"^/[A-Za-z0-9._~/-]+$")
-
-
-def trust_forwarded_prefix() -> bool:
-    """Whether X-Forwarded-Prefix may be believed.
-
-    Off by default, and that default is the security boundary: any client can
-    send the header, so on a directly-exposed instance — or one behind a proxy
-    that forwards client headers untouched — trusting it hands an attacker
-    control of every URL the page emits, including the login form's action and
-    the Garmin token POST. Only the operator knows a proxy is setting it.
-    """
-    return os.environ.get("H2G_TRUST_FORWARDED_PREFIX", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-
-
-def _validated_prefix(raw: str) -> str:
-    """Normalize a claimed sub-path, or return "" if it is not one.
-
-    Rejecting outright rather than sanitizing: a prefix that needed cleaning was
-    not sent by the proxy this feature exists for, and serving the page at the
-    origin root is the safe fallback in every case.
-    """
-    candidate = (raw or "").strip().rstrip("/")
-    if not candidate or candidate.startswith("//") or not _SAFE_PREFIX.match(candidate):
-        return ""
-    return candidate
-
-
-def _apply_prefix(html: str, prefix: str) -> str:
-    """Move root-absolute URL attributes in ``html`` onto ``prefix``.
-
-    A no-op without a prefix, so a root install renders byte-identical HTML.
-    Rewriting the rendered output rather than the templates keeps the prefix out
-    of ~50 template call sites, where a single missed one is an unreachable page.
-    Already-prefixed URLs are left alone, so this stays safe to apply twice (a
-    proxy that does its own HTML rewriting may have got there first).
-    """
-    if not prefix:
-        return html
-
-    # Escaped even though _validated_prefix already excludes every character
-    # that matters here: this is the sink, and a sink that cannot be broken
-    # regardless of what reaches it does not depend on validation staying correct.
-    safe = escape(prefix, quote=True)
-
-    def _sub(m: re.Match[str]) -> str:
-        rest = html[m.end() - 1 :]
-        if rest == safe or rest.startswith((safe + "/", safe + '"', safe + "?")):
-            return m.group(0)
-        return f"{m.group(1)}{safe}/"
-
-    return _ROOT_ABSOLUTE_ATTR.sub(_sub, html)
-
-
-def _prefix_location(location: str, prefix: str) -> str:
-    """Move a root-relative redirect target onto ``prefix``; idempotent.
-
-    Both sides are checked for a protocol-relative form: a "//evil.example.com"
-    prefix would otherwise turn any internal redirect into an off-site one.
-    """
-    if not prefix or prefix.startswith("//"):
-        return location
-    if not location.startswith("/") or location.startswith("//"):
-        return location
-    if location == prefix or location.startswith((prefix + "/", prefix + "?")):
-        return location
-    return prefix + location
-
-
-def _get_cat_names() -> dict[int, str]:
-    """Canonical Garmin FIT exercise category names."""
-    return {
-        0: "Bench Press", 1: "Calf Raise", 2: "Cardio", 3: "Carry", 4: "Chop",
-        5: "Core", 6: "Crunch", 7: "Curl", 8: "Deadlift", 9: "Flye",
-        10: "Hip Raise", 11: "Hip Stability", 12: "Hip Swing", 13: "Hyperextension",
-        14: "Lateral Raise", 15: "Leg Curl", 16: "Leg Raise", 17: "Lunge",
-        18: "Olympic Lift", 19: "Plank", 20: "Plyo", 21: "Pull Up", 22: "Push Up",
-        23: "Row", 24: "Shoulder Press", 25: "Shoulder Stability", 26: "Shrug",
-        27: "Sit Up", 28: "Squat", 29: "Total Body", 30: "Triceps Extension",
-        31: "Warm Up", 32: "Run", 33: "Cycling", 36: "Yoga", 38: "Battle Ropes",
-        39: "Elliptical", 41: "Indoor Bike", 42: "Indoor Row", 47: "Stair Machine",
-        52: "Treadmill", 65534: "Unknown",
-    }
-_jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
-
-
-# Weekday / short-date helpers for the routines "Upcoming schedule" timeline.
-_SCHED_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-_SCHED_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-
-def _sched_parts(iso: Any) -> dict[str, str]:
-    """Format an ISO date (YYYY-MM-DD) into {'short': 'Jul 24', 'weekday': 'Friday'}."""
-    try:
-        d = date.fromisoformat(str(iso)[:10])
-        return {"short": f"{_SCHED_MONTHS[d.month - 1]} {d.day}", "weekday": _SCHED_WEEKDAYS[d.weekday()]}
-    except (ValueError, TypeError):
-        return {"short": str(iso or ""), "weekday": ""}
-
-
-_jinja_env.globals["sched_parts"] = _sched_parts
-
-
-def _render(template_name: str, **ctx) -> HTMLResponse:
-    t = _jinja_env.get_template(template_name)
-    ctx.setdefault("auth_enabled", auth_enabled())
-    ctx.setdefault("demo_mode", is_demo_mode())
-    ctx.setdefault("version", __version__)
-    prefix = _url_prefix.get()
-    ctx.setdefault("url_prefix", prefix)
-    return HTMLResponse(_apply_prefix(t.render(**ctx), prefix))
 
 
 @asynccontextmanager
@@ -231,6 +99,14 @@ _NO_DB_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 </div></body></html>"""
 
 
+# The page routes live in ``hevy2garmin.pages``, included here roughly where they
+# used to be defined. No page path overlaps one declared below — the closest pair
+# is "/api/workout/{id}/hr" against "/api/workout/{id}/mark-synced" — so the
+# registration order carries no meaning and moving this line cannot reroute a
+# request. Middleware is unaffected either way: it is a separate stack.
+app.include_router(pages.router)
+
+
 @app.exception_handler(NoWritableDatabaseError)
 async def _no_database_handler(request: Request, exc: NoWritableDatabaseError) -> HTMLResponse:
     """Render an actionable 'add a database' page instead of a raw 500 (#145, #142)."""
@@ -240,94 +116,11 @@ async def _no_database_handler(request: Request, exc: NoWritableDatabaseError) -
 
 # ── Sync-session caches ─────────────────────────────────────────────────────
 # The shared sync lock and the last-sync timestamp live in
-# ``hevy2garmin.syncstate``; the auto-sync loop lives in
-# ``hevy2garmin.autosync``. What is left here is the exercise-mapping cache and
+# ``hevy2garmin.syncstate``; the auto-sync loop lives in ``hevy2garmin.autosync``
+# and the unmapped-exercise cache in ``hevy2garmin.pages``. What is left here is
 # the per-session failed-upload set, which only this module's routes touch.
 
-_unmapped_cache: list[tuple[str, int]] | None = None
-_unmapped_cache_time: float = 0
 _failed_ids: set[str] = set()  # Workouts that failed upload this session (retried next session)
-
-
-def _get_unmapped_exercises() -> list[tuple[str, int]]:
-    """Get unmapped exercises. Uses DB cache (updated during sync).
-
-    Exercises that now have a mapping are filtered out, so a freshly mapped one
-    leaves the list immediately instead of lingering until the next sync (#172).
-    """
-    from hevy2garmin.mapper import lookup_exercise
-
-    def _still_unmapped(items):
-        return sorted(
-            ((name, count) for name, count in items if lookup_exercise(name)[0] == 65534),
-            key=lambda x: -x[1],
-        )
-
-    # Try DB cache first (instant)
-    try:
-        _db = db.get_db()
-        cached = _db.get_app_config("unmapped_exercises")
-        if cached and isinstance(cached, dict):
-            return _still_unmapped(cached.items())
-    except Exception:
-        pass
-
-    # Fallback: in-memory cache (local installs)
-    global _unmapped_cache, _unmapped_cache_time
-    import time as _t
-    if _unmapped_cache is not None and (_t.time() - _unmapped_cache_time) < 600:
-        return _unmapped_cache
-
-    config = load_config()
-    unmapped: dict[str, int] = {}
-    try:
-        from hevy2garmin.hevy import HevyClient
-        from hevy2garmin.mapper import lookup_exercise
-        hevy = HevyClient(api_key=config.get("hevy_api_key"))
-        for pg in range(1, 6):
-            data = hevy.get_workouts(page=pg, page_size=10)
-            for w in data.get("workouts", []):
-                for ex in w.get("exercises", []):
-                    name = ex.get("title") or ex.get("name", "")
-                    if name and lookup_exercise(name, ex.get("exercise_template_id"))[0] == 65534:
-                        unmapped[name] = unmapped.get(name, 0) + 1
-            if pg >= data.get("page_count", 1):
-                break
-    except Exception:
-        pass
-
-    _unmapped_cache = sorted(unmapped.items(), key=lambda x: -x[1])
-    _unmapped_cache_time = _t.time()
-    return _unmapped_cache
-
-
-def client_ip(request: Request) -> str:
-    """Best-effort real client IP.
-
-    Behind Vercel/Cloudflare the edge populates ``X-Forwarded-For`` and the
-    leftmost entry is the original client (proxies append their hops on the
-    right). Falls back to ``X-Real-IP``, then the socket peer, and finally the
-    literal ``"unknown"`` bucket for header-less clients (so a missing header
-    can't create unbounded rate-limit buckets).
-    """
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    xrip = request.headers.get("x-real-ip")
-    if xrip:
-        return xrip.strip()
-    return request.client.host if request.client else "unknown"
-
-
-def is_https(request: Request) -> bool:
-    """True when the original request was HTTPS.
-
-    On Vercel, TLS terminates at the edge and the app sees ``http`` plus an
-    ``X-Forwarded-Proto: https`` header, so we check both.
-    """
-    if request.url.scheme == "https":
-        return True
-    return request.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https"
 
 
 _epoch_cache = 0
@@ -557,268 +350,6 @@ async def logout_all():
     return response
 
 
-# ── Pages ────────────────────────────────────────────────────────────────────
-
-@app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    config = load_config()
-    terminal_counts = db.get_terminal_counts()
-    synced_count = terminal_counts["uploaded"]
-    terminal_count = terminal_counts["terminal"]
-    recent = db.get_recent_synced(5)
-
-    # Check garmin_connected FIRST (DB/file check only, no HTTP to Garmin)
-    garmin_connected = False
-    try:
-        if db.get_database_url():
-            _db = db.get_db()
-            if hasattr(_db, '_get_conn'):
-                with _db._get_conn() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute("SELECT 1 FROM platform_credentials WHERE platform = 'garmin_tokens' AND credentials != '{}' LIMIT 1")
-                        garmin_connected = cur.fetchone() is not None
-        else:
-            from pathlib import Path
-            token_dir = Path(config.get("garmin_token_dir", "~/.garminconnect")).expanduser()
-            # garmin-auth >= 0.3.0 uses a single DI OAuth token file
-            garmin_connected = (token_dir / "garmin_tokens.json").exists()
-    except Exception:
-        pass
-
-    hevy_total = 0
-    matched_count = synced_count  # Use DB count (fast) instead of Garmin API (slow)
-    try:
-        # Try cached count from DB first (instant), fall back to Hevy API
-        _db = db.get_db()
-        cached = _db.get_app_config("hevy_total")
-        if cached and isinstance(cached, dict):
-            hevy_total = cached.get("count", 0)
-        else:
-            from hevy2garmin.hevy import HevyClient
-            hevy = HevyClient(api_key=config.get("hevy_api_key"))
-            hevy_total = hevy.get_workout_count()
-            _db.set_app_config("hevy_total", {"count": hevy_total})
-    except Exception:
-        pass
-    mapping_count = 0
-    try:
-        from hevy2garmin.mapper import HEVY_TO_GARMIN, _custom_mappings, _ensure_custom_loaded
-        _ensure_custom_loaded()
-        mapping_count = len(HEVY_TO_GARMIN) + len(_custom_mappings)
-    except Exception:
-        pass
-    garmin_cooldown = 0
-    garmin_cooldown_str = ""
-    try:
-        garmin_cooldown = cooldown_remaining(db.get_db())
-        if garmin_cooldown > 0:
-            garmin_cooldown_str = format_cooldown(garmin_cooldown)
-    except Exception:
-        pass
-
-    # Routine summary — all DB-backed (no Hevy call). "pending" needs the total
-    # routine count, cached by the /routines page and by routine sync.
-    routine_stats = {"synced": 0, "scheduled": 0}
-    recent_routines: list = []
-    routines_pending = None
-    try:
-        routine_stats = db.get_routine_stats()
-        recent_routines = db.get_recent_synced_routines(5)
-        cached_total = db.get_app_config("routines_total")
-        if isinstance(cached_total, dict) and isinstance(cached_total.get("count"), int):
-            routines_pending = max(0, cached_total["count"] - routine_stats["synced"])
-    except Exception:
-        logger.warning("Could not build routine summary for dashboard", exc_info=True)
-
-    return _render(
-        "dashboard.html",
-        routine_stats=routine_stats,
-        recent_routines=recent_routines,
-        routines_pending=routines_pending,
-        synced_count=synced_count,
-        matched_count=matched_count,
-        terminal_count=terminal_count,
-        manual_count=terminal_counts["manual"],
-        skipped_count=terminal_counts["skipped"],
-        hevy_total=hevy_total,
-        recent=recent,
-        auto_sync=autosync.status(),
-        sync_log=db.get_sync_log(10),
-        mapping_count=mapping_count,
-        garmin_connected=garmin_connected,
-        needs_actions_setup=False,
-        garmin_cooldown=garmin_cooldown,
-        garmin_cooldown_str=garmin_cooldown_str,
-    )
-
-
-
-def _direct_garmin_login() -> bool:
-    """Whether the dashboard collects Garmin credentials itself.
-
-    Off by default: the hosted deployment hands the login to the exchange
-    worker so the app never sees a Garmin password. Self-hosted installs can
-    opt in, keeping the credentials on their own machine.
-    """
-    return os.environ.get("H2G_DIRECT_GARMIN_LOGIN", "").strip().lower() in ("1", "true", "yes", "on")
-
-
-@app.get("/setup", response_class=HTMLResponse)
-async def setup_page(request: Request):
-    garmin_cooldown = 0
-    garmin_cooldown_str = ""
-    try:
-        garmin_cooldown = cooldown_remaining(db.get_db())
-        if garmin_cooldown > 0:
-            garmin_cooldown_str = format_cooldown(garmin_cooldown)
-    except Exception:
-        pass
-    return _render("setup.html", config=load_config(), is_cloud=bool(db.get_database_url()),
-                   garmin_cooldown=garmin_cooldown, garmin_cooldown_str=garmin_cooldown_str,
-                   direct_garmin_login=_direct_garmin_login())
-
-
-@app.post("/setup")
-async def setup_save(
-    request: Request,
-    hevy_api_key: str = Form(""),
-    garmin_email: str = Form(""),
-    garmin_password: str = Form(""),
-    weight_kg: float = Form(80.0),
-    birth_year: int = Form(1990),
-    sex: str = Form("male"),
-):
-    if is_demo_mode():
-        return RedirectResponse("/", status_code=303)
-
-    config = load_config()
-    if hevy_api_key:
-        config["hevy_api_key"] = hevy_api_key
-    if garmin_email:
-        config["garmin_email"] = garmin_email
-    config["user_profile"]["weight_kg"] = weight_kg
-    config["user_profile"]["birth_year"] = birth_year
-    config["user_profile"]["sex"] = sex
-    save_config(config)
-
-    # On cloud deployments, persist credentials to DB so GitHub Actions can read them
-    if db.get_database_url():
-        try:
-            _db = db.get_db()
-            if hasattr(_db, '_get_conn'):
-                hevy_key = hevy_api_key or os.environ.get("HEVY_API_KEY", "")
-                g_email = garmin_email or os.environ.get("GARMIN_EMAIL", "")
-                g_password = garmin_password or os.environ.get("GARMIN_PASSWORD", "")
-                import json as _json
-                with _db._get_conn() as conn:
-                    with conn.cursor() as cur:
-                        if hevy_key:
-                            cur.execute("""
-                                INSERT INTO platform_credentials (platform, auth_type, credentials, status)
-                                VALUES ('hevy', 'api_key', %s, 'active')
-                                ON CONFLICT (platform) DO UPDATE SET credentials = EXCLUDED.credentials, status = 'active'
-                            """, (_json.dumps({"api_key": hevy_key}),))
-                        if g_email:
-                            cur.execute("""
-                                INSERT INTO platform_credentials (platform, auth_type, credentials, status)
-                                VALUES ('garmin', 'password', %s, 'active')
-                                ON CONFLICT (platform) DO UPDATE SET credentials = EXCLUDED.credentials, status = 'active'
-                            """, (_json.dumps({"email": g_email, "password": g_password}),))
-                    conn.commit()
-        except Exception as e:
-            logger.warning("Failed to persist credentials to DB: %s", e)
-
-    # Try server-side Garmin auth — LOCAL/self-host only.
-    #
-    # On cloud (serverless) deployments we deliberately skip this test login:
-    # the datacenter IP is blocked by Garmin, and real auth happens through the
-    # browser-based worker flow. A server-side login here would either fail or
-    # add to Garmin's per-account login rate limit, surfacing a scary error that
-    # reads like setup failed (#148). Credentials are already persisted to the DB
-    # above, so the scheduled sync can authenticate via the worker.
-    garmin_pw = garmin_password or os.environ.get("GARMIN_PASSWORD", "")
-    garmin_em = garmin_email or config.get("garmin_email", "")
-
-    garmin_error = None
-    if garmin_pw and garmin_em and not db.get_database_url():
-        # Gate: enforce local cooldown before attempting any Garmin login.
-        # Retrying resets Garmin's own rate-limit timer, so we must skip the
-        # attempt entirely when cooling down — not just warn about it.
-        _cooldown = 0
-        try:
-            _cooldown = cooldown_remaining(db.get_db())
-        except Exception:
-            pass
-        if _cooldown > 0:
-            garmin_error = (
-                "Garmin is still cooling down, "
-                + format_cooldown(_cooldown)
-                + " left. Leave it be. Retrying resets the timer. "
-                "Click 'Skip for now'; your credentials are saved and "
-                "sync will resume automatically once it clears."
-            )
-        else:
-            try:
-                from hevy2garmin.garmin import get_client
-                get_client(garmin_em, garmin_pw)
-                # Login succeeded — reset the backoff counter.
-                try:
-                    clear_rate_limit(db.get_db())
-                except Exception:
-                    pass
-            except Exception as e:
-                logger.warning("Garmin login test failed: %s", e)
-                err = str(e)
-                if "MFA" in err.upper():
-                    garmin_error = (
-                        "Garmin MFA (two-factor authentication) is enabled. "
-                        "Temporarily disable MFA in your Garmin account settings, "
-                        "connect here, then re-enable it."
-                    )
-                elif "429" in err or "rate limit" in err.lower():
-                    _cd_secs = 2 * 3600
-                    try:
-                        _cd_secs = record_rate_limit(db.get_db())
-                    except Exception:
-                        pass
-                    garmin_error = (
-                        "Garmin has rate-limited login attempts for your account "
-                        "(enforcing a " + format_cooldown(_cd_secs) + " cooldown locally "
-                        "to protect your account). It clears on its own. Retrying "
-                        "resets the timer. Click 'Skip for now'; your credentials are "
-                        "saved and sync will resume automatically."
-                    )
-                elif "SSO login failed" in err:
-                    garmin_error = (
-                        "Garmin login failed. Double-check your email and password. "
-                        "If they're correct, Garmin may be temporarily blocking logins "
-                        "from this server. Try again in an hour."
-                    )
-                else:
-                    # Strip any HTML tags from Garmin error responses
-                    cleaned = re.sub(r"<[^>]+>", " ", err)
-                    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()[:200]
-                    garmin_error = cleaned or "Unknown error. Check your email and password."
-    if garmin_error:
-        _cd2 = 0
-        _cd2_str = ""
-        try:
-            _cd2 = cooldown_remaining(db.get_db())
-            if _cd2 > 0:
-                _cd2_str = format_cooldown(_cd2)
-        except Exception:
-            pass
-        return _render("setup.html", config=load_config(), garmin_error=garmin_error,
-                        allow_skip=True, is_cloud=bool(db.get_database_url()),
-                        garmin_cooldown=_cd2, garmin_cooldown_str=_cd2_str)
-
-    response = RedirectResponse("/", status_code=303)
-    # Set auth cookie if HEVY2GARMIN_SECRET is configured (cloud deployments)
-    secret = os.environ.get("HEVY2GARMIN_SECRET")
-    if secret:
-        response.set_cookie("h2g_auth", secret, httponly=True, samesite="strict",
-                            secure=is_https(request), max_age=365 * 86400)
-    return response
 
 
 # ── Browser-based Garmin auth (ticket exchange) ───────────────────────────
@@ -935,355 +466,6 @@ async def garmin_login_mfa(request: Request):
     return JSONResponse(result)
 
 
-@app.get("/workouts", response_class=HTMLResponse)
-async def workouts_page(request: Request):
-    config = load_config()
-    workouts = []
-    page = int(request.query_params.get("page", 1))
-    page_count = 1
-    fetch_error = None
-    try:
-        from hevy2garmin.hevy import HevyClient
-
-        _db = db.get_db()
-        cache_key = f"hevy_workouts_page_{page}"
-
-        # Try DB cache first (populated during sync). Fall back to Hevy API on miss.
-        cached = _db.get_app_config(cache_key)
-        if cached:
-            workouts_raw = cached.get("workouts", [])
-            page_count = cached.get("page_count", 1)
-        else:
-            data = HevyClient(api_key=config.get("hevy_api_key")).get_workouts(page=page, page_size=10)
-            workouts_raw = data.get("workouts", [])
-            page_count = data.get("page_count", 1)
-            _db.set_app_config(cache_key, {"workouts": workouts_raw, "page_count": page_count})
-
-        # Batch check sync status (1 query instead of N)
-        hevy_ids = [w.get("id", "") for w in workouts_raw]
-        states = _db.get_workout_states(hevy_ids)
-        # Check for workouts edited on Hevy since last sync
-        stale_ids = set(_db.get_stale_synced(workouts_raw))
-
-        # Get profile for calorie calculation
-        profile = config.get("user_profile", {})
-        weight_kg = profile.get("weight_kg", 80.0)
-        birth_year = profile.get("birth_year", 1990)
-        vo2max = profile.get("vo2max", 45.0)
-
-        for w in workouts_raw:
-            w["start_time"] = w.get("start_time") or w.get("startTime", "")
-            w["end_time"] = w.get("end_time") or w.get("endTime", "")
-            state = states.get(w["id"])
-            if state and state["kind"] == "terminal":
-                terminal_status = state.get("status") or "success"
-                w["status"] = {"success": "uploaded", "manual": "manual", "skipped": "skipped"}.get(terminal_status, "uploaded")
-                w["state_detail"] = state
-                gid = state.get("garmin_activity_id")
-                if gid:
-                    w["garmin_match"] = {"garmin_id": gid, "garmin_name": w.get("title", "")}
-                if w["id"] in stale_ids:
-                    w["edited_since_sync"] = True
-            elif state and state["kind"] == "pending":
-                phase = state.get("status")
-                w["status"] = "processing" if phase in {"preparing", "processing", "finalizing"} else phase
-                w["state_detail"] = state
-                if state.get("garmin_activity_id"):
-                    w["garmin_match"] = {"garmin_id": state["garmin_activity_id"], "garmin_name": w.get("title", "")}
-            else:
-                w["status"] = "pending"
-
-            # Calculate calorie breakdown for display
-            try:
-                start = w["start_time"]
-                end = w["end_time"]
-                if start and end:
-                    from hevy2garmin.fit import _parse_timestamp, _DEFAULT_HR_BPM
-                    start_dt = _parse_timestamp(start)
-                    end_dt = _parse_timestamp(end)
-                    if not start_dt or not end_dt:
-                        raise ValueError("bad timestamp")
-                    duration_s = (end_dt - start_dt).total_seconds()
-                    workout_year = start_dt.year
-                    age = workout_year - birth_year
-                    # Default HR (no samples available in listing)
-                    hr = _DEFAULT_HR_BPM
-                    kcal_per_min = (
-                        -95.7735 + 0.634 * hr + 0.404 * vo2max
-                        + 0.394 * weight_kg + 0.271 * age
-                    ) / 4.184
-                    total_kcal = max(0, round(max(0.0, kcal_per_min) * (duration_s / 60.0)))
-                    duration_min = int(duration_s // 60)
-                    w["cal_info"] = {
-                        "duration_min": duration_min,
-                        "avg_hr": hr,
-                        "hr_source": "default 90 bpm",
-                        "weight_kg": weight_kg,
-                        "age": age,
-                        "vo2max": vo2max,
-                        "kcal_per_min": round(kcal_per_min, 2),
-                        "total_kcal": total_kcal,
-                    }
-            except Exception:
-                pass
-
-        workouts = workouts_raw
-    except Exception as e:
-        logger.error("Failed to fetch workouts: %s", e)
-        fetch_error = str(e)
-    hr_fusion = config.get("hr_fusion", {}).get("enabled", True)
-    return _render("workouts.html", workouts=workouts, hr_fusion_enabled=hr_fusion, page=page, page_count=page_count, fetch_error=fetch_error)
-
-
-def _daily_hr_to_samples(daily_hr: object, start_ms: int, end_ms: int) -> list[dict]:
-    """Slice Garmin daily HR (``heartRateValues``) to a workout window.
-
-    Garmin returns ``{"heartRateValues": null}`` for a day with no wellness HR yet
-    (common for the current day, before all-day HR is populated), so the key is
-    present with value ``None`` and ``.get(..., [])`` does NOT fall back. Guard the
-    ``None`` before iterating so the endpoint returns an empty series instead of
-    crashing with "'NoneType' object is not iterable" (#326).
-    """
-    hr_values = daily_hr.get("heartRateValues") if isinstance(daily_hr, dict) else None
-    samples: list[dict] = []
-    for entry in hr_values or []:
-        if isinstance(entry, list) and len(entry) >= 2 and entry[1] is not None:
-            ts, bpm = entry[0], entry[1]
-            if start_ms - 60000 <= ts <= end_ms + 60000:  # ±1 min buffer
-                secs_from_start = (ts - start_ms) / 1000
-                samples.append({"time": max(0, secs_from_start), "hr": bpm})
-    samples.sort(key=lambda x: x["time"])
-    return samples
-
-
-@app.get("/api/workout/{hevy_id}/hr", response_class=HTMLResponse)
-async def api_workout_hr(request: Request, hevy_id: str):
-    """Fetch HR data for a workout's matched Garmin activity. Returns JSON for Chart.js.
-
-    Results are cached in SQLite — first load hits Garmin API, subsequent loads are instant.
-    """
-    from fastapi.responses import JSONResponse
-
-    config = load_config()
-
-    # Check if HR fusion is enabled
-    if not config.get("hr_fusion", {}).get("enabled", True):
-        return JSONResponse({"error": "HR fusion disabled in settings"}, status_code=404)
-
-    # Check cache first
-    cached = db.get_cached_hr(hevy_id)
-    if cached:
-        return JSONResponse(cached)
-
-    try:
-        from hevy2garmin.hevy import HevyClient
-        from hevy2garmin.garmin import get_client
-        from hevy2garmin.matcher import fetch_garmin_activities, match_workouts_to_garmin
-        from garmin_auth import RateLimiter
-
-        hevy = HevyClient(api_key=config.get("hevy_api_key"))
-        # Fetch by ID so HR works for older workouts too, not just the first page (#165).
-        workout = hevy.get_workout(hevy_id)
-        if not workout:
-            return JSONResponse({"error": "Workout not found"}, status_code=404)
-
-        garmin_client = get_client(config.get("garmin_email"))
-        garmin_acts = fetch_garmin_activities(garmin_client, count=1000)
-        matches = match_workouts_to_garmin([workout], garmin_acts)
-
-        if hevy_id not in matches:
-            return JSONResponse({"error": "No matching Garmin activity"}, status_code=404)
-
-        garmin_id = matches[hevy_id]["garmin_id"]
-        limiter = RateLimiter(delay=1.0)
-
-        # Fetch activity summary for avg/max HR
-        details = limiter.call(garmin_client.get_activity, garmin_id)
-
-        # Get workout start/end timestamps to slice daily HR
-        from hevy2garmin.fit import _parse_timestamp
-        w_start = workout.get("start_time") or workout.get("startTime", "")
-        w_end = workout.get("end_time") or workout.get("endTime", "")
-        start_dt = _parse_timestamp(w_start)
-        end_dt = _parse_timestamp(w_end)
-        if not start_dt or not end_dt:
-            return HTMLResponse('<div style="padding:20px;color:var(--text-muted);">Workout timestamps missing</div>')
-        start_ms = int(start_dt.timestamp() * 1000)
-        end_ms = int(end_dt.timestamp() * 1000)
-        total_duration_s = max(1, (end_ms - start_ms) / 1000)
-
-        # Fetch daily HR data and slice to workout window
-        date_str = w_start[:10]
-        daily_hr = limiter.call(garmin_client.get_heart_rates, date_str)
-        hr_samples = _daily_hr_to_samples(daily_hr, start_ms, end_ms)
-
-        # Build exercise segments — proportional to actual workout duration
-        exercises = workout.get("exercises", [])
-        seg_colors = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ef4444", "#06b6d4", "#eab308", "#ec4899"]
-        total_sets = sum(len(ex.get("sets", [])) for ex in exercises)
-        segments = []
-        cursor = 0.0
-        for i, ex in enumerate(exercises):
-            n_sets = len(ex.get("sets", []))
-            if total_sets > 0:
-                ex_duration = total_duration_s * (n_sets / total_sets)
-            else:
-                ex_duration = total_duration_s / max(1, len(exercises))
-            segments.append({
-                "name": ex.get("title") or ex.get("name", f"Exercise {i+1}"),
-                "start": round(cursor),
-                "end": round(cursor + ex_duration),
-                "color": seg_colors[i % len(seg_colors)],
-            })
-            cursor += ex_duration
-
-        result = {
-            "hr_samples": hr_samples,
-            "segments": segments,
-            "garmin_id": garmin_id,
-            "garmin_name": matches[hevy_id].get("garmin_name", ""),
-            "avg_hr": details.get("averageHR") or details.get("summaryDTO", {}).get("averageHR"),
-            "max_hr": details.get("maxHR") or details.get("summaryDTO", {}).get("maxHR"),
-            "calories": details.get("calories") or details.get("summaryDTO", {}).get("calories"),
-        }
-
-        # Cache for instant subsequent loads
-        db.cache_hr(hevy_id, result)
-
-        return JSONResponse(result)
-
-    except Exception as e:
-        logger.error("HR data fetch failed: %s", e)
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-
-@app.get("/sync")
-async def sync_page(request: Request):
-    return RedirectResponse("/")
-
-
-@app.get("/mappings", response_class=HTMLResponse)
-async def mappings_page(request: Request):
-    from hevy2garmin.mapper import HEVY_TO_GARMIN, _custom_mappings, _ensure_custom_loaded
-
-    _ensure_custom_loaded()
-
-    CAT_NAMES = _get_cat_names()
-
-    mappings = []
-    for name, (cat, subcat) in sorted(HEVY_TO_GARMIN.items()):
-        cat_name = CAT_NAMES.get(cat, f"Category {cat}")
-        mappings.append((name, cat, subcat, cat_name))
-    for name, (cat, subcat) in sorted(_custom_mappings.items()):
-        cat_name = CAT_NAMES.get(cat, f"Category {cat}")
-        mappings.append((name, cat, subcat, f"{cat_name} (custom)"))
-
-    # Find unmapped exercises from recent workouts (cached)
-    unmapped = _get_unmapped_exercises()
-
-    custom_list = [(name, cat, subcat, CAT_NAMES.get(cat, f"Category {cat}"))
-                   for name, (cat, subcat) in sorted(_custom_mappings.items())]
-
-    return _render(
-        "mappings.html",
-        mappings=mappings,
-        total=len(mappings),
-        custom_count=len(_custom_mappings),
-        custom_list=custom_list,
-        unmapped=unmapped,
-    )
-
-
-@app.get("/history", response_class=HTMLResponse)
-async def history_page(request: Request):
-    return _render("history.html", total=db.get_synced_count(), history=db.get_recent_synced(50))
-
-
-@app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    config = load_config()
-    unmapped: dict[str, int] = {}
-    try:
-        # Use cached unmapped from DB (no Hevy API call)
-        for name, count in _get_unmapped_exercises():
-            unmapped[name] = count
-    except Exception:
-        pass
-    merge_extra_types = ", ".join(
-        t for t in config.get("merge_activity_types", ["strength_training"]) if t != "strength_training"
-    )
-    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types, err=request.query_params.get("err"))
-
-
-@app.post("/settings")
-async def settings_save(
-    hevy_api_key: str = Form(""), garmin_email: str = Form(""), garmin_password: str = Form(""),
-    weight_kg: float = Form(80.0), birth_year: int = Form(1990), sex: str = Form("male"), vo2max: float = Form(45.0),
-    timezone: str = Form(""),
-    working_set_seconds: int = Form(40), warmup_set_seconds: int = Form(25),
-    rest_between_sets_seconds: int = Form(75), rest_between_exercises_seconds: int = Form(120),
-    hr_fusion_enabled: str = Form("off"),
-    merge_mode: str = Form("off"),
-    description_enabled: str = Form("off"),
-    merge_overlap_pct: int = Form(70),
-    merge_max_drift_min: int = Form(20),
-    merge_extra_types: str = Form(""),
-    merge_watch_strategy: str = Form("merge"),
-):
-    if is_demo_mode():
-        return HTMLResponse('<div class="toast toast-error">Settings are read-only in demo mode</div>')
-
-    config = load_config()
-    if hevy_api_key:
-        config["hevy_api_key"] = hevy_api_key
-    if garmin_email:
-        config["garmin_email"] = garmin_email
-    if garmin_password:
-        config["garmin_password"] = garmin_password
-    config["user_profile"].update(
-        weight_kg=weight_kg, birth_year=birth_year, sex=sex, vo2max=vo2max,
-        timezone=timezone.strip(),
-    )
-    config["timing"].update(
-        working_set_seconds=working_set_seconds, warmup_set_seconds=warmup_set_seconds,
-        rest_between_sets_seconds=rest_between_sets_seconds,
-        rest_between_exercises_seconds=rest_between_exercises_seconds,
-    )
-    config.setdefault("hr_fusion", {})["enabled"] = hr_fusion_enabled == "on"
-    config["merge_mode"] = merge_mode == "on"
-    config["description_enabled"] = description_enabled == "on"
-    config["merge_overlap_pct"] = max(50, min(95, merge_overlap_pct))
-    config["merge_max_drift_min"] = max(5, min(60, merge_max_drift_min))
-    extra_types = [
-        t.strip().lower().replace(" ", "_")
-        for t in merge_extra_types.split(",")
-        if t.strip()
-    ]
-    config["merge_activity_types"] = ["strength_training"] + [
-        t for t in dict.fromkeys(extra_types) if t != "strength_training"
-    ]
-    config["merge_watch_strategy"] = merge_watch_strategy if merge_watch_strategy in ("replace", "merge", "describe") else "merge"
-    save_config(config)
-
-    # Persist settings to DB on cloud (filesystem is read-only on Vercel)
-    if db.get_database_url():
-        try:
-            _db = db.get_db()
-            _db.set_app_config("user_profile", config["user_profile"])
-            _db.set_app_config("timing", config["timing"])
-            _db.set_app_config("hr_fusion", config.get("hr_fusion", {}))
-            _db.set_app_config("merge_settings", {
-                "merge_mode": config["merge_mode"],
-                "description_enabled": config["description_enabled"],
-                "merge_overlap_pct": config["merge_overlap_pct"],
-                "merge_max_drift_min": config["merge_max_drift_min"],
-                "merge_activity_types": config["merge_activity_types"],
-                "merge_watch_strategy": config["merge_watch_strategy"],
-            })
-        except Exception as e:
-            logger.warning("Failed to persist settings to DB: %s", e)
-
-    return RedirectResponse("/settings", status_code=303)
 
 
 # ── API (HTMX) ──────────────────────────────────────────────────────────────
@@ -1301,7 +483,7 @@ async def api_save_mapping(request: Request):
         return HTMLResponse('<div class="toast toast-error">Exercise name required</div>')
 
     # Validate category ID exists
-    valid_cats = set(_get_cat_names().keys())
+    valid_cats = set(mapper._get_cat_names().keys())
     if category not in valid_cats:
         return HTMLResponse(f'<div class="toast toast-error">Invalid category ID {category}</div>')
 
@@ -1315,8 +497,7 @@ async def api_save_mapping(request: Request):
     from hevy2garmin.mapper import save_custom_mapping
     save_custom_mapping(hevy_name, category, subcategory)
 
-    global _unmapped_cache
-    _unmapped_cache = None
+    pages.invalidate_unmapped_cache()
 
     # Drop the just-mapped exercise from the cached unmapped list (DB + memory).
     # The cache is only rebuilt during a sync, so without this the exercise kept
@@ -1330,7 +511,7 @@ async def api_save_mapping(request: Request):
     except Exception as e:
         logger.debug("Could not update unmapped cache after mapping: %s", e)
 
-    cat_label = _get_cat_names().get(category, f"Category {category}")
+    cat_label = mapper._get_cat_names().get(category, f"Category {category}")
     return HTMLResponse(f'<div class="toast toast-success">Mapped "{hevy_name}" → {cat_label} ({category}:{subcategory}). <a href="/mappings">Reload</a></div>')
 
 
@@ -1352,8 +533,7 @@ async def api_reload_data(request: Request):
         _db.set_app_config("hevy_total", {"count": total})
         for pg in range(1, (total // 10) + 2):
             _db.set_app_config(f"hevy_workouts_page_{pg}", {})
-        global _unmapped_cache
-        _unmapped_cache = None
+        pages.invalidate_unmapped_cache()
         # HX-Refresh tells htmx to reload the page, which refetches fresh data.
         return HTMLResponse("", headers={"HX-Refresh": "true"})
     except Exception as e:
@@ -1387,8 +567,7 @@ async def api_delete_mapping(request: Request):
                 pass
     _custom_mappings.pop(hevy_name, None)
 
-    global _unmapped_cache
-    _unmapped_cache = None
+    pages.invalidate_unmapped_cache()
 
     return HTMLResponse(f'<div class="toast toast-success">Deleted mapping for "{hevy_name}". <a href="/mappings">Reload</a></div>')
 
@@ -1412,7 +591,7 @@ async def api_validate_hevy(request: Request):
 async def api_garmin_categories(request: Request):
     """Return Garmin FIT exercise categories for the mapping UI."""
     from fastapi.responses import JSONResponse
-    return JSONResponse({str(k): v for k, v in _get_cat_names().items()})
+    return JSONResponse({str(k): v for k, v in mapper._get_cat_names().items()})
 
 
 @app.post("/api/pull-garmin-profile", response_class=HTMLResponse)
@@ -2339,10 +1518,21 @@ async def _sync_one_recorded(
 
     from fastapi.responses import JSONResponse
 
+    logger.info("Sync request started (trigger=%s)", trigger)
+
+    # Failed ids are only a per-run quarantine. A later manual click is a new
+    # attempt and must be allowed to retry the workout; keeping this process
+    # global forever can turn one transient upload error into a permanent
+    # remaining=1 / no-candidate state.
+    if trigger.startswith("manual") and _failed_ids:
+        logger.info("Clearing %d previously failed workout quarantine(s)", len(_failed_ids))
+        _failed_ids.clear()
+
     if is_demo_mode():
         return JSONResponse({"status": "demo", "message": "Sync disabled in demo mode"})
 
     if not syncstate.acquire_sync_lock():
+        logger.info("Sync request rejected: another sync is already running")
         return JSONResponse({"error": "Sync already running", "busy": True})
 
     try:
@@ -2419,14 +1609,17 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
     hevy_api_key = config.get("hevy_api_key")
 
     if not hevy_api_key:
+        logger.error("Sync stopped: Hevy API key is not configured")
         return JSONResponse({"error": "Hevy API key not configured"}, status_code=400)
 
     from hevy2garmin.hevy import HevyClient
 
+    logger.info("Connecting to Hevy API")
     hevy = HevyClient(api_key=hevy_api_key)
 
     # Find first unsynced workout, paginating through recent history
     total_count = hevy.get_workout_count()
+    logger.info("Connected to Hevy API: %d workouts reported", total_count)
     # Cache total for dashboard
     _db = db.get_db()
     _db.set_app_config("hevy_total", {"count": total_count})
@@ -2449,7 +1642,48 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
     unmapped_found: dict[str, int] = {}
     garmin_client = None
 
-    from hevy2garmin.sync import _workout_within_grace, sync_one_workout
+    logger.info(
+        "Sync state: %d Hevy workouts, %d synced in database, %d pending uploads",
+        total_count,
+        synced_count,
+        len(pending_rows),
+    )
+
+    from hevy2garmin.sync import _workout_within_grace, reconcile_pending, sync_one_workout
+
+    # A previous upload may have reached Garmin after the request that created
+    # it returned. Reconcile that durable checkpoint before selecting a fresh
+    # workout; this path never uploads, it only resolves/finalizes evidence that
+    # is already recorded in pending_uploads.
+    if pending_rows:
+        try:
+            from hevy2garmin.garmin import get_client
+
+            garmin_client = get_client(config.get("garmin_email"))
+            pending = pending_rows[0]
+            one = reconcile_pending(_db, garmin_client, pending["hevy_id"])
+            if one.status == "synced":
+                remaining = max(0, hevy.get_workout_count() - db.get_synced_count())
+                return JSONResponse({
+                    "synced": 1,
+                    "title": (pending.get("payload") or {}).get("title", "Workout"),
+                    "remaining": remaining,
+                    "done": remaining <= 0,
+                    "reconciled": True,
+                })
+            return JSONResponse({
+                "synced": 0,
+                one.status: 1,
+                "remaining": max(0, hevy.get_workout_count() - db.get_synced_count()),
+                "done": False,
+                "reconciled": True,
+            })
+        except Exception as e:
+            logger.error("Reconciliation failed for pending upload: %s", str(e)[:300])
+            return JSONResponse(
+                {"synced": 0, "processing": 1, "reconciled": True, "error": str(e)[:300]},
+                status_code=500,
+            )
 
     while True:
         unsynced, unmapped_found = _scan_for_unsynced(
@@ -2467,6 +1701,27 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
                     "done": remaining <= 0,
                 })
             remaining = max(0, total_count - db.get_synced_count())
+            if remaining > 0 and not pending_ids:
+                logger.error(
+                    "Sync stopped: Hevy reports %d workouts but no unsynced workout was found "
+                    "after scanning; database has %d synced records",
+                    total_count,
+                    db.get_synced_count(),
+                )
+                return JSONResponse(
+                    {
+                        "synced": 0,
+                        "processing": 0,
+                        "remaining": remaining,
+                        "done": False,
+                        "state_mismatch": True,
+                        "error": (
+                            "Hevy reports an unsynced workout, but it was not returned by the "
+                            "workout list. Open Workouts, click Reload Data, and try again."
+                        ),
+                    },
+                    status_code=409,
+                )
             return JSONResponse({
                 "synced": 0, "processing": len(pending_ids),
                 "remaining": remaining, "done": remaining <= len(pending_ids),
@@ -2492,7 +1747,10 @@ async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False)
                 reset_circuit_breaker()
 
             if garmin_client is None:
+                logger.info("Connecting to Garmin Connect")
                 garmin_client = get_client(config.get("garmin_email"))
+                logger.info("Connected to Garmin Connect")
+            logger.info("Syncing Hevy workout: %s (%s)", unsynced.get("title", "?"), unsynced.get("id", "?"))
             one = sync_one_workout(
                 unsynced,
                 cfg=config,
@@ -2568,11 +1826,15 @@ async def cron_sync(request: Request, merge_only: bool = Query(False)):
     """Vercel cron endpoint. Syncs 1 workout per invocation."""
     from fastapi.responses import JSONResponse
 
-    # Vercel sets CRON_SECRET to verify cron requests
+    # This route is internet-facing and bypasses dashboard-cookie auth. Fail
+    # closed when it has no bearer secret, just like the webhook endpoint.
     cron_secret = os.environ.get("CRON_SECRET")
-    if cron_secret:
-        if not _bearer_ok(request, cron_secret):
-            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not cron_secret:
+        return JSONResponse(
+            {"error": "Cron not configured: CRON_SECRET is unset"}, status_code=503
+        )
+    if not _bearer_ok(request, cron_secret):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     # Cron/autosync — respect grace so watch activities can land first.
     return await _sync_one_recorded(respect_grace=True, merge_only=merge_only, trigger="cron")

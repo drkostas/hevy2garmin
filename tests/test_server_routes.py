@@ -18,7 +18,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from hevy2garmin import autosync, syncstate
+from hevy2garmin import autosync, mapper, pages, syncstate
 from hevy2garmin import server as srv
 
 
@@ -568,7 +568,7 @@ class TestGarminCategories:
     """GET /api/garmin-categories — feeds the mapping UI's category picker."""
 
     def test_serves_the_category_map(self, client) -> None:
-        with patch.object(srv, "_get_cat_names", lambda: {0: "Bench Press", 23: "Row"}):
+        with patch.object(mapper, "_get_cat_names", lambda: {0: "Bench Press", 23: "Row"}):
             r = client.get("/api/garmin-categories")
         assert r.status_code == 200
         assert r.json() == {"0": "Bench Press", "23": "Row"}
@@ -587,7 +587,7 @@ class TestWorkoutHR:
     """GET /api/workout/{id}/hr — HR series for the workout chart."""
 
     def test_returns_404_when_hr_fusion_is_disabled(self, client) -> None:
-        with patch.object(srv, "load_config", lambda: {"hr_fusion": {"enabled": False}}):
+        with patch.object(pages, "load_config", lambda: {"hr_fusion": {"enabled": False}}):
             r = client.get("/api/workout/w1/hr")
         assert r.status_code == 404
         assert "disabled" in r.json()["error"].lower()
@@ -596,7 +596,7 @@ class TestWorkoutHR:
         """The first load hits Garmin; later ones must come from cache."""
         called: list[int] = []
         cached = {"bpm": [120, 130], "timestamps": [1, 2]}
-        with patch.object(srv, "load_config", lambda: {"hr_fusion": {"enabled": True}}), \
+        with patch.object(pages, "load_config", lambda: {"hr_fusion": {"enabled": True}}), \
              patch.object(srv.db, "get_cached_hr", lambda h: cached), \
              patch("hevy2garmin.garmin.get_client", lambda e: called.append(1)):
             r = client.get("/api/workout/w1/hr")
@@ -695,9 +695,9 @@ class TestTimezoneSetting:
 
     def _post(self, client, tz: str) -> dict:
         store: dict = {"user_profile": {}, "timing": {}, "hr_fusion": {}}
-        with patch.object(srv, "load_config", lambda: store), \
-             patch.object(srv, "save_config", lambda c: store.update(c)), \
-             patch.object(srv.db, "get_database_url", lambda: None):
+        with patch.object(pages, "load_config", lambda: store), \
+             patch.object(pages, "save_config", lambda c: store.update(c)), \
+             patch.object(pages.db, "get_database_url", lambda: None):
             r = client.post("/settings", data={**self._FORM, "timezone": tz})
         assert r.status_code == 200
         return store

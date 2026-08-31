@@ -263,19 +263,25 @@ export async function resolveTerminal(
   const garminId = opts.garminActivityId ?? null;
   const reason = opts.reason ?? null;
   const source = opts.source ?? null;
+  // Keep the terminal transition and claim removal in one database statement.
+  // Two separate tagged-template calls can use different pooled connections;
+  // if the second fails, the workout remains visibly pending forever.
   await sql`
-    INSERT INTO synced_workouts
-      (hevy_id, garmin_activity_id, status, resolution_reason, resolved_at, resolution_source)
-    VALUES (${hevyId}, ${garminId}, ${opts.status}, ${reason}, NOW(), ${source})
-    ON CONFLICT (hevy_id) DO UPDATE SET
-      garmin_activity_id = EXCLUDED.garmin_activity_id,
-      status = EXCLUDED.status,
-      resolution_reason = EXCLUDED.resolution_reason,
-      resolved_at = NOW(),
-      resolution_source = EXCLUDED.resolution_source,
-      synced_at = NOW()
+    WITH terminal AS (
+      INSERT INTO synced_workouts
+        (hevy_id, garmin_activity_id, status, resolution_reason, resolved_at, resolution_source)
+      VALUES (${hevyId}, ${garminId}, ${opts.status}, ${reason}, NOW(), ${source})
+      ON CONFLICT (hevy_id) DO UPDATE SET
+        garmin_activity_id = EXCLUDED.garmin_activity_id,
+        status = EXCLUDED.status,
+        resolution_reason = EXCLUDED.resolution_reason,
+        resolved_at = NOW(),
+        resolution_source = EXCLUDED.resolution_source,
+        synced_at = NOW()
+      RETURNING hevy_id
+    )
+    DELETE FROM pending_uploads WHERE hevy_id = ${hevyId}
   `;
-  await sql`DELETE FROM pending_uploads WHERE hevy_id = ${hevyId}`;
 }
 
 /** Fields written when recording a successful upload. Mirrors mark_synced(). */
@@ -334,8 +340,31 @@ export async function completePending(
   opts: MarkSyncedOpts = {},
   sql: Sql = getDb(),
 ): Promise<void> {
-  await markSynced(hevyId, opts, sql);
-  await sql`DELETE FROM pending_uploads WHERE hevy_id = ${hevyId}`;
+  const garminId = opts.garminActivityId ?? null;
+  const title = opts.title ?? "";
+  const calories = opts.calories ?? null;
+  const avgHr = opts.avgHr ?? null;
+  const hevyUpdatedAt = opts.hevyUpdatedAt ?? null;
+  const syncMethod = opts.syncMethod ?? "upload";
+  // Same transaction boundary as Python complete_pending().
+  await sql`
+    WITH terminal AS (
+      INSERT INTO synced_workouts
+        (hevy_id, garmin_activity_id, title, calories, avg_hr, hevy_updated_at, sync_method, status)
+      VALUES (${hevyId}, ${garminId}, ${title}, ${calories}, ${avgHr}, ${hevyUpdatedAt}, ${syncMethod}, 'success')
+      ON CONFLICT (hevy_id) DO UPDATE SET
+        garmin_activity_id = EXCLUDED.garmin_activity_id,
+        title = EXCLUDED.title,
+        calories = EXCLUDED.calories,
+        avg_hr = EXCLUDED.avg_hr,
+        hevy_updated_at = EXCLUDED.hevy_updated_at,
+        sync_method = EXCLUDED.sync_method,
+        status = 'success',
+        synced_at = NOW()
+      RETURNING hevy_id
+    )
+    DELETE FROM pending_uploads WHERE hevy_id = ${hevyId}
+  `;
 }
 
 /**

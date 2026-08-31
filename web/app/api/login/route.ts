@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { checkPassword, signSession, SESSION_COOKIE, authEnabled } from "@/lib/auth";
+import {
+  checkPassword,
+  signSession,
+  sessionTtlSeconds,
+  SESSION_COOKIE,
+  authEnabled,
+} from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -10,7 +16,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, note: "auth disabled" });
   }
   const body = (await req.json().catch(() => ({}))) as { password?: string };
-  if (!body.password || !checkPassword(body.password)) {
+  if (!body.password || !(await checkPassword(body.password))) {
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
   const res = NextResponse.json({ ok: true });
@@ -18,7 +24,7 @@ export async function POST(req: Request) {
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: sessionTtlSeconds(),
     path: "/",
   });
   return res;

@@ -64,18 +64,49 @@ export async function uploadFit(
 }
 
 /** Find an activity by its start time (matches the uploaded FIT). */
-export async function findActivityByStartTime(client: GarminClient, targetStart: string): Promise<number | null> {
-  const acts = await client.connectapi<Array<{ activityId: number; startTimeGMT?: string; startTimeLocal?: string }>>(
-    "/activitylist-service/activities/search/activities?limit=10",
+export interface ActivityLookupOptions {
+  /** IDs already present before an upload; never adopt one as the new activity. */
+  excludeActivityIds?: Iterable<number | string>;
+}
+
+const DEDUP_ACTIVITY_TYPES = new Set([
+  "strength_training",
+  "other",
+]);
+
+/** Find a likely matching activity without adopting an unrelated recent run/ride. */
+export async function findActivityByStartTime(
+  client: GarminClient,
+  targetStart: string,
+  options: ActivityLookupOptions = {},
+): Promise<number | null> {
+  const target = new Date(withUtcIfMissing(targetStart)).getTime();
+  if (Number.isNaN(target)) return null;
+  const acts = await client.connectapi<Array<{
+    activityId: number;
+    startTimeGMT?: string;
+    startTimeLocal?: string;
+    activityTypeKey?: string;
+    activityType?: { typeKey?: string; parentTypeKey?: string };
+  }>>(
+    "/activitylist-service/activities/search/activities?limit=100",
   );
-  const target = new Date(targetStart.replace(" ", "T")).getTime();
+  const excluded = new Set([...options.excludeActivityIds ?? []].map(String));
   for (const a of acts) {
+    if (excluded.has(String(a.activityId))) continue;
+    const typeKey = a.activityTypeKey ?? a.activityType?.typeKey ?? a.activityType?.parentTypeKey;
+    if (typeKey && !DEDUP_ACTIVITY_TYPES.has(typeKey)) continue;
     const t = a.startTimeGMT ?? a.startTimeLocal;
-    if (t && Math.abs(new Date(t.replace(" ", "T") + (t.includes("Z") ? "" : "Z")).getTime() - target) < 5 * 60 * 1000) {
+    if (t && Math.abs(new Date(withUtcIfMissing(t)).getTime() - target) < 10 * 60 * 1000) {
       return a.activityId;
     }
   }
   return null;
+}
+
+function withUtcIfMissing(raw: string): string {
+  const value = raw.trim().replace(" ", "T");
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
 }
 
 /** Rename an activity. */

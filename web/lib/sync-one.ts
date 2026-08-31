@@ -43,6 +43,7 @@ import { loadSyncedIds, loadPendingIds } from "./pending-store";
 import {
   getGarminClient,
   findExistingActivity,
+  listActivityIds,
   upload,
   rename,
   describe,
@@ -73,8 +74,8 @@ export interface FitStats {
 
 /** Result shape, aligned with the Python sync-one status vocabulary. */
 export interface SyncOneResult {
-  /** synced | skipped | deferred | dry_run | none | error */
-  status: "synced" | "skipped" | "deferred" | "dry_run" | "none" | "error";
+  /** synced | skipped | deferred | dry_run | none | processing | error */
+  status: "synced" | "skipped" | "deferred" | "dry_run" | "none" | "processing" | "error";
   dryRun: boolean;
   /** In dry-run: true when a live run WOULD upload a fresh FIT. */
   wouldUpload: boolean;
@@ -412,22 +413,62 @@ export async function syncOneWorkout(
   }
 
   try {
-    await updatePending(wid, { phase: "processing", attempt_count: 1 }, sql);
+    const preUploadIds = await listActivityIds(client);
+    await updatePending(
+      wid,
+      { phase: "processing", attempt_count: 1, pre_upload_ids: preUploadIds },
+      sql,
+    );
 
-    const uploadResult = await upload(client, fitResult.fit, startTime);
+    const uploadResult = await upload(client, fitResult.fit, startTime, {
+      excludeActivityIds: preUploadIds,
+    });
     const activityId = uploadResult.activityId;
+    const uploadId = uploadResult.uploadId;
+
+    // Persist Garmin's upload identifier before any follow-up mutation. If the
+    // response was accepted but the activity is not discoverable yet, keep the
+    // claim in-flight rather than marking the workout complete with a null ID.
+    await updatePending(
+      wid,
+      {
+        phase: activityId != null ? "finalizing" : "processing",
+        next_step: activityId != null ? "rename" : "resolve_activity",
+        upload_id: uploadId != null ? String(uploadId) : null,
+        garmin_activity_id: activityId != null ? String(activityId) : null,
+        last_error:
+          activityId != null
+            ? null
+            : "Upload accepted but Garmin activity ID is not resolved yet",
+      },
+      sql,
+    );
+
+    if (activityId == null) {
+      return {
+        status: "processing",
+        dryRun: false,
+        wouldUpload: true,
+        dedupDecision: "would_upload",
+        workout: workoutView(workout),
+        fitStats,
+        existingGarminActivityId: null,
+        garminActivityId: null,
+        remaining,
+        syncMethod: "upload",
+        error: "Upload accepted but Garmin activity ID is not resolved yet; pending state retained.",
+      };
+    }
 
     // Finalize: rename + describe, then write the terminal success row and
     // clear the pending claim.
-    if (activityId) {
-      await rename(client, activityId, title);
-      if (descriptionEnabled) {
-        await describe(
-          client,
-          activityId,
-          generateDescription(workout, fitStats.calories, fitStats.avgHr),
-        );
-      }
+    await rename(client, activityId, title);
+    if (descriptionEnabled) {
+      await describe(
+        client,
+        activityId,
+        generateDescription(workout, fitStats.calories, fitStats.avgHr),
+      );
     }
     await completePending(wid, {
       garminActivityId: activityId != null ? String(activityId) : null,

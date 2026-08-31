@@ -32,7 +32,7 @@ def recorded(monkeypatch):
 def client(monkeypatch):
     os.environ.pop("HEVY2GARMIN_SECRET", None)
     os.environ.pop("DEMO_MODE", None)
-    os.environ.pop("CRON_SECRET", None)
+    monkeypatch.setenv("CRON_SECRET", "test-cron")
     # /api/sync hands off to GitHub Actions when both of these are set, which
     # would skip the sync under test *and* fire a real repository_dispatch at
     # api.github.com from whatever machine runs the suite.
@@ -74,6 +74,41 @@ class TestSyncNowIsRecorded:
         client.post("/api/sync-one")
         assert recorded == [({"synced": 0, "failed": 0}, "manual (one)")]
 
+    def test_new_manual_request_clears_previous_failed_quarantine(self, client, monkeypatch):
+        from hevy2garmin import server
+
+        server._failed_ids.add("transient-failure")
+        _stub_sync_one(monkeypatch, {"synced": 0, "done": True})
+        client.post("/api/sync-one")
+        assert "transient-failure" not in server._failed_ids
+
+
+class TestSyncStateMismatch:
+    def test_hevy_count_without_a_listed_unsynced_workout_is_actionable(self, monkeypatch):
+        """Do not return the non-terminating remaining=1/processing=0 shape."""
+        import asyncio
+        from unittest.mock import MagicMock, patch
+
+        from hevy2garmin import server
+
+        hevy = MagicMock()
+        hevy.get_workout_count.return_value = 1
+        hevy.get_workouts.return_value = {"workouts": [], "page_count": 1}
+        database = MagicMock()
+        database.list_pending.return_value = []
+
+        with (
+            patch.object(server, "load_config", return_value={"hevy_api_key": "test-key"}),
+            patch("hevy2garmin.hevy.HevyClient", return_value=hevy),
+            patch.object(server.db, "get_db", return_value=database),
+            patch.object(server.db, "get_synced_count", return_value=0),
+        ):
+            response = asyncio.run(server._do_sync_one(respect_grace=False))
+
+        assert response.status_code == 409
+        assert response.body and b"state_mismatch" in response.body
+        assert b"Reload Data" in response.body
+
 
 class TestFailuresAreDistinguishableFromNoWork:
     """A failed sync must not look like "nothing to sync" on /history.
@@ -92,7 +127,7 @@ class TestFailuresAreDistinguishableFromNoWork:
 
     def test_failed_upload_on_the_cron_path_too(self, client, recorded, monkeypatch):
         _stub_sync_one(monkeypatch, {"synced": 0, "failed": 1, "title": "Push", "done": False})
-        client.get("/api/cron/sync")
+        client.get("/api/cron/sync", headers={"Authorization": "Bearer test-cron"})
         assert recorded == [({"synced": 0, "failed": 1}, "cron")]
 
     def test_in_flight_statuses_are_not_counted_as_failures(self, client, recorded, monkeypatch):
@@ -118,7 +153,7 @@ class TestFailuresAreDistinguishableFromNoWork:
 class TestCronIsRecorded:
     def test_cron_sync_records_with_its_own_trigger(self, client, recorded, monkeypatch):
         _stub_sync_one(monkeypatch, {"synced": 1, "title": "Pull"})
-        resp = client.get("/api/cron/sync")
+        resp = client.get("/api/cron/sync", headers={"Authorization": "Bearer test-cron"})
         assert resp.status_code == 200
         assert recorded == [({"synced": 1, "failed": 0}, "cron")]
 
@@ -135,7 +170,7 @@ class TestCronIsRecorded:
             return JSONResponse({"synced": 0, "deferred": 1})
 
         monkeypatch.setattr(server, "_do_sync_one", _fake)
-        client.get("/api/cron/sync")
+        client.get("/api/cron/sync", headers={"Authorization": "Bearer test-cron"})
         assert seen["respect_grace"] is True
 
     def test_sync_now_still_bypasses_grace(self, client, recorded, monkeypatch):
@@ -158,6 +193,14 @@ class TestCronIsRecorded:
         monkeypatch.setenv("CRON_SECRET", "s3cret")
         resp = client.get("/api/cron/sync")
         assert resp.status_code == 401
+        assert recorded == []
+
+    def test_unconfigured_cron_fails_closed(self, client, recorded, monkeypatch):
+        _stub_sync_one(monkeypatch, {"synced": 1})
+        monkeypatch.delenv("CRON_SECRET")
+        resp = client.get("/api/cron/sync")
+        assert resp.status_code == 503
+        assert "CRON_SECRET" in resp.json()["error"]
         assert recorded == []
 
 
