@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 interface CategoryOption {
   id: number;
@@ -13,14 +13,38 @@ interface CategoryOption {
  * refreshes the server-rendered mappings list on success. The category dropdown
  * is seeded from the server (which reads /api/garmin-categories' source map), so
  * this component does no fetching of its own.
+ *
+ * When the mappings table's Edit/Override button sets ?edit=name&cat=c&sub=s,
+ * the form prefills those values so an existing (or built-in) mapping can be
+ * overridden in place. Wrapped in Suspense because useSearchParams requires it.
  */
 export function MappingForm({ categories }: { categories: CategoryOption[] }) {
+  return (
+    <Suspense fallback={<MappingFormInner categories={categories} />}>
+      <MappingFormInner categories={categories} />
+    </Suspense>
+  );
+}
+
+function MappingFormInner({ categories }: { categories: CategoryOption[] }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [hevyName, setHevyName] = useState("");
   const [category, setCategory] = useState(categories[0]?.id ?? 0);
   const [subcategory, setSubcategory] = useState("0");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const editName = params.get("edit");
+
+  // Prefill from the table's Edit/Override link.
+  useEffect(() => {
+    if (!editName) return;
+    setHevyName(editName);
+    const cat = Number.parseInt(params.get("cat") ?? "", 10);
+    if (Number.isFinite(cat)) setCategory(cat);
+    const sub = params.get("sub");
+    if (sub != null) setSubcategory(sub);
+  }, [editName, params]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,6 +75,7 @@ export function MappingForm({ categories }: { categories: CategoryOption[] }) {
       }
       setHevyName("");
       setSubcategory("0");
+      if (editName) router.replace("/mappings"); // clear the edit param
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -60,7 +85,20 @@ export function MappingForm({ categories }: { categories: CategoryOption[] }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <>
+      {editName && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-teal">
+          <span>Overriding <span className="font-medium">{editName}</span></span>
+          <button
+            type="button"
+            onClick={() => { setHevyName(""); setSubcategory("0"); setCategory(categories[0]?.id ?? 0); router.replace("/mappings"); }}
+            className="underline hover:text-teal/80"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+      <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <div className="flex-1">
         <label className="mb-1 block text-xs text-text-muted" htmlFor="mf-name">
           Hevy exercise name (exact)
@@ -111,12 +149,13 @@ export function MappingForm({ categories }: { categories: CategoryOption[] }) {
       >
         {busy ? "Saving…" : "Save"}
       </button>
-      {error && (
-        <p className="text-xs text-danger sm:self-center" role="alert">
-          {error}
-        </p>
-      )}
-    </form>
+        {error && (
+          <p className="text-xs text-danger sm:self-center" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+    </>
   );
 }
 

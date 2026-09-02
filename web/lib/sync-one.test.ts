@@ -67,7 +67,7 @@ vi.mock("./pending-store", () => ({
 // getDb is imported for the Sql type; give it a harmless stub.
 vi.mock("./db", () => ({ getDb: () => ({}) }));
 
-import { syncOneWorkout } from "./sync-one";
+import { syncOneWorkout, listCandidates } from "./sync-one";
 import type { GarminClient } from "garmin-auth";
 
 const sql = {} as ReturnType<typeof import("./db").getDb>;
@@ -287,5 +287,46 @@ describe("empty + edge inputs", () => {
     // Never consulted Garmin (no start time to look up).
     expect(garminClientFactory).not.toHaveBeenCalled();
     expectNoWrites();
+  });
+});
+
+describe("targetHevyId — sync a specific workout", () => {
+  it("targets the matching candidate (dry-run), not the first", async () => {
+    const res = await syncOneWorkout(sql, {
+      targetHevyId: "hevy-1",
+      fetchWorkouts: fetchOne(),
+      garminClientFactory,
+    });
+    expect(res.dryRun).toBe(true);
+    expect(res.workout?.hevy_id).toBe("hevy-1");
+    expect(res.dedupDecision).toBe("would_upload");
+    expectNoWrites();
+  });
+
+  it("a target that is not a candidate → no_candidates", async () => {
+    const res = await syncOneWorkout(sql, {
+      targetHevyId: "does-not-exist",
+      fetchWorkouts: fetchOne(),
+      garminClientFactory,
+    });
+    expect(res.status).toBe("none");
+    expect(res.dedupDecision).toBe("no_candidates");
+    expectNoWrites();
+  });
+});
+
+describe("listCandidates — the unsynced list", () => {
+  it("returns the unsynced workouts (dedup layer 1)", async () => {
+    const cands = await listCandidates(sql, { fetchWorkouts: fetchOne() });
+    expect(cands).toHaveLength(1);
+    expect(cands[0].hevy_id).toBe("hevy-1");
+    expect(cands[0].title).toBe("Push Day");
+    expectNoWrites();
+  });
+
+  it("excludes already-synced ids", async () => {
+    loadSyncedIds.mockResolvedValue(new Set(["hevy-1"]));
+    const cands = await listCandidates(sql, { fetchWorkouts: fetchOne() });
+    expect(cands).toHaveLength(0);
   });
 });

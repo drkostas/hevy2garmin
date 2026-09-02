@@ -100,6 +100,13 @@ export interface SyncOneOptions {
   garminClientFactory?: () => Promise<GarminClient>;
   /** Whether to attach a text description on the activity. Default true. */
   descriptionEnabled?: boolean;
+  /**
+   * Sync a SPECIFIC workout by its Hevy id instead of the next candidate. When
+   * set, the workout must still be an unsynced candidate (all three dedup layers
+   * still gate the upload); if it is not among the candidates the result is
+   * `no_candidates`.
+   */
+  targetHevyId?: string;
 }
 
 function fitStatsOf(r: FitResult): FitStats {
@@ -118,6 +125,39 @@ function workoutView(w: DedupWorkout): SyncOneResult["workout"] {
     title: (w.title as string | null) ?? null,
     start_time: (w.start_time as string | null) ?? null,
   };
+}
+
+/** The live Hevy workout fetch used by default (all workouts). */
+async function defaultFetchWorkouts(): Promise<HevyWorkout[]> {
+  const client = await getHevyClient();
+  return (await client.getAllWorkouts()) as HevyWorkout[];
+}
+
+/** A candidate workout surfaced to the /api/candidates route. */
+export interface CandidateWorkout {
+  hevy_id: string;
+  title: string | null;
+  start_time: string | null;
+}
+
+/**
+ * The unsynced Hevy workouts (dedup layer 1) — everything that would be a sync
+ * candidate. READ-ONLY: no Garmin call, no DB write. Injectable Hevy fetch for
+ * tests.
+ */
+export async function listCandidates(
+  sql: Sql,
+  opts: { fetchWorkouts?: () => Promise<HevyWorkout[]> } = {},
+): Promise<CandidateWorkout[]> {
+  const fetchWorkouts = opts.fetchWorkouts ?? defaultFetchWorkouts;
+  const workouts = (await fetchWorkouts()) as DedupWorkout[];
+  const [syncedIds, pendingIds] = await Promise.all([loadSyncedIds(sql), loadPendingIds(sql)]);
+  const candidates = filterUnsynced(workouts, syncedIds, pendingIds);
+  return candidates.map((c) => ({
+    hevy_id: String(c.id),
+    title: (c.title as string | null) ?? null,
+    start_time: (c.start_time as string | null) ?? null,
+  }));
 }
 
 /**
@@ -220,14 +260,11 @@ export async function syncOneWorkout(
 ): Promise<SyncOneResult> {
   const dryRun = options.dryRun ?? true; // SAFE DEFAULT
   const descriptionEnabled = options.descriptionEnabled ?? true;
+  const targetHevyId = options.targetHevyId;
 
   // 1) Fetch the Hevy workout list + the dedup id-sets, then pick the next
   //    unsynced candidate (dedup layer 1, pure). Reads only.
-  const fetchWorkouts =
-    options.fetchWorkouts ?? (async () => {
-      const client = await getHevyClient();
-      return (await client.getAllWorkouts()) as HevyWorkout[];
-    });
+  const fetchWorkouts = options.fetchWorkouts ?? defaultFetchWorkouts;
 
   const workouts = (await fetchWorkouts()) as DedupWorkout[];
   const [syncedIds, pendingIds] = await Promise.all([
@@ -236,7 +273,10 @@ export async function syncOneWorkout(
   ]);
   const candidates = filterUnsynced(workouts, syncedIds, pendingIds);
   const remaining = candidates.length;
-  const workout = candidates[0] ?? null;
+  // Target a specific workout when asked; otherwise take the next candidate.
+  const workout = targetHevyId
+    ? candidates.find((c) => String(c.id) === targetHevyId) ?? null
+    : candidates[0] ?? null;
 
   if (!workout) {
     return emptyResult(dryRun, "no_candidates", 0);

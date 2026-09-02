@@ -347,7 +347,7 @@ def sync_one_workout(
     merge_overlap_pct = cfg.get("merge_overlap_pct", 70) / 100.0
     merge_max_drift_min = cfg.get("merge_max_drift_min", 20)
     merge_activity_types = set(cfg.get("merge_activity_types", ["strength_training"]))
-    merge_watch_strategy = cfg.get("merge_watch_strategy", "replace")
+    merge_watch_strategy = cfg.get("merge_watch_strategy", "merge")
     description_enabled = cfg.get("description_enabled", True)
     hr_fusion_on = cfg.get("hr_fusion", {}).get("enabled", True)
 

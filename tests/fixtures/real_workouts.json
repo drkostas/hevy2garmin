@@ -1,0 +1,4969 @@
+[
+ {
+  "id": "fixture-0000",
+  "title": "Workout 01",
+  "start_time": "2025-01-06T18:00:00Z",
+  "end_time": "2025-01-06T19:07:05Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Hip Abduction (Machine)",
+    "exercise_template_id": "F4B4C6EE",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 75.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 105.0,
+      "reps": 13,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 105.0,
+      "reps": 11,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Seated Leg Curl (Machine)",
+    "exercise_template_id": "11A123F3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Hip Thrust (Machine)",
+    "exercise_template_id": "68CE0B9B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 35.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Chest Fly (Machine)",
+    "exercise_template_id": "78683336",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 4,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 4,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Rear Delt Reverse Fly (Machine)",
+    "exercise_template_id": "D8281C62",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 15,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 9,
+    "title": "Back Extension (Machine)",
+    "exercise_template_id": "A05C064D",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 15,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 10,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0001",
+  "title": "Workout 02",
+  "start_time": "2025-01-13T18:00:00Z",
+  "end_time": "2025-01-13T18:56:06Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Hip Thrust (Machine)",
+    "exercise_template_id": "68CE0B9B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 11,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Chest Fly (Machine)",
+    "exercise_template_id": "78683336",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Rear Delt Reverse Fly (Machine)",
+    "exercise_template_id": "D8281C62",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Leg Extension (Machine)",
+    "exercise_template_id": "75A4F6C4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0002",
+  "title": "Workout 03",
+  "start_time": "2025-01-20T18:00:00Z",
+  "end_time": "2025-01-20T19:12:36Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Overhead Press (Dumbbell)",
+    "exercise_template_id": "6AC96645",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 12.5,
+      "reps": 4,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Hip Thrust (Machine)",
+    "exercise_template_id": "68CE0B9B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Leg Press Horizontal (Machine)",
+    "exercise_template_id": "0EB695C9",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 100.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 100.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 100.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Seated Leg Curl (Machine)",
+    "exercise_template_id": "11A123F3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Farmers Walk",
+    "exercise_template_id": "50C613D0",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Lunge (Dumbbell)",
+    "exercise_template_id": "B537D09F",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 4,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 5,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0003",
+  "title": "Workout 04",
+  "start_time": "2025-01-27T18:00:00Z",
+  "end_time": "2025-01-27T18:59:14Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Rear Delt Reverse Fly (Machine)",
+    "exercise_template_id": "D8281C62",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Chest Fly (Machine)",
+    "exercise_template_id": "78683336",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Lunge (Dumbbell)",
+    "exercise_template_id": "B537D09F",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 4,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 5,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0004",
+  "title": "Workout 05",
+  "start_time": "2025-02-03T18:00:00Z",
+  "end_time": "2025-02-03T18:48:34Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 50.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 80.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 80.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 80.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Triceps Rope Pushdown",
+    "exercise_template_id": "94B7239B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": 11,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Bicep Curl (Dumbbell)",
+    "exercise_template_id": "37FCC2BB",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 12.5,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 12.5,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 12.5,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Cable Core Pallof Press",
+    "exercise_template_id": "CC55119B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 20,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 15,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 14,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0005",
+  "title": "Workout 06",
+  "start_time": "2025-02-10T18:00:00Z",
+  "end_time": "2025-02-10T18:40:10Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Chest Fly (Machine)",
+    "exercise_template_id": "78683336",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Rear Delt Reverse Fly (Machine)",
+    "exercise_template_id": "D8281C62",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 11,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0006",
+  "title": "Workout 07",
+  "start_time": "2025-02-17T18:00:00Z",
+  "end_time": "2025-02-17T18:46:42Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 20.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 15,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Hip Thrust (Machine)",
+    "exercise_template_id": "68CE0B9B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 50.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0007",
+  "title": "Workout 08",
+  "start_time": "2025-02-24T18:00:00Z",
+  "end_time": "2025-02-24T19:09:35Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 15,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 25.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Lunge (Dumbbell)",
+    "exercise_template_id": "B537D09F",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 4,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 5,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Rear Delt Reverse Fly (Machine)",
+    "exercise_template_id": "D8281C62",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Chest Fly (Machine)",
+    "exercise_template_id": "78683336",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0008",
+  "title": "Workout 09",
+  "start_time": "2025-03-03T18:00:00Z",
+  "end_time": "2025-03-03T18:49:04Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 13,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 11,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 65.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Kettlebell Goblet Squat",
+    "exercise_template_id": "A127DA73",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 20.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 20.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 20.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Farmers Walk",
+    "exercise_template_id": "50C613D0",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0009",
+  "title": "Workout 10",
+  "start_time": "2025-03-10T18:00:00Z",
+  "end_time": "2025-03-10T18:56:48Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Chest Fly (Machine)",
+    "exercise_template_id": "78683336",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 6,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Rear Delt Reverse Fly (Machine)",
+    "exercise_template_id": "D8281C62",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Farmers Walk",
+    "exercise_template_id": "50C613D0",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0010",
+  "title": "Workout 11",
+  "start_time": "2025-03-17T18:00:00Z",
+  "end_time": "2025-03-17T18:49:42Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 8,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 7,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Seated Leg Curl (Machine)",
+    "exercise_template_id": "11A123F3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Farmers Walk",
+    "exercise_template_id": "50C613D0",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0011",
+  "title": "Workout 12",
+  "start_time": "2025-03-24T18:00:00Z",
+  "end_time": "2025-03-24T19:06:19Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 35.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Seated Leg Curl (Machine)",
+    "exercise_template_id": "11A123F3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Farmers Walk",
+    "exercise_template_id": "50C613D0",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Walking Lunge (Sandbag)",
+    "exercise_template_id": "F30A4F01",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 25.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0012",
+  "title": "Workout 13",
+  "start_time": "2025-03-31T18:00:00Z",
+  "end_time": "2025-03-31T19:03:57Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 35.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Seated Leg Curl (Machine)",
+    "exercise_template_id": "11A123F3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Leg Press Horizontal (Machine)",
+    "exercise_template_id": "0EB695C9",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 52.5,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 85.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 60.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 9,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 12,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Goblet Squat",
+    "exercise_template_id": "3D0C7C75",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 20.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 20.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 20.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Walking Lunge (Sandbag)",
+    "exercise_template_id": "F30A4F01",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": null,
+      "distance_meters": 40,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0013",
+  "title": "Workout 14",
+  "start_time": "2025-04-07T18:00:00Z",
+  "end_time": "2025-04-07T18:52:10Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Goblet Squat",
+    "exercise_template_id": "3D0C7C75",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 35.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Reverse Lunge (Dumbbell)",
+    "exercise_template_id": "FFDA283B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fixture-0014",
+  "title": "Workout 15",
+  "start_time": "2025-04-14T18:00:00Z",
+  "end_time": "2025-04-14T19:06:16Z",
+  "exercises": [
+   {
+    "index": 0,
+    "title": "Seated Row (Machine)",
+    "exercise_template_id": "1DF4A847",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 55.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "title": "Chest Press (Machine)",
+    "exercise_template_id": "7EB3F7C3",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 35.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 45.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 2,
+    "title": "Seated Shoulder Press (Machine)",
+    "exercise_template_id": "9237BAD1",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 25.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 3,
+    "title": "Crunch (Machine)",
+    "exercise_template_id": "EB43ADD4",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 70.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 4,
+    "title": "Lat Pulldown (Machine)",
+    "exercise_template_id": "473CF5B8",
+    "sets": [
+     {
+      "index": 0,
+      "type": "warmup",
+      "weight_kg": 80.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 90.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 5,
+    "title": "Back Extension (Weighted Hyperextension)",
+    "exercise_template_id": "091737FA",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 10.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 6,
+    "title": "Goblet Squat",
+    "exercise_template_id": "3D0C7C75",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 7,
+    "title": "Reverse Lunge (Dumbbell)",
+    "exercise_template_id": "FFDA283B",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 3,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 4,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 5,
+      "type": "normal",
+      "weight_kg": 15.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 8,
+    "title": "Chest Fly (Machine)",
+    "exercise_template_id": "78683336",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 40.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   },
+   {
+    "index": 9,
+    "title": "Rear Delt Reverse Fly (Machine)",
+    "exercise_template_id": "D8281C62",
+    "sets": [
+     {
+      "index": 0,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 1,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     },
+     {
+      "index": 2,
+      "type": "normal",
+      "weight_kg": 30.0,
+      "reps": 10,
+      "distance_meters": null,
+      "duration_seconds": null,
+      "rpe": null
+     }
+    ]
+   }
+  ]
+ }
+]

@@ -88,3 +88,31 @@ jobs:
 
       - name: Test
         run: npm test
+
+  check-web:
+    name: Tests (Web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install
+        run: npm ci || npm install
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        # Routes are force-dynamic, so no real DB is touched at build time.
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+        run: npm run build
+
+      - name: Test
+        run: npm test

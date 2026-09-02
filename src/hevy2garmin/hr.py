@@ -46,8 +46,14 @@ def _patch_fit_tool_lenient_strings() -> None:
     if getattr(Field.read_strings_from_bytes, "_h2g_lenient", False):
         return
 
-    def read_strings_from_bytes(self, bytes_buffer: bytes) -> None:
-        string_container = bytes_buffer.decode("utf-8", errors="replace")
+    # offset/size are keyword arguments in fit-tool >=0.9.16 and absent in
+    # 0.9.15, which calls this with the buffer alone — the defaults keep one
+    # patch working against both.
+    def read_strings_from_bytes(
+        self, bytes_buffer: bytes, offset: int = 0, size: int | None = None
+    ) -> None:
+        end = None if size is None else offset + size
+        string_container = bytes(bytes_buffer[offset:end]).decode("utf-8", errors="replace")
         strings = [s for s in string_container.split(chr(0))[:-1] if s]
         self.encoded_values = list(strings)
 

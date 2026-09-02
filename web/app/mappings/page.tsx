@@ -5,6 +5,8 @@ import {
   categoryName,
 } from "@/lib/garmin-categories";
 import { DeleteMappingButton, MappingForm } from "@/components/mapping-form";
+import { MappingsTable } from "@/components/mappings-table";
+import { UnmappedCard } from "@/components/unmapped-card";
 
 // Queries the live hevy2garmin Postgres per request — never at build time.
 export const dynamic = "force-dynamic";
@@ -18,14 +20,12 @@ interface CustomMapping {
 interface MappingsData {
   dbConfigured: boolean;
   custom: CustomMapping[];
-  builtinCount: number;
-  builtinSample: Array<{ name: string; category: number; subcategory: number }>;
+  builtin: Array<{ name: string; category: number; subcategory: number }>;
 }
 
 async function loadMappings(): Promise<MappingsData> {
   // The built-in map ships with the package — available regardless of DB state.
-  const builtinEntries = Object.entries(HEVY_TO_GARMIN);
-  const builtinSample = builtinEntries.slice(0, 12).map(([name, pair]) => ({
+  const builtin = Object.entries(HEVY_TO_GARMIN).map(([name, pair]) => ({
     name,
     category: pair[0],
     subcategory: pair[1],
@@ -35,12 +35,7 @@ async function loadMappings(): Promise<MappingsData> {
   try {
     sql = getDb();
   } catch {
-    return {
-      dbConfigured: false,
-      custom: [],
-      builtinCount: builtinEntries.length,
-      builtinSample,
-    };
+    return { dbConfigured: false, custom: [], builtin };
   }
 
   const rows = await sql`
@@ -56,8 +51,7 @@ async function loadMappings(): Promise<MappingsData> {
       category: Number(r.category),
       subcategory: Number(r.subcategory),
     })),
-    builtinCount: builtinEntries.length,
-    builtinSample,
+    builtin,
   };
 }
 
@@ -69,7 +63,9 @@ export default async function MappingsPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-text">Exercise mappings</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          How Hevy exercises map to Garmin FIT exercise categories.
+          {data.builtin.length} Hevy exercises mapped to Garmin FIT categories.
+          When you upload a workout, each exercise is translated so it displays
+          correctly in Garmin Connect.
         </p>
       </header>
 
@@ -80,8 +76,11 @@ export default async function MappingsPage() {
         </div>
       )}
 
+      {/* Unmapped exercises (from recent Hevy workouts) */}
+      <UnmappedCard categories={CATEGORY_OPTIONS} />
+
       {/* Add a custom mapping */}
-      <section className="mb-8">
+      <section className="mb-8" id="mapping-form">
         <h2 className="mb-3 text-lg font-semibold text-text">
           Add a custom mapping
         </h2>
@@ -126,42 +125,17 @@ export default async function MappingsPage() {
         )}
       </section>
 
-      {/* Built-in map */}
+      {/* Full mapping table (built-in + custom, searchable) */}
       <section>
-        <h2 className="mb-1 text-lg font-semibold text-text">
-          Built-in map
-        </h2>
-        <p className="mb-3 text-sm text-text-secondary">
-          {data.builtinCount} exercises are mapped out of the box. Sample:
-        </p>
-        <div className="overflow-x-auto rounded-xl border border-border bg-surface-elevated">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
-                <th className="px-4 py-2 font-medium">Hevy exercise</th>
-                <th className="px-4 py-2 font-medium">Garmin category</th>
-                <th className="px-4 py-2 text-right font-medium">Cat</th>
-                <th className="px-4 py-2 text-right font-medium">Sub</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {data.builtinSample.map((b) => (
-                <tr key={b.name}>
-                  <td className="px-4 py-2 font-medium text-text">{b.name}</td>
-                  <td className="px-4 py-2 text-text-secondary">
-                    {categoryName(b.category)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-text-muted">
-                    {b.category}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-text-muted">
-                    {b.subcategory}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <h2 className="mb-3 text-lg font-semibold text-text">All mappings</h2>
+        <MappingsTable
+          builtin={data.builtin}
+          custom={data.custom.map((m) => ({
+            name: m.hevy_name,
+            category: m.category,
+            subcategory: m.subcategory,
+          }))}
+        />
       </section>
     </main>
   );

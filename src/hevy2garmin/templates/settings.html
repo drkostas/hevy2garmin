@@ -66,6 +66,15 @@
                 <input class="form-input" type="password" id="garmin_password" name="garmin_password" placeholder="Leave blank to keep current">
             </div>
         </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label class="form-label" for="github_pat">GitHub Token <span style="color: var(--text-muted); font-weight: normal;">(only for auto-sync)</span></label>
+            <input class="form-input" type="password" id="github_pat" name="github_pat" placeholder="{% if github_pat_set %}Saved. Leave blank to keep current{% else %}Paste a token to enable auto-sync{% endif %}">
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+                Lets hevy2garmin set up scheduled syncing on your fork. Create one with <code>repo</code> and <code>workflow</code> scopes at
+                <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&amp;description=hevy2garmin" target="_blank" rel="noopener">github.com/settings/tokens</a>.
+                Not needed for manual syncing.
+            </div>
+        </div>
     </div>
 
     <!-- Profile Section -->
@@ -113,6 +122,17 @@
                 <label class="form-label" for="vo2max">VO2max</label>
                 <input class="form-input" type="number" id="vo2max" name="vo2max" value="{{ config.get('user_profile', {}).get('vo2max', 45) }}" step="0.1">
                 <div class="form-hint">Used in calorie formula. Auto-filled by "Pull from Garmin".</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="timezone">Timezone</label>
+                <input class="form-input" type="text" id="timezone" name="timezone" list="tz-list" placeholder="e.g. Europe/Berlin" value="{{ config.get('user_profile', {}).get('timezone', '') }}">
+                <datalist id="tz-list">
+                    <option value="Europe/London"><option value="Europe/Berlin"><option value="Europe/Madrid"><option value="Europe/Athens">
+                    <option value="America/New_York"><option value="America/Chicago"><option value="America/Denver"><option value="America/Los_Angeles"><option value="America/Sao_Paulo">
+                    <option value="Asia/Dubai"><option value="Asia/Kolkata"><option value="Asia/Singapore"><option value="Asia/Tokyo">
+                    <option value="Australia/Sydney"><option value="Pacific/Auckland">
+                </datalist>
+                <div class="form-hint">Optional IANA name. Stamps your local time into the uploaded file so Strava shows the right time. Leave blank to keep UTC.</div>
             </div>
         </div>
 
@@ -231,12 +251,12 @@
                     <div class="form-group">
                         <label class="form-label" for="merge_watch_strategy">Workouts recorded on a watch</label>
                         <select class="form-input" id="merge_watch_strategy" name="merge_watch_strategy">
-                            <option value="replace" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'replace' }}>Replace with one named activity (named exercises)</option>
-                            <option value="merge" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'merge' }}>Merge sets into the watch activity (keeps watch metrics)</option>
-                            <option value="describe" {{ 'selected' if config.get('merge_watch_strategy', 'replace') == 'describe' }}>Keep the watch activity, list exercises in its description</option>
+                            <option value="merge" {{ 'selected' if config.get('merge_watch_strategy', 'merge') == 'merge' }}>Merge sets into the watch activity (keeps watch metrics + names, recommended)</option>
+                            <option value="replace" {{ 'selected' if config.get('merge_watch_strategy', 'merge') == 'replace' }}>Replace with one named activity (named exercises, loses watch metrics)</option>
+                            <option value="describe" {{ 'selected' if config.get('merge_watch_strategy', 'merge') == 'describe' }}>Keep the watch activity, list exercises in its description</option>
                         </select>
                         <div class="form-hint">
-                            Garmin does not show exercise names on a workout your watch recorded, so you always end up with one activity but with a tradeoff. <strong>Replace</strong> uploads one named activity (with your heart rate) and deletes the watch copy, so exercises are named, but you lose watch-only metrics like training effect. <strong>Merge sets</strong> pushes the sets, reps, and weights into the watch activity and keeps it, so you keep all watch metrics and structured set data, but the exercise names show as "Unknown". <strong>Keep + describe</strong> leaves the watch activity untouched and only lists the exercises in its description, with no structured sets.
+                            After a workout your watch recorded, all three give you a single activity, they differ in what they keep. <strong>Merge sets</strong> (recommended) pushes your sets, reps, and weights into the watch activity and keeps it, so you keep the watch's heart rate and native metrics like training effect and body battery, and your exercises show with their names and full set data. <strong>Replace</strong> uploads a fresh named activity with your heart rate and deletes the watch copy, so you get named exercises but lose the watch-only metrics. <strong>Keep + describe</strong> leaves the watch activity untouched and only lists the exercises in its description, with no structured sets.
                         </div>
                     </div>
                 </div>

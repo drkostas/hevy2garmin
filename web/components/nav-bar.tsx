@@ -1,7 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "◉" },
@@ -10,13 +11,30 @@ const NAV_ITEMS = [
   { href: "/mappings", label: "Mappings", icon: "⇄" },
   { href: "/history", label: "History", icon: "◷" },
   { href: "/settings", label: "Settings", icon: "⚙" },
+  { href: "/setup", label: "Setup", icon: "⇆" },
 ];
 
-export function NavBar() {
+export function NavBar({ authEnabled = false }: { authEnabled?: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
+
+  // Hide the whole bar on the login screen.
+  if (pathname === "/login") return null;
+
+  async function logout() {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/logout", { method: "POST" });
+    } catch {
+      // ignore — navigate to login regardless
+    }
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <>
@@ -39,6 +57,16 @@ export function NavBar() {
               {label}
             </Link>
           ))}
+          {authEnabled && (
+            <button
+              type="button"
+              onClick={logout}
+              disabled={loggingOut}
+              className="ml-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-active disabled:opacity-50"
+            >
+              {loggingOut ? "Logging out…" : "Log out"}
+            </button>
+          )}
         </div>
       </nav>
 
@@ -56,6 +84,17 @@ export function NavBar() {
             <span className="text-[10px] font-medium">{label}</span>
           </Link>
         ))}
+        {authEnabled && (
+          <button
+            type="button"
+            onClick={logout}
+            disabled={loggingOut}
+            className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[52px] text-text-muted disabled:opacity-50"
+          >
+            <span className="text-lg">⏻</span>
+            <span className="text-[10px] font-medium">Log out</span>
+          </button>
+        )}
       </nav>
     </>
   );

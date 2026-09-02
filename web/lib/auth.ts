@@ -80,26 +80,53 @@ export function authEnabled(): boolean {
   return Boolean(process.env.HEVY2GARMIN_SECRET || process.env.H2G_PASSWORD);
 }
 
-/** Create a signed session cookie value: `v1.<ts>.<sig>`. */
-export async function signSession(issuedAt?: number): Promise<string> {
+/**
+ * Create a signed session cookie value: `v2.<ts>.<epoch>.<sig>`. The epoch is
+ * folded into the signature so bumping the server-side counter ("sign out
+ * everywhere") invalidates every outstanding cookie. Matches auth.py sign_session.
+ */
+export async function signSession(epoch = 0, issuedAt?: number): Promise<string> {
   const ts = issuedAt ?? Math.floor(Date.now() / 1000);
-  const payload = `v1.${ts}`;
+  const payload = `v2.${ts}.${Math.max(0, Math.floor(epoch))}`;
   const sig = await hmacHex32(payload);
   return `${payload}.${sig}`;
 }
 
-/** Verify a session cookie is well-formed, unexpired, and correctly signed. */
-export async function verifySession(cookie: string | null): Promise<boolean> {
+/**
+ * Verify a session cookie: valid signature, unexpired, and matching the current
+ * epoch. Accepts both `v2` (with epoch) and legacy `v1` cookies — `v1` carries no
+ * epoch, so it's treated as epoch 0: valid before any "sign out everywhere" bump
+ * and revoked by it. This means an upgrade never force-logs-out the admin.
+ * Matches auth.py verify_session.
+ */
+export async function verifySession(cookie: string | null, epoch = 0): Promise<boolean> {
   if (!cookie) return false;
-  const m = cookie.match(/^v1\.(\d+)\.([0-9a-f]{32})$/);
-  if (!m) return false;
-  const ts = Number(m[1]);
-  const sig = m[2];
+  const wantEpoch = Math.max(0, Math.floor(epoch));
+  let ts: number;
+  let sig: string;
+  let payload: string;
+
+  const v2 = cookie.match(/^v2\.(\d+)\.(\d+)\.([0-9a-f]{32})$/);
+  const v1 = cookie.match(/^v1\.(\d+)\.([0-9a-f]{32})$/);
+  if (v2) {
+    if (Number(v2[2]) !== wantEpoch) return false; // epoch mismatch → revoked
+    ts = Number(v2[1]);
+    sig = v2[3];
+    payload = `v2.${v2[1]}.${v2[2]}`;
+  } else if (v1) {
+    if (wantEpoch !== 0) return false; // v1 implicit epoch 0 → any bump revokes it
+    ts = Number(v1[1]);
+    sig = v1[2];
+    payload = `v1.${v1[1]}`;
+  } else {
+    return false;
+  }
+
   const now = Math.floor(Date.now() / 1000);
   if (now - ts > SESSION_TTL_SECONDS) return false;
   if (ts > now + CLOCK_SKEW_SECONDS) return false;
   try {
-    const expected = await hmacHex32(`v1.${ts}`);
+    const expected = await hmacHex32(payload);
     if (sig.length !== expected.length) return false;
     // Constant-time compare.
     let diff = 0;

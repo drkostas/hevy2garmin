@@ -45,15 +45,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": True,
     },
     "merge_activity_types": ["strength_training"],
-    # What to do when a workout was recorded on a watch (Garmin will not show
-    # pushed exercise names on those). One activity in every case (#159):
-    #   "replace" (default): upload one named activity and delete the watch
-    #       recording. Named exercises, but loses watch-only metrics.
-    #   "merge": push the sets/reps/weights into the watch activity and keep it.
-    #       Keeps all watch metrics; exercise names show as "Unknown".
+    # What to do when a workout was recorded on a watch. One activity in every
+    # case (#159):
+    #   "merge" (default): push the sets/reps/weights into the watch activity and
+    #       keep it. Keeps all watch metrics AND shows the exercise names (#325).
+    #   "replace": upload one named activity and delete the watch recording.
+    #       Named exercises, but loses watch-only metrics like training effect.
     #   "describe": keep the watch activity, only list exercises in its
     #       description (no structured sets).
-    "merge_watch_strategy": "replace",
+    "merge_watch_strategy": "merge",
 }
 
 
@@ -197,6 +197,40 @@ def is_configured() -> bool:
         except Exception:
             pass
     return True
+
+
+def get_github_pat() -> str | None:
+    """Return the GitHub personal access token, DB value taking precedence.
+
+    On cloud deployments the token is saved in ``platform_credentials`` (platform
+    ``github``) from the Settings page, so a fresh Vercel deploy no longer needs
+    it as an environment variable. Falls back to the ``GITHUB_PAT`` env var for
+    local, Docker, and CI use. Returns ``None`` when neither is set.
+    """
+    import os
+
+    from hevy2garmin.db import get_database_url, get_db
+
+    if get_database_url():
+        try:
+            _db = get_db()
+            if hasattr(_db, "_get_conn"):
+                with _db._get_conn() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "SELECT credentials FROM platform_credentials WHERE platform = 'github'"
+                        )
+                        row = cur.fetchone()
+                if row is not None:
+                    creds = row["credentials"] if isinstance(row["credentials"], dict) else json.loads(row["credentials"])
+                    pat = (creds or {}).get("pat")
+                    if pat and pat.strip():
+                        return pat.strip()
+        except Exception:
+            pass
+
+    env_pat = os.environ.get("GITHUB_PAT")
+    return env_pat.strip() if env_pat and env_pat.strip() else None
 
 
 def _deep_merge(base: dict, override: dict) -> None:

@@ -155,18 +155,6 @@ class PostgresDatabase(Database):
                 cur.execute("SELECT 1 FROM synced_workouts WHERE hevy_id = %s", (hevy_id,))
                 return cur.fetchone() is not None
 
-    def get_synced_ids(self, hevy_ids: list[str]) -> dict[str, str | None]:
-        """Batch check sync status. Returns {hevy_id: garmin_activity_id} for synced ones."""
-        if not hevy_ids:
-            return {}
-        with self._get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT hevy_id, garmin_activity_id FROM synced_workouts WHERE hevy_id = ANY(%s)",
-                    (hevy_ids,)
-                )
-                return {r["hevy_id"]: r["garmin_activity_id"] for r in cur.fetchall()}
-
     def get_garmin_id(self, hevy_id: str) -> str | None:
         with self._get_conn() as conn:
             with conn.cursor() as cur:

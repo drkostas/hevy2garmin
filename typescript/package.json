@@ -1,16 +1,47 @@
 {
   "name": "hevy2garmin",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Sync Hevy workouts to Garmin Connect (TypeScript). FIT generation, exercise mapping, and upload. The TS twin of the Python hevy2garmin.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
-  "scripts": { "build": "tsc -p tsconfig.json", "test": "vitest run" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
   "license": "MIT",
-  "repository": { "type": "git", "url": "github:drkostas/hevy2garmin", "directory": "typescript" },
-  "dependencies": { "@garmin/fitsdk": "^21.0.0" },
-  "peerDependencies": { "garmin-auth": ">=0.1.0 <1.0.0", "pg": "^8.0.0" },
-  "peerDependenciesMeta": { "garmin-auth": { "optional": true }, "pg": { "optional": true } },
-  "devDependencies": { "typescript": "^5.6.0", "vitest": "^2.0.0", "@types/node": "^20.0.0", "garmin-auth": "^0.3.0" }
+  "repository": {
+    "type": "git",
+    "url": "github:drkostas/hevy2garmin",
+    "directory": "typescript"
+  },
+  "dependencies": {
+    "@garmin/fitsdk": "^21.0.0"
+  },
+  "peerDependencies": {
+    "garmin-auth": ">=0.1.0 <1.0.0",
+    "pg": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "garmin-auth": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0",
+    "@types/node": "^20.0.0",
+    "garmin-auth": "^0.3.0"
+  }
 }

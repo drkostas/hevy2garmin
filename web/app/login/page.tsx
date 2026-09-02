@@ -1,29 +1,47 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const params = useSearchParams();
+  // Surface a server-provided ?error= on first render (e.g. an expired session
+  // redirect), matching the Python login form's error passthrough.
+  const initialError = params.get("error") ?? "";
+  const [shownInitial, setShownInitial] = useState(false);
+  if (initialError && !shownInitial) {
+    setShownInitial(true);
+    setError(initialError);
+  }
+
+  function safeNext(raw: string | null): string {
+    if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+    return raw;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const next = safeNext(params.get("next"));
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch(`/api/login?next=${encodeURIComponent(next)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
-      if (res.ok) {
-        router.push("/dashboard");
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; next?: string; error?: string };
+      if (res.ok && data.ok) {
+        router.push(safeNext(data.next ?? next));
         router.refresh();
       } else {
-        setError("Incorrect password");
+        // Server message covers both "Incorrect password" and the rate-limit
+        // "Too many attempts. Try again in …" cooldown (HTTP 429).
+        setError(data.error ?? "Incorrect password");
         setLoading(false);
       }
     } catch {
@@ -45,7 +63,11 @@ export default function LoginPage() {
           placeholder="Password"
           className="rounded-lg border border-border bg-surface px-4 py-3 text-text outline-none focus:border-teal"
         />
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && (
+          <p className="text-sm text-danger" role="alert">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={loading || password.length === 0}
@@ -55,5 +77,13 @@ export default function LoginPage() {
         </button>
       </form>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -1,4 +1,8 @@
 import { getDb } from "@/lib/db";
+import { SettingsForm } from "@/components/settings-form";
+import { DangerZone } from "@/components/danger-zone";
+import { SessionsCard } from "@/components/sessions-card";
+import { ScanDuplicates } from "@/components/scan-duplicates";
 
 // Queries the live hevy2garmin Postgres per request — never at build time.
 export const dynamic = "force-dynamic";
@@ -21,9 +25,10 @@ interface SettingsData {
   dbConfigured: boolean;
   platforms: PlatformRow[];
   config: ConfigEntry[];
+  syncedCount: number;
 }
 
-const EMPTY: SettingsData = { dbConfigured: false, platforms: [], config: [] };
+const EMPTY: SettingsData = { dbConfigured: false, platforms: [], config: [], syncedCount: 0 };
 
 // The user-editable config the Python app persists to app_cache (config.py).
 const CONFIG_KEYS = ["user_profile", "timing", "hr_fusion", "merge_settings", "auto_sync"];
@@ -36,7 +41,7 @@ async function loadSettings(): Promise<SettingsData> {
     return EMPTY;
   }
 
-  const [platforms, config] = await Promise.all([
+  const [platforms, config, counts] = await Promise.all([
     sql`
       SELECT platform, auth_type, status, connected_at, expires_at
       FROM platform_credentials
@@ -48,10 +53,14 @@ async function loadSettings(): Promise<SettingsData> {
       WHERE key = ANY(${CONFIG_KEYS})
       ORDER BY key ASC
     `.catch(() => [] as ConfigEntry[]),
+    sql`SELECT count(*)::int AS n FROM synced_workouts`.catch(
+      () => [] as Array<{ n: number }>,
+    ),
   ]);
 
   return {
     dbConfigured: true,
+    syncedCount: Number(counts[0]?.n ?? 0),
     platforms: platforms.map((p) => ({
       platform: p.platform,
       auth_type: p.auth_type ?? "",
@@ -114,19 +123,27 @@ function StatusPill({ status }: { status: string }) {
 
 export default async function SettingsPage() {
   const data = await loadSettings();
+  const cfg = (key: string): Record<string, unknown> =>
+    data.config.find((c) => c.key === key)?.value ?? {};
+  const autoSync = cfg("auto_sync");
+  const hrFusion = cfg("hr_fusion");
+  const merge = cfg("merge_settings");
+  const profile = cfg("user_profile");
+  const timing = cfg("timing");
+  const numOrNull = (v: unknown): number | null => (v == null || v === "" ? null : Number(v));
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
       <header className="mb-4">
         <h1 className="text-2xl font-bold text-text">Settings</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Current configuration and connection status.
+          Configuration and connection status.
         </p>
       </header>
 
       <div className="mb-6 rounded-lg border border-border bg-surface p-4 text-sm text-text-muted">
-        Read-only for now. Editing credentials and config from the web app comes
-        in a later phase.
+        Editing platform credentials from the web comes in a later phase; the
+        config below is editable now.
       </div>
 
       {!data.dbConfigured && (
@@ -178,9 +195,34 @@ export default async function SettingsPage() {
         )}
       </section>
 
-      {/* Config */}
-      <section>
+      {/* Editable config */}
+      <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold text-text">Configuration</h2>
+        <SettingsForm
+          autoSyncEnabled={Boolean(autoSync.enabled)}
+          autoSyncInterval={Number(autoSync.interval_minutes) || 120}
+          hrFusionEnabled={hrFusion.enabled == null ? true : Boolean(hrFusion.enabled)}
+          mergeWatchStrategy={String(merge.merge_watch_strategy ?? "merge")}
+          weightKg={numOrNull(profile.weight_kg)}
+          birthYear={numOrNull(profile.birth_year)}
+          sex={profile.sex != null ? String(profile.sex) : null}
+          vo2max={numOrNull(profile.vo2max)}
+          timezone={profile.timezone != null ? String(profile.timezone) : null}
+          mergeMode={Boolean(merge.merge_mode)}
+          descriptionEnabled={Boolean(merge.description_enabled)}
+          mergeOverlapPct={numOrNull(merge.merge_overlap_pct)}
+          mergeMaxDriftMin={numOrNull(merge.merge_max_drift_min)}
+          mergeActivityTypes={Array.isArray(merge.merge_activity_types) ? (merge.merge_activity_types as unknown[]).map(String) : []}
+          workingSetSeconds={numOrNull(timing.working_set_seconds)}
+          warmupSetSeconds={numOrNull(timing.warmup_set_seconds)}
+          restBetweenSetsSeconds={numOrNull(timing.rest_between_sets_seconds)}
+          restBetweenExercisesSeconds={numOrNull(timing.rest_between_exercises_seconds)}
+        />
+      </section>
+
+      {/* All stored config (read-only reference) */}
+      <section>
+        <h2 className="mb-3 text-lg font-semibold text-text">Stored config</h2>
         {data.config.length === 0 ? (
           <div className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-text-muted">
             No configuration stored yet (defaults are in use).
@@ -220,6 +262,24 @@ export default async function SettingsPage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Sessions & security */}
+      <section className="mt-8">
+        <h2 className="mb-3 text-lg font-semibold text-text">Sessions &amp; security</h2>
+        <SessionsCard />
+      </section>
+
+      {/* Maintenance */}
+      <section className="mt-8">
+        <h2 className="mb-3 text-lg font-semibold text-text">Maintenance</h2>
+        <ScanDuplicates />
+      </section>
+
+      {/* Danger zone */}
+      <section className="mt-8">
+        <h2 className="mb-3 text-lg font-semibold text-danger">Danger zone</h2>
+        <DangerZone syncedCount={data.syncedCount} />
       </section>
     </main>
   );

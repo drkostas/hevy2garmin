@@ -38,6 +38,13 @@ async function keyFromDb(): Promise<string | null> {
   return typeof apiKey === "string" && apiKey.trim() ? apiKey.trim() : null;
 }
 
+/** Resolve the Hevy API key (arg → env → DB), or null. Exposed for raw calls. */
+export async function resolveHevyKey(key?: string | null): Promise<string | null> {
+  const explicit = key?.trim();
+  const fromEnv = process.env.HEVY_API_KEY?.trim();
+  return explicit || fromEnv || (await keyFromDb());
+}
+
 /**
  * Build a HevyClient. Resolves the API key from the argument, then the
  * HEVY_API_KEY env var, then the platform_credentials table. Throws when no key

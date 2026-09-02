@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { NavBar } from "@/components/nav-bar";
+import { authEnabled } from "@/lib/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className="bg-base text-text min-h-screen antialiased">
-        <NavBar />
+        <NavBar authEnabled={authEnabled()} />
         <div className="pb-20 md:pb-0">{children}</div>
       </body>
     </html>

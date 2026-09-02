@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDb } from "@/lib/db";
 
 // Queries the live hevy2garmin Postgres per request — never at build time.
@@ -86,7 +87,20 @@ function StatusPill({ status }: { status: string }) {
   };
   const cls = styles[status] ?? "bg-surface-active text-text-secondary";
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
       {statusLabel(status)}
     </span>
   );
@@ -113,11 +127,30 @@ export default async function HistoryPage() {
 
       {data.rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface p-8 text-center">
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="mx-auto mb-3 text-text-muted"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <polyline points="12 7 12 12 15 14" />
+          </svg>
           <p className="text-sm font-medium text-text-secondary">
             No workouts synced yet.
           </p>
           <p className="mt-1 text-xs text-text-muted">
-            Synced workouts will appear here.
+            Go to{" "}
+            <Link href="/workouts" className="text-teal underline">
+              Workouts
+            </Link>{" "}
+            and click Sync.
           </p>
         </div>
       ) : (

@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from hevy2garmin._isotime import parse_iso
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fit_tool.fit_file_builder import FitFileBuilder
 from fit_tool.profile.messages.file_id_message import FileIdMessage
@@ -42,6 +43,11 @@ _MAX_SCALE = 2.0
 _DEFAULT_HR_BPM = 90  # fallback when no HR data at all
 DEFAULT_HR_BPM = _DEFAULT_HR_BPM  # public alias
 
+# FIT date_time epoch: 1989-12-31 00:00:00 UTC, in Unix seconds. The FIT
+# ``local_timestamp`` field is a plain uint32 of seconds-since-this-epoch in
+# local wall-clock time (unlike ``timestamp``, which fit_tool takes in ms).
+_FIT_EPOCH_S = 631065600
+
 
 def _get_profile(override: dict | None = None) -> dict:
     """Get user profile + timing from config, with optional overrides."""
@@ -51,6 +57,7 @@ def _get_profile(override: dict | None = None) -> dict:
         "weight_kg": cfg.get("user_profile", {}).get("weight_kg", 80.0),
         "birth_year": cfg.get("user_profile", {}).get("birth_year", 1990),
         "vo2max": cfg.get("user_profile", {}).get("vo2max", 45.0),
+        "timezone": cfg.get("user_profile", {}).get("timezone", ""),
         "working_set_s": cfg.get("timing", {}).get("working_set_seconds", 40),
         "warmup_set_s": cfg.get("timing", {}).get("warmup_set_seconds", 25),
         "rest_sets_s": cfg.get("timing", {}).get("rest_between_sets_seconds", 75),
@@ -64,6 +71,22 @@ def _get_profile(override: dict | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _tz_offset_seconds(tz_name: str, at: datetime) -> int | None:
+    """UTC offset (seconds) for an IANA zone at a given instant, DST-correct.
+
+    Returns ``None`` for an empty or unrecognised zone — a bad timezone must
+    never crash a sync, it just means no local_timestamp is written.
+    """
+    if not tz_name:
+        return None
+    try:
+        tz = ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+    off = at.astimezone(tz).utcoffset()
+    return int(off.total_seconds()) if off is not None else None
+
 
 def _ms(dt: datetime) -> int:
     """Convert a datetime to milliseconds since Unix epoch."""
@@ -431,6 +454,12 @@ def generate_fit(
     activity.type = Activity.MANUAL
     activity.event = Event.ACTIVITY
     activity.event_type = EventType.STOP
+    # Stamp local wall-clock time when a timezone is configured. Hevy gives us
+    # UTC only, so without this the activity carries no offset and Garmin can
+    # forward it to Strava as raw UTC (a 6am workout showing up as 3am).
+    tz_offset_s = _tz_offset_seconds(p.get("timezone", ""), start_dt)
+    if tz_offset_s is not None:
+        activity.local_timestamp = (end_ms // 1000 + tz_offset_s) - _FIT_EPOCH_S
     builder.add(activity)
 
     # -- Write file --

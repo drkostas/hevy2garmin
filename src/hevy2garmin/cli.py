@@ -476,7 +476,10 @@ def main() -> None:
         sys.exit(0)
 
     level = logging.DEBUG if args.verbose else (logging.CRITICAL if args.quiet else logging.INFO)
-    logging.basicConfig(format="%(message)s", level=level, force=True)
+    logging.basicConfig(
+        format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S",
+        level=level, force=True,
+    )
 
     try:
         if args.command == "serve":

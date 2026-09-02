@@ -18,12 +18,12 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def recorded(monkeypatch):
-    """Collect what _record_sync_log is asked to write."""
-    from hevy2garmin import server
+    """Collect what syncstate.record_sync_log is asked to write."""
+    from hevy2garmin import syncstate
 
     rows: list[tuple[dict, str]] = []
     monkeypatch.setattr(
-        server, "_record_sync_log", lambda result, trigger="manual": rows.append((result, trigger))
+        syncstate, "record_sync_log", lambda result, trigger="manual": rows.append((result, trigger))
     )
     return rows
 
@@ -33,6 +33,12 @@ def client(monkeypatch):
     os.environ.pop("HEVY2GARMIN_SECRET", None)
     os.environ.pop("DEMO_MODE", None)
     os.environ.pop("CRON_SECRET", None)
+    # /api/sync hands off to GitHub Actions when both of these are set, which
+    # would skip the sync under test *and* fire a real repository_dispatch at
+    # api.github.com from whatever machine runs the suite.
+    os.environ.pop("GITHUB_PAT", None)
+    os.environ.pop("GITHUB_REPO", None)
+    os.environ.pop("VERCEL", None)
     from hevy2garmin import server
 
     monkeypatch.setattr(server, "_is_configured_cache", True)
@@ -157,15 +163,15 @@ class TestCronIsRecorded:
 
 class TestLockIsStillHeldAndReleased:
     def test_busy_response_records_nothing(self, client, recorded, monkeypatch):
-        from hevy2garmin import server
+        from hevy2garmin import syncstate
 
-        monkeypatch.setattr(server, "_acquire_sync_lock", lambda: False)
+        monkeypatch.setattr(syncstate, "acquire_sync_lock", lambda: False)
         resp = client.post("/api/sync-one")
         assert json.loads(resp.content)["busy"] is True
         assert recorded == []
 
     def test_lock_is_released_even_when_the_sync_raises(self, client, recorded, monkeypatch):
-        from hevy2garmin import server
+        from hevy2garmin import server, syncstate
 
         async def _boom(*, respect_grace=False, **kw):
             raise RuntimeError("boom")
@@ -174,22 +180,22 @@ class TestLockIsStillHeldAndReleased:
         with pytest.raises(RuntimeError):
             client.post("/api/sync-one")
         # A leaked semaphore would make the next sync permanently "busy".
-        assert server._acquire_sync_lock() is True
-        server._sync_executing.release()
+        assert syncstate.acquire_sync_lock() is True
+        syncstate.release_sync_lock()
         # Recording on the exception path must not swallow the exception either.
         assert recorded == [({"failed": 1}, "manual (one)")]
 
 
 class TestRecordingNeverBreaksASync:
     def test_a_failing_db_write_is_swallowed(self, monkeypatch):
-        """_record_sync_log now runs from inside except handlers."""
-        from hevy2garmin import db, server
+        """syncstate.record_sync_log now runs from inside except handlers."""
+        from hevy2garmin import db, syncstate
 
         def _boom(**kw):
             raise RuntimeError("database is locked")
 
         monkeypatch.setattr(db, "record_sync_log", _boom)
-        server._record_sync_log({"synced": 1}, trigger="manual (one)")  # must not raise
+        syncstate.record_sync_log({"synced": 1}, trigger="manual (one)")  # must not raise
 
 
 class TestPerRowSyncIsRecorded:
@@ -235,3 +241,47 @@ class TestPerRowSyncIsRecorded:
         assert resp.status_code == 200
         assert "Failed:" in resp.text
         assert recorded == [({"failed": 1}, "manual (single)")]
+
+
+class TestDashboardSyncIsRecorded:
+    """/api/sync records with the scope in its trigger label.
+
+    The label is the only thing on /history that distinguishes a 24h sync from
+    a full backfill, and nothing asserted it — replacing it with a constant
+    passed the whole suite.
+    """
+
+    def test_default_scope_is_labelled(self, client, recorded, monkeypatch):
+        from hevy2garmin import server
+
+        monkeypatch.setattr(server, "sync", lambda **kw: {"synced": 1, "skipped": 0, "failed": 0})
+        r = client.post("/api/sync", data={})
+        assert r.status_code == 200
+        assert recorded == [({"synced": 1, "skipped": 0, "failed": 0}, "manual (recent)")]
+
+    def test_scope_is_carried_into_the_label(self, client, recorded, monkeypatch):
+        from hevy2garmin import server
+
+        monkeypatch.setattr(server, "sync", lambda **kw: {"synced": 0, "skipped": 0, "failed": 0})
+        client.post("/api/sync", data={"scope": "1y"})
+        assert recorded and recorded[0][1] == "manual (1y)"
+
+    def test_a_failing_sync_still_records_under_its_scope(self, client, recorded, monkeypatch):
+        from hevy2garmin import server
+
+        def _boom(**kw):
+            raise RuntimeError("hevy down")
+
+        monkeypatch.setattr(server, "sync", _boom)
+        client.post("/api/sync", data={"scope": "7d"})
+        assert recorded and recorded[0][1] == "manual (7d)"
+        assert recorded[0][0]["failed"] == 1
+
+    def test_a_sync_stamps_the_last_sync_time(self, client, recorded, monkeypatch):
+        """The dashboard's "last sync" clock is driven from this call site."""
+        from hevy2garmin import server, syncstate
+
+        monkeypatch.setattr(server, "sync", lambda **kw: {"synced": 1, "skipped": 0, "failed": 0})
+        monkeypatch.setattr(syncstate, "_last_sync_time", None)
+        client.post("/api/sync", data={})
+        assert syncstate.get_last_sync_time() is not None

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import hmac
 import logging
 import os
 import re
-import threading
-import time
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 from html import escape
 from math import ceil
@@ -21,12 +21,12 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
-from hevy2garmin import db, garmin_login, login_ratelimit, __version__
+from hevy2garmin import autosync, db, garmin_login, login_ratelimit, syncstate, __version__
 from hevy2garmin.db_interface import NoWritableDatabaseError
 from hevy2garmin.auth import (
     auth_enabled, verify_session, sign_session, check_password, SESSION_COOKIE, session_ttl,
 )
-from hevy2garmin.config import is_configured, load_config, save_config
+from hevy2garmin.config import get_github_pat, is_configured, load_config, save_config
 from hevy2garmin.demo import is_demo_mode
 from hevy2garmin.ratelimit import record_rate_limit, cooldown_remaining, clear_rate_limit, format_cooldown
 from hevy2garmin.sync import (
@@ -183,7 +183,27 @@ def _render(template_name: str, **ctx) -> HTMLResponse:
     return HTMLResponse(_apply_prefix(t.render(**ctx), prefix))
 
 
-app = FastAPI(title="hevy2garmin", docs_url=None, redoc_url=None)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start the auto-sync timer if configured, and cancel it on shutdown.
+
+    Scheduling and cancelling both live in :mod:`hevy2garmin.autosync`.
+    """
+    config = load_config()
+    auto_cfg = config.get("auto_sync", {})
+    if auto_cfg.get("enabled", False):
+        interval = auto_cfg.get("interval_minutes", 30)
+        logger.info("Auto-sync enabled on startup: every %d min", interval)
+        autosync.schedule(interval)
+    try:
+        yield
+    finally:
+        # Without this a pending timer survives reload/shutdown and can fire a
+        # sync against a half-torn-down process.
+        autosync.stop()
+
+
+app = FastAPI(title="hevy2garmin", docs_url=None, redoc_url=None, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
@@ -218,36 +238,15 @@ async def _no_database_handler(request: Request, exc: NoWritableDatabaseError) -
     return HTMLResponse(_NO_DB_PAGE, status_code=503)
 
 
-# ── Auto-sync state ─────────────────────────────────────────────────────────
+# ── Sync-session caches ─────────────────────────────────────────────────────
+# The shared sync lock and the last-sync timestamp live in
+# ``hevy2garmin.syncstate``; the auto-sync loop lives in
+# ``hevy2garmin.autosync``. What is left here is the exercise-mapping cache and
+# the per-session failed-upload set, which only this module's routes touch.
 
-_autosync_timer: threading.Timer | None = None
-_autosync_lock = threading.Lock()
-_sync_executing = threading.Lock()  # Prevents concurrent sync execution
-_sync_lock_acquired_at: float = 0  # time.time() when lock was acquired
-_SYNC_LOCK_TIMEOUT = 300  # 5 minutes — force-release if exceeded
-_last_sync_time: datetime | None = None
 _unmapped_cache: list[tuple[str, int]] | None = None
 _unmapped_cache_time: float = 0
 _failed_ids: set[str] = set()  # Workouts that failed upload this session (retried next session)
-
-
-def _acquire_sync_lock() -> bool:
-    """Try to acquire the sync lock. Force-release if held too long (hung sync)."""
-    global _sync_lock_acquired_at
-    if _sync_executing.acquire(blocking=False):
-        _sync_lock_acquired_at = time.time()
-        return True
-    # Check if the lock has been held too long (hung sync)
-    if _sync_lock_acquired_at and (time.time() - _sync_lock_acquired_at) > _SYNC_LOCK_TIMEOUT:
-        logger.warning("Sync lock held for >%ds — force-releasing (likely hung)", _SYNC_LOCK_TIMEOUT)
-        try:
-            _sync_executing.release()
-        except RuntimeError:
-            pass
-        if _sync_executing.acquire(blocking=False):
-            _sync_lock_acquired_at = time.time()
-            return True
-    return False
 
 
 def _get_unmapped_exercises() -> list[tuple[str, int]]:
@@ -300,163 +299,6 @@ def _get_unmapped_exercises() -> list[tuple[str, int]]:
     _unmapped_cache = sorted(unmapped.items(), key=lambda x: -x[1])
     _unmapped_cache_time = _t.time()
     return _unmapped_cache
-
-
-def _run_autosync() -> None:
-    """Execute a sync and reschedule if still enabled."""
-    global _last_sync_time
-    config = load_config()
-    auto_cfg = config.get("auto_sync", {})
-    if not auto_cfg.get("enabled", False):
-        return
-
-    if not _acquire_sync_lock():
-        logger.info("Auto-sync: skipped — another sync is running")
-        _schedule_autosync(auto_cfg.get("interval_minutes", 30))
-        return
-
-    logger.info("Auto-sync: running scheduled sync")
-    hevy_auth_failed = False
-    try:
-        result = sync(limit=10, dry_run=False, record_log=False, respect_grace=True)
-    except Exception as e:
-        from hevy2garmin.hevy import HevyAuthError
-        if isinstance(e, HevyAuthError):
-            logger.error("Auto-sync: Hevy API key invalid — disabling auto-sync. %s", e)
-            config["auto_sync"]["enabled"] = False
-            save_config(config)
-            # Also persist to DB (Vercel filesystem is read-only)
-            if db.get_database_url():
-                try:
-                    import json as _json
-                    _db = db.get_db()
-                    if hasattr(_db, '_get_conn'):
-                        with _db._get_conn() as conn:
-                            with conn.cursor() as cur:
-                                cur.execute("""
-                                    INSERT INTO platform_credentials (platform, auth_type, credentials, status)
-                                    VALUES ('auto_sync', 'config', %s, 'active')
-                                    ON CONFLICT (platform) DO UPDATE SET credentials = EXCLUDED.credentials
-                                """, (_json.dumps({"enabled": False, "interval_minutes": config.get("auto_sync", {}).get("interval_minutes", 120)}),))
-                            conn.commit()
-                except Exception:
-                    pass
-            hevy_auth_failed = True
-        result = {"synced": 0, "skipped": 0, "failed": 1, "error": str(e)}
-    finally:
-        _sync_executing.release()
-
-    if hevy_auth_failed:
-        return  # Don't reschedule
-
-    _last_sync_time = datetime.now(timezone.utc)
-    _record_sync_log(result, trigger="auto")
-
-    # Reschedule
-    _schedule_autosync(auto_cfg.get("interval_minutes", 30))
-
-
-def _schedule_autosync(interval_minutes: int) -> None:
-    """Schedule the next auto-sync run."""
-    global _autosync_timer
-    with _autosync_lock:
-        if _autosync_timer is not None:
-            _autosync_timer.cancel()
-        _autosync_timer = threading.Timer(interval_minutes * 60, _run_autosync)
-        _autosync_timer.daemon = True
-        _autosync_timer.start()
-
-
-def _stop_autosync() -> None:
-    """Cancel any pending auto-sync timer."""
-    global _autosync_timer
-    with _autosync_lock:
-        if _autosync_timer is not None:
-            _autosync_timer.cancel()
-            _autosync_timer = None
-
-
-def _record_sync_log(result: dict, trigger: str = "manual") -> None:
-    """Record a sync result to SQLite. Best-effort — never breaks a sync.
-
-    Now that failure paths record too, this runs from inside exception
-    handlers; a DB write raising there would replace a handled error with a
-    500. The log is diagnostic, so losing a row is always the lesser loss.
-    """
-    try:
-        db.record_sync_log(
-            synced=result.get("synced", 0),
-            skipped=result.get("skipped", 0),
-            failed=result.get("failed", 0),
-            trigger=trigger,
-        )
-    except Exception:
-        logger.debug("sync_log record failed (trigger=%s)", trigger, exc_info=True)
-
-
-def _get_autosync_status() -> dict[str, Any]:
-    """Build auto-sync status dict for templates."""
-    config = load_config()
-    auto_cfg = config.get("auto_sync", {})
-    enabled = auto_cfg.get("enabled", False)
-    interval = auto_cfg.get("interval_minutes", 30)
-
-    # On cloud, read persisted state from DB (filesystem config doesn't persist)
-    if db.get_database_url():
-        try:
-            import json as _json
-            _db = db.get_db()
-            if hasattr(_db, '_get_conn'):
-                with _db._get_conn() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute("SELECT credentials FROM platform_credentials WHERE platform = 'auto_sync' LIMIT 1")
-                        row = cur.fetchone()
-                        if row and row.get("credentials"):
-                            creds = row["credentials"] if isinstance(row["credentials"], dict) else _json.loads(row["credentials"])
-                            enabled = creds.get("enabled", False)
-                            interval = creds.get("interval_minutes", 120)
-        except Exception:
-            pass
-
-    status: dict[str, Any] = {
-        "enabled": enabled,
-        "interval_minutes": interval,
-        "last_sync": None,
-        "next_sync": None,
-    }
-
-    if _last_sync_time:
-        elapsed = datetime.now(timezone.utc) - _last_sync_time
-        minutes_ago = int(elapsed.total_seconds() / 60)
-        if minutes_ago < 1:
-            status["last_sync"] = "just now"
-        elif minutes_ago < 60:
-            status["last_sync"] = f"{minutes_ago} min ago"
-        else:
-            hours_ago = minutes_ago // 60
-            status["last_sync"] = f"{hours_ago}h {minutes_ago % 60}m ago"
-
-        if enabled:
-            remaining = interval - minutes_ago
-            if remaining <= 0:
-                status["next_sync"] = "soon"
-            elif remaining < 60:
-                status["next_sync"] = f"in {remaining} min"
-            else:
-                status["next_sync"] = f"in {remaining // 60}h {remaining % 60}m"
-
-    return status
-
-
-@app.on_event("startup")
-async def _startup_autosync() -> None:
-    """Start auto-sync timer on server startup if enabled."""
-    config = load_config()
-    auto_cfg = config.get("auto_sync", {})
-    if auto_cfg.get("enabled", False):
-        interval = auto_cfg.get("interval_minutes", 30)
-        logger.info("Auto-sync enabled on startup: every %d min", interval)
-        _schedule_autosync(interval)
 
 
 def client_ip(request: Request) -> str:
@@ -800,7 +642,7 @@ async def dashboard(request: Request):
         skipped_count=terminal_counts["skipped"],
         hevy_total=hevy_total,
         recent=recent,
-        auto_sync=_get_autosync_status(),
+        auto_sync=autosync.status(),
         sync_log=db.get_sync_log(10),
         mapping_count=mapping_count,
         garmin_connected=garmin_connected,
@@ -1357,6 +1199,35 @@ async def history_page(request: Request):
     return _render("history.html", total=db.get_synced_count(), history=db.get_recent_synced(50))
 
 
+def _save_github_pat(pat: str) -> None:
+    """Persist the GitHub PAT to the DB (platform 'github') on cloud deployments.
+
+    Mirrors how the setup form stores Hevy and Garmin credentials, so auto-sync
+    can read the token without a Vercel environment variable (#445). A no-op
+    locally, where the token comes from the environment.
+    """
+    pat = (pat or "").strip()
+    if not pat or not db.get_database_url():
+        return
+    try:
+        import json as _json
+        _db = db.get_db()
+        if hasattr(_db, "_get_conn"):
+            with _db._get_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO platform_credentials (platform, auth_type, credentials, status)
+                        VALUES ('github', 'pat', %s, 'active')
+                        ON CONFLICT (platform) DO UPDATE SET credentials = EXCLUDED.credentials, status = 'active'
+                        """,
+                        (_json.dumps({"pat": pat}),),
+                    )
+                conn.commit()
+    except Exception as e:
+        logger.warning("Failed to persist GitHub PAT to DB: %s", e)
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     config = load_config()
@@ -1370,13 +1241,15 @@ async def settings_page(request: Request):
     merge_extra_types = ", ".join(
         t for t in config.get("merge_activity_types", ["strength_training"]) if t != "strength_training"
     )
-    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types, err=request.query_params.get("err"))
+    return _render("settings.html", config=config, unmapped=sorted(unmapped.items(), key=lambda x: -x[1]), merge_extra_types=merge_extra_types, github_pat_set=bool(get_github_pat()), err=request.query_params.get("err"))
 
 
 @app.post("/settings")
 async def settings_save(
     hevy_api_key: str = Form(""), garmin_email: str = Form(""), garmin_password: str = Form(""),
+    github_pat: str = Form(""),
     weight_kg: float = Form(80.0), birth_year: int = Form(1990), sex: str = Form("male"), vo2max: float = Form(45.0),
+    timezone: str = Form(""),
     working_set_seconds: int = Form(40), warmup_set_seconds: int = Form(25),
     rest_between_sets_seconds: int = Form(75), rest_between_exercises_seconds: int = Form(120),
     hr_fusion_enabled: str = Form("off"),
@@ -1385,7 +1258,7 @@ async def settings_save(
     merge_overlap_pct: int = Form(70),
     merge_max_drift_min: int = Form(20),
     merge_extra_types: str = Form(""),
-    merge_watch_strategy: str = Form("replace"),
+    merge_watch_strategy: str = Form("merge"),
 ):
     if is_demo_mode():
         return HTMLResponse('<div class="toast toast-error">Settings are read-only in demo mode</div>')
@@ -1397,7 +1270,10 @@ async def settings_save(
         config["garmin_email"] = garmin_email
     if garmin_password:
         config["garmin_password"] = garmin_password
-    config["user_profile"].update(weight_kg=weight_kg, birth_year=birth_year, sex=sex, vo2max=vo2max)
+    config["user_profile"].update(
+        weight_kg=weight_kg, birth_year=birth_year, sex=sex, vo2max=vo2max,
+        timezone=timezone.strip(),
+    )
     config["timing"].update(
         working_set_seconds=working_set_seconds, warmup_set_seconds=warmup_set_seconds,
         rest_between_sets_seconds=rest_between_sets_seconds,
@@ -1416,7 +1292,7 @@ async def settings_save(
     config["merge_activity_types"] = ["strength_training"] + [
         t for t in dict.fromkeys(extra_types) if t != "strength_training"
     ]
-    config["merge_watch_strategy"] = merge_watch_strategy if merge_watch_strategy in ("replace", "merge", "describe") else "replace"
+    config["merge_watch_strategy"] = merge_watch_strategy if merge_watch_strategy in ("replace", "merge", "describe") else "merge"
     save_config(config)
 
     # Persist settings to DB on cloud (filesystem is read-only on Vercel)
@@ -1436,6 +1312,11 @@ async def settings_save(
             })
         except Exception as e:
             logger.warning("Failed to persist settings to DB: %s", e)
+
+    # The GitHub token is only needed for auto-sync, and only stored on cloud
+    # (locally it comes from the environment). Blank means "keep current" (#445).
+    if github_pat.strip():
+        _save_github_pat(github_pat)
 
     return RedirectResponse("/settings", status_code=303)
 
@@ -1615,15 +1496,18 @@ async def api_pull_garmin_profile(request: Request):
 
 @app.post("/api/sync", response_class=HTMLResponse)
 async def api_sync(request: Request):
-    global _last_sync_time
-
     if is_demo_mode():
         from fastapi.responses import JSONResponse
         return JSONResponse({"status": "demo", "message": "Sync disabled in demo mode"})
 
     # If GitHub PAT + repo are set (Vercel deploy), trigger sync via GitHub Actions
-    github_pat = os.environ.get("GITHUB_PAT")
+    github_pat = get_github_pat()
     github_repo = os.environ.get("GITHUB_REPO")
+    if not github_repo:
+        _owner = os.environ.get("VERCEL_GIT_REPO_OWNER")
+        _slug = os.environ.get("VERCEL_GIT_REPO_SLUG")
+        if _owner and _slug:
+            github_repo = f"{_owner}/{_slug}"
     if github_pat and github_repo:
         import requests as req
 
@@ -1670,7 +1554,7 @@ async def api_sync(request: Request):
         sync_kwargs["since"] = since_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         sync_kwargs["fetch_all"] = True  # paginate until we hit the date
 
-    if not _acquire_sync_lock():
+    if not syncstate.acquire_sync_lock():
         return HTMLResponse('<div class="toast toast-error">Another sync is already running. Please wait.</div>')
 
     try:
@@ -1678,9 +1562,9 @@ async def api_sync(request: Request):
     except Exception as e:
         result = {"synced": 0, "skipped": 0, "failed": 1, "unmapped": [], "error": str(e)}
     finally:
-        _sync_executing.release()
-    _last_sync_time = datetime.now(timezone.utc)
-    _record_sync_log(result, trigger=f"manual ({scope})")
+        syncstate.release_sync_lock()
+    syncstate.mark_synced()
+    syncstate.record_sync_log(result, trigger=f"manual ({scope})")
     return _render("partials/sync_result.html", result=result)
 
 
@@ -1857,7 +1741,7 @@ async def api_routines_sync(request: Request):
     form = await request.form()
     force = form.get("force") in ("1", "true", "on")
 
-    if not _acquire_sync_lock():
+    if not syncstate.acquire_sync_lock():
         return HTMLResponse('<div class="toast toast-error">Another sync is already running. Please wait.</div>')
 
     try:
@@ -1866,7 +1750,7 @@ async def api_routines_sync(request: Request):
         logger.exception("Routine sync failed")
         return HTMLResponse('<div class="toast toast-error">Routine sync failed. Check the logs for details.</div>')
     finally:
-        _sync_executing.release()
+        syncstate.release_sync_lock()
 
     msg = (
         f"{result['created']} created, {result['updated']} updated, "
@@ -1890,7 +1774,7 @@ async def api_routine_sync_one(request: Request, hevy_routine_id: str):
     form = await request.form()
     force = form.get("force") in ("1", "true", "on")
 
-    if not _acquire_sync_lock():
+    if not syncstate.acquire_sync_lock():
         return HTMLResponse('<div class="toast toast-error">Another sync is already running. Please wait.</div>')
 
     try:
@@ -1899,7 +1783,7 @@ async def api_routine_sync_one(request: Request, hevy_routine_id: str):
         logger.exception("Routine %s sync failed", hevy_routine_id)
         return HTMLResponse('<div class="toast toast-error">Routine sync failed. Check the logs for details.</div>')
     finally:
-        _sync_executing.release()
+        syncstate.release_sync_lock()
 
     outcome = result["outcome"]
     # The routine title is user-controlled (Hevy account data), so escape it before
@@ -1934,7 +1818,7 @@ async def api_routine_schedule(request: Request, hevy_routine_id: str):
     except (ValueError, TypeError) as e:
         return HTMLResponse(f'<div class="toast toast-error">Invalid schedule: {e}</div>')
 
-    if not _acquire_sync_lock():
+    if not syncstate.acquire_sync_lock():
         return HTMLResponse('<div class="toast toast-error">Another sync is already running. Please wait.</div>')
 
     try:
@@ -1945,7 +1829,7 @@ async def api_routine_schedule(request: Request, hevy_routine_id: str):
         logger.exception("Scheduling routine %s failed", hevy_routine_id)
         return HTMLResponse('<div class="toast toast-error">Scheduling failed. Check the logs for details.</div>')
     finally:
-        _sync_executing.release()
+        syncstate.release_sync_lock()
 
     n = result["scheduled"]
     span = f" ({result['dates'][0]} → {result['dates'][-1]})" if n > 1 else f" on {result['dates'][0]}"
@@ -1966,7 +1850,7 @@ async def api_routine_unschedule(
     if is_demo_mode():
         return HTMLResponse('<div class="toast toast-success">Unscheduling disabled in demo mode.</div>')
 
-    if not _acquire_sync_lock():
+    if not syncstate.acquire_sync_lock():
         return HTMLResponse('<div class="toast toast-error">Another sync is already running. Please wait.</div>')
 
     try:
@@ -1975,7 +1859,7 @@ async def api_routine_unschedule(
         logger.exception("Unscheduling routine %s entry %s failed", hevy_routine_id, schedule_id)
         return HTMLResponse('<div class="toast toast-error">Could not remove the scheduled workout. Check the logs.</div>')
     finally:
-        _sync_executing.release()
+        syncstate.release_sync_lock()
 
     return _render("routine_schedules.html", **_schedules_context(page, start, q, size))
 
@@ -2008,7 +1892,7 @@ async def api_sync_single(request: Request, workout_id: str):
             respect_grace=False,
             database=db.get_db(),
         )
-        _record_sync_log(
+        syncstate.record_sync_log(
             {"synced": 1 if one.status == "synced" else 0,
              "failed": 1 if one.status == "failed" else 0},
             trigger="manual (single)",
@@ -2017,7 +1901,7 @@ async def api_sync_single(request: Request, workout_id: str):
         start = (workout.get("start_time") or "")[:16]
         return HTMLResponse(f'<tr><td><span class="badge badge-success">✓ Synced</span></td><td>{start}</td><td><strong>{workout["title"]}</strong></td><td>{len(workout.get("exercises", []))}</td><td></td></tr>')
     except Exception as e:
-        _record_sync_log({"failed": 1}, trigger="manual (single)")
+        syncstate.record_sync_log({"failed": 1}, trigger="manual (single)")
         return HTMLResponse(f'<td colspan="5" style="color: var(--pico-del-color);">Failed: {e}</td>')
 
 
@@ -2216,6 +2100,16 @@ async def api_toggle_autosync(request: Request):
     if interval not in (30, 60, 120, 240, 360, 720, 1440):
         interval = 120
 
+    # On Vercel, auto-sync runs through GitHub Actions and needs a token. Refuse
+    # to enable it without one instead of silently doing nothing (#445). The
+    # token is entered on the Settings page (or as a GITHUB_PAT env var).
+    if enabled and os.environ.get("VERCEL") and not get_github_pat():
+        return _render(
+            "partials/autosync_status.html",
+            auto_sync=autosync.status(),
+            error="Auto-sync needs a GitHub token. Add one in Settings, then turn auto-sync on.",
+        )
+
     config = load_config()
     config.setdefault("auto_sync", {})
     config["auto_sync"]["enabled"] = enabled
@@ -2240,22 +2134,22 @@ async def api_toggle_autosync(request: Request):
             logger.warning("Failed to persist auto-sync state: %s", e)
 
     if enabled:
-        if os.environ.get("VERCEL") and os.environ.get("GITHUB_PAT"):
+        if os.environ.get("VERCEL"):
             ok, msg = await _setup_github_actions(interval_minutes=interval)
             if ok:
                 logger.info("GitHub Actions auto-sync configured (interval=%dmin)", interval)
             else:
                 logger.warning("Failed to set up GitHub Actions: %s", msg)
         else:
-            _schedule_autosync(interval)
+            autosync.schedule(interval)
         logger.info("Auto-sync enabled: every %d min", interval)
     else:
-        _stop_autosync()
+        autosync.stop()
         # On Vercel: delete the sync workflow to stop the cron
-        if os.environ.get("VERCEL") and os.environ.get("GITHUB_PAT"):
+        pat = get_github_pat()
+        if os.environ.get("VERCEL") and pat:
             try:
                 import requests as req
-                pat = os.environ.get("GITHUB_PAT")
                 owner = os.environ.get("VERCEL_GIT_REPO_OWNER")
                 repo_name = os.environ.get("VERCEL_GIT_REPO_SLUG")
                 gh_headers = {"Authorization": f"Bearer {pat}", "Accept": "application/vnd.github+json"}
@@ -2269,7 +2163,7 @@ async def api_toggle_autosync(request: Request):
                 logger.warning("Failed to delete sync workflow: %s", e)
         logger.info("Auto-sync disabled")
 
-    auto_sync = _get_autosync_status()
+    auto_sync = autosync.status()
     return _render("partials/autosync_status.html", auto_sync=auto_sync)
 
 
@@ -2349,13 +2243,13 @@ async def _setup_github_actions(interval_minutes: int = 120) -> tuple[bool, str]
     import asyncio
     from base64 import b64encode
 
-    pat = os.environ.get("GITHUB_PAT")
+    pat = get_github_pat()
     owner = os.environ.get("VERCEL_GIT_REPO_OWNER")
     repo = os.environ.get("VERCEL_GIT_REPO_SLUG")
     database_url = db.get_database_url()
 
     if not pat:
-        return False, "GITHUB_PAT not set"
+        return False, "GitHub token not set"
     if not owner or not repo:
         return False, "Not deployed via Vercel (missing repo info)"
     if not database_url:
@@ -2498,7 +2392,7 @@ async def _sync_one_recorded(
     if is_demo_mode():
         return JSONResponse({"status": "demo", "message": "Sync disabled in demo mode"})
 
-    if not _acquire_sync_lock():
+    if not syncstate.acquire_sync_lock():
         return JSONResponse({"error": "Sync already running", "busy": True})
 
     try:
@@ -2507,10 +2401,10 @@ async def _sync_one_recorded(
         # Record before re-raising, so a crash mid-sync is not the one failure
         # mode that leaves /history looking healthy. The per-row and auto paths
         # both record on exception; this makes cron and Sync Now agree.
-        _record_sync_log({"failed": 1}, trigger=trigger)
+        syncstate.record_sync_log({"failed": 1}, trigger=trigger)
         raise
     finally:
-        _sync_executing.release()
+        syncstate.release_sync_lock()
 
     try:
         data = _json.loads(bytes(resp.body))
@@ -2520,7 +2414,7 @@ async def _sync_one_recorded(
         # exact ambiguity this is meant to remove. error/skipped_error are the
         # hard-stop shapes. needs_review/processing stay 0/0: still in flight.
         failed = 1 if (data.get("error") or data.get("skipped_error") or data.get("failed")) else 0
-        _record_sync_log({"synced": data.get("synced", 0), "failed": failed}, trigger=trigger)
+        syncstate.record_sync_log({"synced": data.get("synced", 0), "failed": failed}, trigger=trigger)
     except Exception:
         logger.debug("sync_log record failed", exc_info=True)
     return resp
@@ -2564,7 +2458,7 @@ def _scan_for_unsynced(hevy, is_synced, total_count, failed_ids, on_page=None):
 
 
 async def _do_sync_one(*, respect_grace: bool = False, merge_only: bool = False):
-    """Inner sync logic, called with _sync_executing lock held.
+    """Inner sync logic, called with the shared sync lock held.
 
     ``respect_grace`` is True for Vercel cron (wait for watch data) and False
     for manual Sync Now.
@@ -2879,6 +2773,9 @@ async def cron_webhook(request: Request):
 
 def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     import uvicorn
-    logging.basicConfig(format="%(message)s", level=logging.INFO, force=True)
+    logging.basicConfig(
+        format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO, force=True,
+    )
     logger.info("Starting hevy2garmin dashboard at http://localhost:%d", port)
     uvicorn.run(app, host=host, port=port, log_level="warning")

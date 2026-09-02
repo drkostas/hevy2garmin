@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hevy2garmin"
-version = "0.9.0"
+version = "0.10.1"
 description = "Sync Hevy gym workouts to Garmin Connect — exercise mapping, FIT file generation, and automatic upload"
 readme = "README.md"
 license = "MIT"
@@ -24,17 +24,22 @@ dependencies = [
     "curl_cffi>=0.6",
     "ua-generator>=1.0",
     "requests>=2.31",
-    "fit-tool>=0.9.15,<0.9.16",  # cap: 0.9.16 regressed FIT HR parsing (test_hr)
+    "fit-tool>=0.9.15",
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
-    "psycopg2-binary>=2.9",
     "pynacl>=1.5",
+    # Postgres/Neon driver. Kept in base (not just the [cloud] extra) because the
+    # Vercel one-click deploy — the primary hosted path — installs the pyproject
+    # base dependencies, not the [cloud] extra, so a cloud deploy needs it here or
+    # it fails at runtime with "No module named 'psycopg2'" (#357).
+    "psycopg2-binary>=2.9",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-mock>=3.12", "httpx>=0.27"]
+dev = ["pytest>=8.0", "pytest-mock>=3.12", "httpx>=0.27",
+       "garmin-fit-sdk>=21.0"]  # FIT ground truth for tests/test_real_workout_fixtures.py
 cloud = ["psycopg2-binary>=2.9", "pynacl>=1.5"]
 audit = ["garmin-fit-sdk>=21.0"]  # ground truth for scripts/audit_mappings.py --regenerate-catalog
 

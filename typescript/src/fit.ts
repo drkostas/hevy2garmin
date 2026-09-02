@@ -10,6 +10,11 @@ const MIN_SCALE = 0.3;
 const MAX_SCALE = 2.0;
 export const DEFAULT_HR_BPM = 90;
 
+// FIT date_time epoch: 1989-12-31 00:00:00 UTC, in Unix seconds. The activity
+// localTimestamp field is a plain uint32 of seconds-since-this-epoch in local
+// wall-clock time (the SDK takes it as a number, not a Date like timestamp).
+export const FIT_EPOCH_S = 631065600;
+
 export interface FitProfile {
   weightKg: number;
   birthYear: number;
@@ -18,11 +23,37 @@ export interface FitProfile {
   warmupSetS: number;
   restSetsS: number;
   restExercisesS: number;
+  /** Optional IANA zone (e.g. "Europe/Berlin"). Empty = no local_timestamp. */
+  timezone: string;
 }
 export const DEFAULT_PROFILE: FitProfile = {
   weightKg: 80.0, birthYear: 1990, vo2max: 45.0,
   workingSetS: 40, warmupSetS: 25, restSetsS: 75, restExercisesS: 120,
+  timezone: "",
 };
+
+/**
+ * UTC offset (seconds) for an IANA zone at a given instant, DST-correct.
+ * Returns null for an empty or unrecognised zone — a bad timezone must never
+ * crash a sync, it just means no local_timestamp is written. Uses Intl (no
+ * zoneinfo in JS): format the instant in the zone, read it back as if UTC,
+ * and diff against the real instant.
+ */
+export function tzOffsetSeconds(tz: string, at: Date): number | null {
+  if (!tz) return null;
+  try {
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz, hourCycle: "h23",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+    const p = Object.fromEntries(dtf.formatToParts(at).map((x) => [x.type, x.value]));
+    const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+    return Math.round((asUTC - at.getTime()) / 1000);
+  } catch {
+    return null; // invalid IANA name → RangeError
+  }
+}
 
 export interface HevySet {
   type?: string; reps?: number | null; weight_kg?: number | null;
@@ -199,7 +230,17 @@ export function generateFit(
   if (totalDistanceM > 0) { lap.totalDistance = totalDistanceM; session.totalDistance = totalDistanceM; }
   wm(lap);
   wm(session);
-  wm({ mesgNum: M.ACTIVITY, timestamp: new Date(endMs), totalTimerTime: durationS, numSessions: 1, type: "manual", event: "activity", eventType: "stop" });
+  const activity: Record<string, unknown> = {
+    mesgNum: M.ACTIVITY, timestamp: new Date(endMs), totalTimerTime: durationS,
+    numSessions: 1, type: "manual", event: "activity", eventType: "stop",
+  };
+  // Stamp local wall-clock time when a timezone is configured. Hevy gives us
+  // UTC only, so without this the activity carries no offset and Garmin can
+  // forward it to Strava as raw UTC (a 6am workout showing up as 3am). The SDK
+  // takes localTimestamp as a number of FIT-epoch seconds, not a Date.
+  const tzOffset = tzOffsetSeconds(p.timezone ?? "", startDt);
+  if (tzOffset != null) activity.localTimestamp = Math.round(endMs / 1000) + tzOffset - FIT_EPOCH_S;
+  wm(activity);
 
   return {
     fit: new Uint8Array(enc.close()),

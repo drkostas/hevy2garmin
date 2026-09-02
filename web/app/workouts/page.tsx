@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/db";
+import { WorkoutRow } from "@/components/workout-row";
+import { CandidatesList } from "@/components/candidates-list";
 
 // Queries the live hevy2garmin Postgres per request — never at build time.
 export const dynamic = "force-dynamic";
@@ -97,47 +99,6 @@ async function loadWorkouts(): Promise<WorkoutsData> {
   return { dbConfigured: true, items: [...pendingItems, ...terminalItems] };
 }
 
-function fmtDate(value: string | null): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function StatusPill({ item }: { item: WorkoutItem }) {
-  // Terminal statuses map to fixed colours; any pending phase is "warm/in-flight".
-  const terminalStyles: Record<string, { cls: string; label: string }> = {
-    success: { cls: "bg-success/15 text-success", label: "Uploaded" },
-    manual: { cls: "bg-warm/15 text-warm", label: "Marked as synced" },
-    skipped: { cls: "bg-surface-active text-text-muted", label: "Skipped" },
-    failed: { cls: "bg-danger/15 text-danger", label: "Failed" },
-  };
-
-  if (item.kind === "terminal") {
-    const s = terminalStyles[item.state] ?? {
-      cls: "bg-surface-active text-text-secondary",
-      label: item.state,
-    };
-    return (
-      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${s.cls}`}>
-        {s.label}
-      </span>
-    );
-  }
-
-  // Pending — teal to distinguish from terminal states.
-  return (
-    <span className="inline-block rounded-full bg-teal/15 px-2.5 py-0.5 text-xs font-medium text-teal">
-      {item.state}
-    </span>
-  );
-}
-
 export default async function WorkoutsPage() {
   const data = await loadWorkouts();
 
@@ -151,9 +112,12 @@ export default async function WorkoutsPage() {
       </header>
 
       <div className="mb-6 rounded-lg border border-border bg-surface p-4 text-sm text-text-muted">
-        Live Hevy fetch and per-workout sync actions come in a later phase. This
-        view is read-only and shows only what the database already knows.
+        Sync an unsynced workout from the To sync list, resolve an in-flight one
+        with Mark as synced / Skip / Abandon, and expand a Garmin-matched workout
+        to see its cached heart-rate.
       </div>
+
+      {data.dbConfigured && <CandidatesList />}
 
       {!data.dbConfigured && (
         <div className="mb-6 rounded-lg border border-warm/40 bg-warm/10 p-4 text-sm text-warm">
@@ -173,26 +137,7 @@ export default async function WorkoutsPage() {
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface-elevated">
           {data.items.map((w) => (
-            <li
-              key={w.hevy_id}
-              className="flex items-center justify-between gap-3 px-4 py-3"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-text">
-                  {w.title || "Untitled workout"}
-                </div>
-                <div className="mt-0.5 text-xs text-text-muted">
-                  {fmtDate(w.when)}
-                  {w.garmin_activity_id && (
-                    <span> · Garmin {w.garmin_activity_id}</span>
-                  )}
-                  {w.detail && (
-                    <span className="text-text-secondary"> · {w.detail}</span>
-                  )}
-                </div>
-              </div>
-              <StatusPill item={w} />
-            </li>
+            <WorkoutRow key={w.hevy_id} item={w} />
           ))}
         </ul>
       )}

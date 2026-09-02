@@ -351,6 +351,17 @@ export async function unsync(hevyId: string, sql: Sql = getDb()): Promise<boolea
   return rows.length > 0;
 }
 
+/**
+ * Delete EVERY terminal row so all workouts become sync candidates again.
+ * Mirrors the Python /api/unsync-all. DB-ONLY: like unsync(), it does NOT delete
+ * any Garmin activity — only the local ledger is cleared. Returns how many rows
+ * were removed.
+ */
+export async function unsyncAll(sql: Sql = getDb()): Promise<number> {
+  const rows = await sql`DELETE FROM synced_workouts RETURNING hevy_id`;
+  return rows.length;
+}
+
 /** Set of hevy_ids with a terminal (synced_workouts) row. Batch read for dedup. */
 export async function loadSyncedIds(sql: Sql = getDb()): Promise<Set<string>> {
   const rows = await sql`SELECT hevy_id FROM synced_workouts`;

@@ -6,6 +6,40 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-08-30
+
+### Fixed
+- Fresh Vercel + Neon deploys no longer crash with `ModuleNotFoundError: No module named 'psycopg2'` ([#358](https://github.com/drkostas/hevy2garmin/pull/358), closes [#357](https://github.com/drkostas/hevy2garmin/issues/357)). 0.10.0 moved `psycopg2-binary` into the optional `[cloud]` extra to spare self-hosted SQLite installs a database driver, but the Vercel one-click deploy installs the base dependencies (not the extra), so the dashboard died the moment it queried Postgres. `psycopg2-binary` is restored to the base dependencies; it ships prebuilt wheels, so self-hosters take only a small wheel with no compilation.
+
+## [0.10.0] - 2026-08-28
+
+### Added
+- Timezone setting so Strava shows the correct local time ([#348](https://github.com/drkostas/hevy2garmin/pull/348)). Hevy hands out UTC-only timestamps, so uploads carried no local offset and Garmin could forward them to Strava as raw UTC (a 6am workout showing up as a 3am "Night" workout). Set your timezone in Settings (Profile, an IANA name like `Europe/Berlin`) and the uploaded FIT now carries a DST-correct `local_timestamp` so the local time travels with the activity. Leave it blank to keep the previous behaviour.
+- Mappings for 21 previously-unmapped exercises in Hevy's global catalog, plus Walking Lunge (Sandbag), Burpee Broad Jumps and Sled Pull ([#292](https://github.com/drkostas/hevy2garmin/pull/292), [#294](https://github.com/drkostas/hevy2garmin/pull/294), thanks @OliverKrr).
+- Normalized-title fallback so an exercise whose name only differs by formatting still maps instead of falling back to a generic type ([#303](https://github.com/drkostas/hevy2garmin/pull/303), thanks @OliverKrr).
+- Reverse-proxy sub-path support, so the dashboard can be served under a path prefix ([#305](https://github.com/drkostas/hevy2garmin/pull/305), thanks @OliverKrr).
+- Every single-workout sync is now recorded in the sync log ([#306](https://github.com/drkostas/hevy2garmin/pull/306), thanks @OliverKrr).
+- Optional Hevy-webhook sync, staged so a watch merge still wins over a plain upload ([#307](https://github.com/drkostas/hevy2garmin/pull/307), thanks @OliverKrr).
+- When Replace swaps a watch activity, the replaced copy is now also removed from intervals.icu ([#308](https://github.com/drkostas/hevy2garmin/pull/308), thanks @OliverKrr).
+- Timestamps on log lines, so container logs show when each sync ran and how long it took ([#341](https://github.com/drkostas/hevy2garmin/pull/341), thanks @diogormendes).
+
+### Fixed
+- Exercise names newer than the bundled FIT enums now resolve through the bundled catalog instead of rendering as a generic type ([#329](https://github.com/drkostas/hevy2garmin/issues/328), thanks @alasano).
+- Merge mode no longer shows pushed exercises as "Unknown" on Garmin Connect. The set payload now sends confidence 100 for named exercises, which is what Connect needs to render the name while keeping the watch's native metrics ([#330](https://github.com/drkostas/hevy2garmin/issues/325), thanks @alasano).
+- `generate_description` no longer raises a `TypeError` on sets with null reps or weight (bodyweight and cardio) ([#309](https://github.com/drkostas/hevy2garmin/pull/309), thanks @gianluca-mazza).
+- The dashboard heart-rate endpoint no longer crashes when Garmin returns a null daily-HR series for the current day ([#327](https://github.com/drkostas/hevy2garmin/issues/326)).
+- Several exercise-mapping corrections: the generated template map no longer overrides the hand-maintained table, generic entries use the correct sentinel, and Pallof Press, machine chest press, hip abduction and Overhead Dumbbell Lunge now map to their exact FIT matches ([#272](https://github.com/drkostas/hevy2garmin/pull/272), [#274](https://github.com/drkostas/hevy2garmin/pull/274), [#276](https://github.com/drkostas/hevy2garmin/pull/276), [#278](https://github.com/drkostas/hevy2garmin/pull/278), [#290](https://github.com/drkostas/hevy2garmin/pull/290), thanks @OliverKrr).
+- An excluded activity id is never adopted from the Garmin import result ([#280](https://github.com/drkostas/hevy2garmin/pull/280), thanks @OliverKrr).
+
+### Changed
+- The default watch strategy is now `merge`, which keeps your recorded activity and its native metrics while pushing in the Hevy exercise names ([#332](https://github.com/drkostas/hevy2garmin/pull/332)). `replace` and `describe` remain available in Settings.
+- `fit-tool` is no longer capped below 0.9.16. The heart-rate parsing that appeared to break on 0.9.16 was a signature mismatch in our own lenient-string patch, now fixed to work on both the old and new APIs ([#337](https://github.com/drkostas/hevy2garmin/pull/337), thanks @diogormendes).
+
+### Internal
+- Auto-sync now runs as an asyncio task with a clean lifespan shutdown instead of a background `threading.Timer`, and the shared sync state and loop were extracted into their own modules ([#338](https://github.com/drkostas/hevy2garmin/pull/338), [#342](https://github.com/drkostas/hevy2garmin/pull/342), thanks @diogormendes).
+- HTTP-level test coverage now reaches every route (42/42), with the guard rails on the state-mutating ones mutation-tested ([#339](https://github.com/drkostas/hevy2garmin/pull/339), [#340](https://github.com/drkostas/hevy2garmin/pull/340), thanks @diogormendes), plus a regression corpus built from a real Hevy history ([#334](https://github.com/drkostas/hevy2garmin/pull/334), thanks @OliverKrr).
+- Docker image split into builder and runtime stages, self-hosting documented as a first-class path, and an exercise-mapping audit against the FIT SDK ([#282](https://github.com/drkostas/hevy2garmin/pull/282), [#296](https://github.com/drkostas/hevy2garmin/pull/296), [#284](https://github.com/drkostas/hevy2garmin/pull/284), thanks @OliverKrr). `psycopg2-binary` moved to the optional `cloud` extra ([#335](https://github.com/drkostas/hevy2garmin/pull/335), thanks @diogormendes).
+
 ## [0.9.0] - 2026-07-28
 
 ### Added
