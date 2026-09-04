@@ -77,8 +77,9 @@ Sign up at [github.com](https://github.com/signup). You'll use this to sign into
 
 1. Go to [vercel.com/new](https://vercel.com/new) and sign in with GitHub
 2. Find **hevy2garmin** in your repo list and click **Import**. If your fork isn't listed even though GitHub shows it, click **Adjust GitHub App Permissions** (or **Configure GitHub App**) and grant Vercel access to the repo, then it will appear.
-3. **Add a database (required).** If you see an **Integrations** or **Storage** section during import, add **Neon Postgres** (it's free). This is where your sync history lives. If you don't see it during import, that's fine: deploy first, then open your project's **Storage** tab, add **Neon Postgres**, and redeploy. A serverless host has a read-only filesystem, so with no database the app can't save anything and shows an "internal server error".
-4. Click **Deploy** and wait about a minute for it to build. You don't need to set any environment variables: you enter your Hevy key and Garmin login in the app on the next step. If the deployed page shows an "internal server error", it almost always means the database step was skipped: add **Neon Postgres** from the **Storage** tab, then redeploy.
+3. **Root Directory: `web`.** On the import screen click **Edit** next to **Root Directory** and enter `web`. This deploys the current dashboard (Next.js). Leaving it empty deploys the older Python dashboard, which still works but no longer gets new features.
+4. **Add a database (required).** If you see an **Integrations** or **Storage** section during import, add **Neon Postgres** (it's free). This is where your sync history lives. If you don't see it during import, that's fine: deploy first, then open your project's **Storage** tab, add **Neon Postgres**, and redeploy. A serverless host has a read-only filesystem, so with no database the app can't save anything and shows an "internal server error".
+5. Click **Deploy** and wait about a minute for it to build. You don't need to set any environment variables: you enter your Hevy key and Garmin login in the app on the next step. If you want a login on your dashboard, add `H2G_PASSWORD` under **Environment Variables** (you can also do this later, see [Securing the dashboard](#securing-the-dashboard)). If the deployed page shows an "internal server error", it almost always means the database step was skipped: add **Neon Postgres** from the **Storage** tab, then redeploy.
 
 **Step 5: Connect Hevy and Garmin**
 
@@ -112,9 +113,13 @@ To keep future workouts syncing automatically, toggle **Auto-sync** on the dashb
 
 **That's it.** Check [Garmin Connect](https://connect.garmin.com/modern/activities) to see your workouts with proper exercise names, sets, reps, and weights.
 
-### Web dashboard rebuild (Next.js, preview)
+### Web dashboard (Next.js)
 
-A Next.js rebuild of the dashboard lives in `web/`. It uses the same database and the same `platform_credentials` rows as the Python dashboard, so both can run against one Neon project. Vercel still serves the Python dashboard from `api/index.py` until the cutover is announced here and in the changelog. To try the rebuild now:
+The dashboard Vercel deploys with **Root Directory** `web` is a Next.js app. It uses the same database and the same `platform_credentials` rows as the Python dashboard, so both can run against one Neon project, and switching between them loses nothing.
+
+**Already deployed the Python dashboard on Vercel?** Open your Vercel project, go to **Settings > General > Root Directory**, enter `web`, save, then open **Deployments** and **Redeploy** the latest one. Your database, credentials and sync history carry over as they are. To go back, clear the Root Directory and redeploy. The Python dashboard (`api/index.py`, Root Directory empty) keeps working for existing deployments, but new features land in `web/` only.
+
+To run it locally:
 
 ```bash
 cd web
