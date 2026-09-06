@@ -124,6 +124,8 @@ npm ci && npm run dev        # http://localhost:8096
 
 CI runs a fresh-fork check for both paths on every change: the Python package must install and boot from its base dependencies, and the web app must install from its lockfile, build, and answer with a bare environment. A red check blocks the merge, so `main` stays deployable for a fresh fork.
 
+[`docs/CUTOVER.md`](docs/CUTOVER.md) is the runbook for switching a deployment over: the checks that gate the flip, the one Vercel setting that performs it, the one that reverses it, and the behaviour differences you inherit. Read it before changing any project setting.
+
 ### Web Dashboard (local install)
 
 ```bash
