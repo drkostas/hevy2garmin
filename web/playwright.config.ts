@@ -1,6 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = process.env.E2E_PORT ?? "8096";
+/**
+ * A DEDICATED port, deliberately not the 8096 that `npm run dev` and
+ * `npm run start` use. With `reuseExistingServer` on (everywhere but CI),
+ * sharing the dev port makes Playwright silently adopt a running dev server
+ * instead of starting the one configured below. That server carries the
+ * developer's .env.local, so the "no database" suite would run against the
+ * staging database and its real Garmin and Hevy tokens, and dev-mode compile
+ * latency also pushes hydration past the click timeout. A separate port means
+ * the only server we can ever reuse is one this suite started itself.
+ */
+const PORT = process.env.E2E_PORT ?? "8097";
 
 /**
  * Parity smoke for the web dashboard (#461). Runs against a production build started with ONLY
