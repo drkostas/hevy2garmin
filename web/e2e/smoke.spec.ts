@@ -35,6 +35,42 @@ test.describe("dashboard smoke (no database, password auth)", () => {
     await page.goto("/sync");
     await expect(page).toHaveURL(/\/dashboard/);
   });
+  test("every nav destination is reachable by clicking the nav", async ({ page }) => {
+    // goto() proves a route renders; it says nothing about whether a user can
+    // get there. Walk the nav itself so a broken Link, a wrong href or a nav
+    // that fails to render is caught. Both bars carry the same seven items and
+    // CSS shows exactly one, so scope to the visible nav to stay correct on the
+    // desktop and mobile projects alike.
+    await page.goto("/login");
+    await signIn(page, "test-pw");
+    await expect(page).toHaveURL(/\/dashboard/);
+
+    const destinations: [label: string, path: string][] = [
+      ["Workouts", "/workouts"],
+      ["Routines", "/routines"],
+      ["Mappings", "/mappings"],
+      ["History", "/history"],
+      ["Settings", "/settings"],
+      ["Setup", "/setup"],
+      ["Dashboard", "/dashboard"],
+    ];
+
+    for (const [label, path] of destinations) {
+      // Not an exact name match: the mobile bar composes each link from an icon
+      // span and a label span, so its accessible name is "≡ Workouts" while the
+      // desktop bar's is "Workouts". Substring matching covers both, and no two
+      // labels are substrings of one another.
+      await page
+        .locator("nav:visible")
+        .getByRole("link", { name: label })
+        .click();
+      await expect(page, `nav "${label}" should land on ${path}`).toHaveURL(
+        new RegExp(`${path}$`),
+      );
+      await expect(page.locator("h1").first()).toBeVisible();
+    }
+  });
+
   test("a wrong password stays on login with an error", async ({ page }) => {
     await page.goto("/login");
     await signIn(page, "nope");
