@@ -51,3 +51,6 @@ worker-di/.wrangler/
 
 # Claude Code local instructions (never committed)
 CLAUDE.md
+
+# Internal docs stay local: this repo is public and these are working notes.
+docs/
