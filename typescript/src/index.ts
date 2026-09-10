@@ -3,3 +3,4 @@ export * from "./mapper";
 export * from "./fit";
 export * from "./hevy";
 export * from "./garmin";
+export * from "./sync";

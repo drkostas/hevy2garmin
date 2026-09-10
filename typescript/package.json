@@ -1,6 +1,6 @@
 {
   "name": "hevy2garmin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Sync Hevy workouts to Garmin Connect (TypeScript). FIT generation, exercise mapping, and upload. The TS twin of the Python hevy2garmin.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
