@@ -7,6 +7,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
+- `hevy2garmin` 0.4.1 is 0.4.0 rebuilt from an empty `dist/`: 0.4.0 shipped stale compiled files that shadowed the sync engine's types. A `prepack` step now clears and rebuilds `dist/` before every publish ([#508](https://github.com/drkostas/hevy2garmin/issues/508)).
 - `hevy2garmin` 0.4.0 adds `matchHevyToGarmin` and `toUtcDate`, the timestamp matcher soma used to keep as a local copy (soma#835).
 - The `hevy2garmin-web` Vercel project is now connected to this repository with Root Directory `web`, so every pull request builds a preview of the Next.js dashboard next to the Python one, and merges to `main` deploy it ([#478](https://github.com/drkostas/hevy2garmin/issues/478)). Until now the green Vercel check on a PR had only ever built the Python dashboard.
 - Coming next: `hevy2garmin-demo.gkos.dev` moves to the Next.js dashboard. The Python demo stays reachable for one more release at `hevy2garmin-demo.vercel.app` ([#456](https://github.com/drkostas/hevy2garmin/issues/456)).
