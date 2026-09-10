@@ -73,6 +73,34 @@ const { activityId } = await uploadFit(client, fit, hevyWorkout.start_time);
 if (activityId) await renameActivity(client, activityId, hevyWorkout.title);
 ```
 
+### Sync a workout (dedup, dry-run by default)
+
+The sync engine decides which Hevy workouts still need to reach Garmin and
+performs the upload. It never touches a database or the network directly: you
+hand it a `SyncStore` (the ledger of synced and in-flight workouts), a lazily
+built `GarminGateway`, and the Hevy fetch. `dryRun` defaults to `true`, so the
+call below computes the decision without writing anything.
+
+```ts
+import { garminGateway, syncOneWorkout, type SyncStore } from "hevy2garmin";
+
+const store: SyncStore = /* your ledger: Postgres, SQLite, a Map in tests */;
+const deps = {
+  store,
+  gateway: async () => garminGateway(await garminAuth.client()),
+  fetchWorkouts: () => hevy.getAllWorkouts(),
+};
+
+const preview = await syncOneWorkout(deps);                   // no writes
+if (preview.wouldUpload) await syncOneWorkout(deps, { dryRun: false });
+```
+
+Three layers keep a workout from being uploaded twice: a terminal row in the
+store, an activity already on Garmin at the same start time (matched, not
+re-uploaded), and an atomic claim on the in-flight row so two workers never
+race. `reconcilePending` and `retryPending` recover a stuck upload the same
+way, checking Garmin before ever re-uploading.
+
 ## API
 
 | Export | What it does |
@@ -83,6 +111,11 @@ if (activityId) await renameActivity(client, activityId, hevyWorkout.title);
 | `lookupExercise` | Map a Hevy exercise name to its Garmin FIT category. |
 | `uploadFit` / `renameActivity` / `setDescription` / `deleteActivity` | Manage the activity on Garmin Connect (needs a `garmin-auth` client). |
 | `HEVY_TO_GARMIN`, `TEMPLATE_TO_GARMIN` | The raw exercise mapping tables. |
+| `syncOneWorkout` / `listCandidates` | The sync engine: next unsynced workout, three-layer dedup, dry-run by default. |
+| `reconcilePending` / `retryPending` | Recover a stuck in-flight upload without ever double-uploading. |
+| `SyncStore` / `GarminGateway` / `garminGateway` | The two boundaries the engine talks through; `garminGateway` wraps a `garmin-auth` client. |
+| `isUnsynced` / `filterUnsynced` / `pickNextUnsynced` / `summarizeDedup` | Pure dedup decisions over a workout list. |
+| `generateDescription` | The activity description text every upload path attaches. |
 
 ## Develop
 
