@@ -33,6 +33,9 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -v
 
+      - name: Exercise map drift (TypeScript copy matches the Python source of truth)
+        run: python scripts/gen_typescript_map.py --check
+
   check-postgres:
     name: Tests (Postgres)
     runs-on: ubuntu-latest
