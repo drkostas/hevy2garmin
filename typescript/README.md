@@ -116,6 +116,7 @@ way, checking Garmin before ever re-uploading.
 | `SyncStore` / `GarminGateway` / `garminGateway` | The two boundaries the engine talks through; `garminGateway` wraps a `garmin-auth` client. |
 | `isUnsynced` / `filterUnsynced` / `pickNextUnsynced` / `summarizeDedup` | Pure dedup decisions over a workout list. |
 | `generateDescription` | The activity description text every upload path attaches. |
+| `matchHevyToGarmin` / `toUtcDate` | Pair Hevy workouts with activities Garmin already holds, by timestamp (exact, ±60 s, then closest within ±6 h), so they are never uploaded twice. |
 
 ## Develop
 
