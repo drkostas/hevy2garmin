@@ -17,13 +17,6 @@
  */
 import { getDb } from "./db";
 import { GarminAuth, DBTokenStore, type GarminClient } from "garmin-auth";
-import {
-  uploadFit,
-  findActivityByStartTime,
-  renameActivity,
-  setDescription,
-  type UploadResult,
-} from "hevy2garmin";
 
 /** The DI tokens live in platform_credentials at this platform key. */
 export const GARMIN_TOKEN_PLATFORM = "garmin_tokens";
@@ -73,48 +66,4 @@ export async function getGarminClient(databaseUrl?: string): Promise<GarminClien
 /** Reset the cached client (test seam / after a token rotation). */
 export function resetGarminClient(): void {
   cachedClient = null;
-}
-
-/**
- * READ: is there already a Garmin activity at this start time? This is dedup
- * layer 2 — the pre-upload lookup that prevents a duplicate (409) upload. Thin
- * passthrough to the package's findActivityByStartTime. Returns the existing
- * activity id, or null when the timestamp is free. Never writes.
- */
-export async function findExistingActivity(
-  client: GarminClient,
-  startTime: string,
-): Promise<number | null> {
-  return findActivityByStartTime(client, startTime);
-}
-
-/**
- * WRITE: upload a FIT (bytes) to Garmin. Thin passthrough to the package's
- * uploadFit. Only ever reached on the live sync path (dryRun === false); the
- * dry-run path returns before any wrapper here is called.
- */
-export async function upload(
-  client: GarminClient,
-  fit: Uint8Array,
-  workoutStart?: string,
-): Promise<UploadResult> {
-  return uploadFit(client, fit, workoutStart);
-}
-
-/** WRITE: rename a Garmin activity. Thin passthrough to renameActivity. */
-export async function rename(
-  client: GarminClient,
-  activityId: number,
-  name: string,
-): Promise<void> {
-  return renameActivity(client, activityId, name);
-}
-
-/** WRITE: set a Garmin activity's description. Thin passthrough to setDescription. */
-export async function describe(
-  client: GarminClient,
-  activityId: number,
-  description: string,
-): Promise<void> {
-  return setDescription(client, activityId, description);
 }

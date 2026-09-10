@@ -1,150 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-/**
- * Unit tests for reconcile/retry (lib/pending-recovery). Every Garmin op, the
- * FIT generator, and the DB helpers are mocked, so no network/DB is touched. We
- * assert the "never double-upload" property (reconcile completes as matched; a
- * retry that finds an existing activity does NOT upload) and the happy retry
- * path.
- */
-
-const generateFit = vi.fn((..._a: unknown[]) => ({
-  fit: new Uint8Array([1, 2, 3]),
-  exercises: 2,
-  total_sets: 6,
-  calories: 321,
-  avg_hr: 110,
-  duration_s: 3600,
+/** Recovery logic is tested in the hevy2garmin package; this covers the wiring. */
+const h = vi.hoisted(() => ({
+  engine: {
+    reconcilePending: vi.fn(async (_deps: unknown, _id: string) => ({ status: "no_activity", garminActivityId: null, error: null })),
+    retryPending: vi.fn(async (_deps: unknown, _id: string, _opts: unknown) => ({ status: "synced", garminActivityId: 555, error: null })),
+  },
+  ps: { getPending: vi.fn(async (_id: string, _sql: unknown) => null) },
 }));
-vi.mock("hevy2garmin", () => ({ generateFit: (...a: unknown[]) => generateFit(...a) }));
-
-const getGarminClient = vi.fn(async (..._a: unknown[]) => ({ domain: "garmin.com" }));
-const findExistingActivity = vi.fn();
-const upload = vi.fn();
-const rename = vi.fn();
-const describe_ = vi.fn();
-vi.mock("./garmin-upload", () => ({
-  getGarminClient: (...a: unknown[]) => getGarminClient(...a),
-  findExistingActivity: (...a: unknown[]) => findExistingActivity(...a),
-  upload: (...a: unknown[]) => upload(...a),
-  rename: (...a: unknown[]) => rename(...a),
-  describe: (...a: unknown[]) => describe_(...a),
-}));
-
-const getPending = vi.fn();
-const completePending = vi.fn();
-const updatePending = vi.fn();
-vi.mock("./pending-store", () => ({
-  getPending: (...a: unknown[]) => getPending(...a),
-  completePending: (...a: unknown[]) => completePending(...a),
-  updatePending: (...a: unknown[]) => updatePending(...a),
-}));
-
-vi.mock("./sync-one", () => ({ generateDescription: () => "desc" }));
+vi.mock("hevy2garmin", async (importOriginal) => ({ ...(await importOriginal<object>()), ...h.engine }));
+vi.mock("./pending-store", () => h.ps);
 vi.mock("./db", () => ({ getDb: () => ({}) }));
+vi.mock("./garmin-upload", () => ({ getGarminClient: async () => ({}) }));
+vi.mock("./hevy-sync", () => ({ fetchAllWorkouts: async () => [] }));
 
 import { reconcilePending, retryPending } from "./pending-recovery";
+import type { buildSyncDeps } from "./sync-one";
 
-const sql = {} as ReturnType<typeof import("./db").getDb>;
-const client = { domain: "garmin.com" };
-const garminClientFactory = vi.fn(async () => client as never);
+type Deps = ReturnType<typeof buildSyncDeps>;
+const SQL = { tag: "sql" } as never;
+beforeEach(() => { h.engine.reconcilePending.mockClear(); h.engine.retryPending.mockClear(); h.ps.getPending.mockClear(); });
 
-const PENDING = {
-  hevy_id: "w1",
-  phase: "processing",
-  attempt_count: 1,
-  payload: {
-    workout: { id: "w1", title: "Push Day", start_time: "2026-08-01T10:00:00Z" },
-    title: "Push Day",
-    calories: 321,
-    avg_hr: 110,
-  },
-};
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  getPending.mockResolvedValue(PENDING);
-  findExistingActivity.mockResolvedValue(null);
-  upload.mockResolvedValue({ uploadId: 9, activityId: 555 });
-});
-
-describe("reconcilePending", () => {
-  it("no pending row → not_found", async () => {
-    getPending.mockResolvedValue(null);
-    const r = await reconcilePending("w1", { garminClientFactory }, sql);
-    expect(r.status).toBe("not_found");
-    expect(findExistingActivity).not.toHaveBeenCalled();
-  });
-
-  it("no usable payload → no_payload, no Garmin call", async () => {
-    getPending.mockResolvedValue({ ...PENDING, payload: {} });
-    const r = await reconcilePending("w1", { garminClientFactory }, sql);
-    expect(r.status).toBe("no_payload");
-    expect(garminClientFactory).not.toHaveBeenCalled();
-  });
-
-  it("Garmin already has it → completes as matched, no upload", async () => {
-    findExistingActivity.mockResolvedValue(4242);
-    const r = await reconcilePending("w1", { garminClientFactory }, sql);
-    expect(r.status).toBe("reconciled_synced");
-    expect(r.garminActivityId).toBe(4242);
-    expect(completePending).toHaveBeenCalledWith(
-      "w1",
-      expect.objectContaining({ garminActivityId: "4242", syncMethod: "match" }),
-      sql,
-    );
-    expect(upload).not.toHaveBeenCalled();
-  });
-
-  it("Garmin has nothing → no_activity, pending left in place", async () => {
-    const r = await reconcilePending("w1", { garminClientFactory }, sql);
+describe("pending-recovery (route shim)", () => {
+  it("reconcilePending forwards the id with sql-bound deps", async () => {
+    const r = await reconcilePending("w1", {}, SQL);
     expect(r.status).toBe("no_activity");
-    expect(completePending).not.toHaveBeenCalled();
-    expect(updatePending).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("retryPending", () => {
-  it("Garmin already has it → matched, NEVER uploads", async () => {
-    findExistingActivity.mockResolvedValue(4242);
-    const r = await retryPending("w1", { garminClientFactory }, sql);
-    expect(r.status).toBe("reconciled_synced");
-    expect(upload).not.toHaveBeenCalled();
-    expect(generateFit).not.toHaveBeenCalled();
+    const [deps, id] = h.engine.reconcilePending.mock.calls[0];
+    expect(id).toBe("w1");
+    await (deps as Deps).store.getPending("w1");
+    expect(h.ps.getPending).toHaveBeenCalledWith("w1", SQL);
   });
 
-  it("fresh → regenerates FIT, uploads, finalizes, completes", async () => {
-    const r = await retryPending("w1", { garminClientFactory }, sql);
+  it("retryPending forwards id + options", async () => {
+    const r = await retryPending("w1", { descriptionEnabled: false }, SQL);
     expect(r.status).toBe("synced");
-    expect(r.garminActivityId).toBe(555);
-    expect(generateFit).toHaveBeenCalledTimes(1);
-    expect(upload).toHaveBeenCalledTimes(1);
-    expect(rename).toHaveBeenCalledWith(client, 555, "Push Day");
-    expect(describe_).toHaveBeenCalledTimes(1);
-    expect(completePending).toHaveBeenCalledWith(
-      "w1",
-      expect.objectContaining({ garminActivityId: "555", syncMethod: "upload" }),
-      sql,
-    );
+    expect(h.engine.retryPending.mock.calls[0][1]).toBe("w1");
+    expect(h.engine.retryPending.mock.calls[0][2]).toEqual({ descriptionEnabled: false });
   });
 
-  it("upload throws → parks pending with the error, no completion", async () => {
-    upload.mockRejectedValue(new Error("Garmin upload failed (500)"));
-    const r = await retryPending("w1", { garminClientFactory }, sql);
-    expect(r.status).toBe("error");
-    expect(r.error).toContain("Garmin upload failed");
-    expect(completePending).not.toHaveBeenCalled();
-    expect(updatePending).toHaveBeenCalledWith(
-      "w1",
-      expect.objectContaining({ phase: "processing", last_error: expect.stringContaining("failed") }),
-      sql,
-    );
-  });
-
-  it("no usable payload → no_payload", async () => {
-    getPending.mockResolvedValue({ ...PENDING, payload: { title: "x" } });
-    const r = await retryPending("w1", { garminClientFactory }, sql);
-    expect(r.status).toBe("no_payload");
-    expect(upload).not.toHaveBeenCalled();
+  it("retryPending defaults options to {}", async () => {
+    await retryPending("w2", undefined, SQL);
+    expect(h.engine.retryPending.mock.calls[0][2]).toEqual({});
   });
 });

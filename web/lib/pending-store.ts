@@ -14,7 +14,7 @@
  */
 import { getDb } from "./db";
 
-type Sql = ReturnType<typeof getDb>;
+export type Sql = ReturnType<typeof getDb>;
 
 /** Terminal statuses stored in synced_workouts.status. */
 export type TerminalStatus = "success" | "manual" | "skipped";
