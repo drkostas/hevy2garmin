@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
+- The `hevy2garmin-web` Vercel project is now connected to this repository with Root Directory `web`, so every pull request builds a preview of the Next.js dashboard next to the Python one, and merges to `main` deploy it ([#478](https://github.com/drkostas/hevy2garmin/issues/478)). Until now the green Vercel check on a PR had only ever built the Python dashboard.
+- Coming next: `hevy2garmin-demo.gkos.dev` moves to the Next.js dashboard. The Python demo stays reachable for one more release at `hevy2garmin-demo.vercel.app` ([#456](https://github.com/drkostas/hevy2garmin/issues/456)).
 - The sync engine now lives in the `hevy2garmin` npm package (0.3.0): `syncOneWorkout`, `listCandidates`, `reconcilePending`, `retryPending`, the pure dedup helpers and `generateDescription`, behind a `SyncStore` interface and a `GarminGateway`. The web dashboard imports it and keeps only a Postgres `SyncStore` adapter and route glue, so soma and any other consumer run the same dedup and dry-run logic ([#500](https://github.com/drkostas/hevy2garmin/issues/500)).
 - The Next.js web dashboard in `web/` is now the recommended Vercel deploy: set **Root Directory** to `web` when importing a fork, or change it in an existing project's settings and redeploy ([#456](https://github.com/drkostas/hevy2garmin/issues/456)). The Python dashboard keeps working for existing deployments (Root Directory empty) but no longer gets new features. Both read the same database and credential rows.
 
