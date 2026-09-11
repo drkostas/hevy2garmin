@@ -1,6 +1,6 @@
 {
   "name": "hevy2garmin",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Sync Hevy workouts to Garmin Connect (TypeScript). FIT generation, exercise mapping, and upload. The TS twin of the Python hevy2garmin.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -8,7 +8,40 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./exercise-map": {
+      "types": "./dist/exercise-map.d.ts",
+      "default": "./dist/exercise-map.js"
+    },
+    "./mapper": {
+      "types": "./dist/mapper.d.ts",
+      "default": "./dist/mapper.js"
+    },
+    "./fit": {
+      "types": "./dist/fit.d.ts",
+      "default": "./dist/fit.js"
+    },
+    "./hevy": {
+      "types": "./dist/hevy.d.ts",
+      "default": "./dist/hevy.js"
+    },
+    "./garmin": {
+      "types": "./dist/garmin.d.ts",
+      "default": "./dist/garmin.js"
+    },
+    "./match": {
+      "types": "./dist/match.d.ts",
+      "default": "./dist/match.js"
+    },
+    "./muscle-groups": {
+      "types": "./dist/muscle-groups.d.ts",
+      "default": "./dist/muscle-groups.js"
+    },
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
