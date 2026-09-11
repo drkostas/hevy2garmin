@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-11
+
+### Deprecated
+- **The Python dashboard is retired in 0.12.0.** The Next.js dashboard in `web/` is the deploy for every fork: set **Root Directory** to `web` on your Vercel project (Settings > General) before updating past 0.11.x. In 0.12.0 `api/index.py`, `server.py`, the templates and the root `vercel.json` routing are removed, so a project with an empty Root Directory stops deploying. The demo at `hevy2garmin-demo.gkos.dev` already runs the Next.js dashboard; the Python one stays at `hevy2garmin-demo.vercel.app` until 0.12.0.
+- **The PyPI package is deprecated, with an end date of 2026-10-31.** The CLI and the Python sync core keep working until then; after that date the package receives no releases and is marked deprecated on PyPI. The replacements are the Next.js dashboard for the app and the npm package `hevy2garmin` for the sync engine (same FIT generation, same exercise map, same dedup rules, Python-parity goldens in its tests). `garmin-auth` on PyPI follows the same date.
+
 ### Changed
 - `hevy2garmin` 0.5.0 adds the exercise to muscle-group mapping and volume aggregation (`getExerciseMuscles`, `aggregateMuscleVolumes`, `MUSCLE_LABELS`, `MUSCLE_HEX`) that soma's web and app each kept a copy of (soma#841).
 - `hevy2garmin` 0.4.1 is 0.4.0 rebuilt from an empty `dist/`: 0.4.0 shipped stale compiled files that shadowed the sync engine's types. A `prepack` step now clears and rebuilds `dist/` before every publish ([#508](https://github.com/drkostas/hevy2garmin/issues/508)).
