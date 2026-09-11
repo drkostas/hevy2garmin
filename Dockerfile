@@ -49,12 +49,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
 USER nonroot
 WORKDIR /app
 
-EXPOSE 8123
 
-# Lets `docker compose` restart policies and `docker ps` reflect real health
-# rather than just "the process is alive".
-HEALTHCHECK --interval=60s --timeout=5s --start-period=20s --retries=3 \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8123/login', timeout=4).status < 500 else 1)"
 
 ENTRYPOINT ["hevy2garmin"]
 CMD ["status"]

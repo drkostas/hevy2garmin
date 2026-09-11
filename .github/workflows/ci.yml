@@ -154,54 +154,6 @@ jobs:
         env:
           CI: "1"
 
-  check-fresh-fork:
-    # What a forker's Vercel deploy actually installs: the base [project.dependencies]
-    # only — no [dev]/[cloud] extras, no requirements.txt, non-editable (#357/#358 shape).
-    name: Fresh fork (Vercel-style base install)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install base dependencies only (no extras, non-editable)
-        run: pip install .
-
-      - name: Dependency consistency
-        run: pip check
-
-      - name: requirements.txt matches the base dependencies
-        run: |
-          python - <<'PYCHK'
-          import tomllib, re
-          norm = lambda s: re.sub(r"\s+", "", s)
-          base = {norm(d) for d in tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]}
-          req = {norm(l.split("#")[0]) for l in open("requirements.txt") if l.split("#")[0].strip()}
-          missing, extra = base - req, req - base
-          assert not missing and not extra, f"requirements.txt out of sync: missing={sorted(missing)} extra={sorted(extra)}"
-          print(f"requirements.txt matches {len(base)} base dependencies")
-          PYCHK
-
-      - name: Import the Vercel entry from outside the repo
-        # api/index.py falls back to src/ when the package is not installed; running it
-        # from another directory makes sure only the INSTALLED package and its deps are used.
-        run: |
-          mkdir -p /tmp/outside && cp api/index.py /tmp/outside/index.py
-          cd /tmp/outside && env -i PATH="$PATH" HOME=/tmp/outside python -c "import index; print('import ok:', index.app.title)"
-
-      - name: Boot the dashboard with no environment and answer over HTTP
-        run: |
-          cd /tmp/outside
-          env -i PATH="$PATH" HOME=/tmp/outside python -m uvicorn index:app --host 127.0.0.1 --port 8129 > uvicorn.log 2>&1 &
-          for i in $(seq 1 30); do
-            sleep 1
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8129/login || true)
-            case "$code" in 2*|3*) echo "GET /login -> $code"; exit 0;; esac
-          done
-          echo "dashboard did not answer on /login"; cat uvicorn.log; exit 1
-
   check-fresh-fork-web:
     # What a forker's Vercel deploy of the Next.js dashboard gets: a strict `npm ci` (a stale
     # lockfile must FAIL here, not on their first deploy), a build, and a boot with nothing but

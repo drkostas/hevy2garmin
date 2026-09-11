@@ -4,11 +4,22 @@ All notable changes to hevy2garmin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.12.0] - 2026-09-11
+
+### Removed
+
+- The Python dashboard: the FastAPI server, its templates and static files, the `serve` command, the Vercel Python entry (`api/index.py`, `vercel.json`) and `docker-compose.yml`. The dashboard is the Next.js app in `web/`, the deploy for every fork (Root Directory `web` on Vercel). Announced in 0.11.0 (#514).
+- `fastapi`, `uvicorn`, `jinja2` and `python-multipart` from the dependencies. The package is the CLI: `hevy2garmin init`, `sync`, `status`, `map` and the rest are unchanged.
+
+### Notes
+
+- The PyPI package is deprecated with an end date of 2026-10-31 (#515). The maintained code is the TypeScript package and `web/`.
+
 ## [0.6.0 (npm)] - 2026-09-11
 
 - `generateFit` accepts `trainingLoad`. When set, the FIT session carries `training_load_peak`, which Garmin Connect displays as the activity's Training Load for uploads (hevy2garmin#522 proved the field is honoured; #523). Off by default: a written load feeds Garmin's acute load and training status.
-
-## [Unreleased]
 
 ## [0.11.0] - 2026-09-11
 
