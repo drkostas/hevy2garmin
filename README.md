@@ -10,6 +10,9 @@
   <a href="https://pypi.org/project/hevy2garmin/"><img src="https://img.shields.io/pypi/pyversions/hevy2garmin" alt="Python"></a>
 </p>
 
+> **Heads up (0.11.0):** the Python dashboard is retired in 0.12.0 and the PyPI package is deprecated with an end date of **2026-10-31**. Deploy the Next.js dashboard (Root Directory `web`) and use the npm package `hevy2garmin` for the sync engine. Details in the [CHANGELOG](CHANGELOG.md).
+
+
 <p align="center">
   Sync your <a href="https://hevyapp.com">Hevy</a> gym workouts to <a href="https://connect.garmin.com">Garmin Connect</a> with correct exercise names, sets, reps, weights, calorie estimation, and optional heart rate overlay from your Garmin watch.
 </p>
@@ -249,6 +252,8 @@ docker run --rm \
 ```bash
 pip install hevy2garmin
 ```
+
+> Deprecated: no releases after 2026-10-31. The npm package `hevy2garmin` and the `web/` dashboard replace it.
 
 Before using the API, make sure credentials are available via `~/.hevy2garmin/config.json` (run `hevy2garmin init`), environment variables, or pass them directly.
 
