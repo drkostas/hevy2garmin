@@ -15,6 +15,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - The PyPI package is deprecated with an end date of 2026-10-31 (#515). The maintained code is the TypeScript package and `web/`.
 
+## [0.6.0 (npm)] - 2026-09-11
+
+- `generateFit` accepts `trainingLoad`. When set, the FIT session carries `training_load_peak`, which Garmin Connect displays as the activity's Training Load for uploads (hevy2garmin#522 proved the field is honoured; #523). Off by default: a written load feeds Garmin's acute load and training status.
+
 ## [Unreleased]
 
 ## [0.11.0] - 2026-09-11
