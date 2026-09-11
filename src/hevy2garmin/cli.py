@@ -459,10 +459,6 @@ def main() -> None:
     skip_parser = subparsers.add_parser("skip", help="Permanently skip a workout")
     skip_parser.add_argument("hevy_id"); skip_parser.add_argument("--reason")
 
-    # serve
-    serve_parser = subparsers.add_parser("serve", help="Start web dashboard")
-    serve_parser.add_argument("-p", "--port", type=int, default=8123, help="Port (default: 8123)")
-    serve_parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
 
     # hash-password
     hashpw_parser = subparsers.add_parser(
@@ -482,11 +478,6 @@ def main() -> None:
     )
 
     try:
-        if args.command == "serve":
-            from hevy2garmin.server import run_server
-            run_server(host=args.host, port=args.port)
-            return
-
         commands = {
             "init": cmd_init,
             "sync": cmd_sync,

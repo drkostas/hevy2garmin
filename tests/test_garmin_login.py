@@ -96,41 +96,6 @@ def test_complete_empty_code_is_mfa_failed():
     assert garmin_login._store.get(sid, 0.0) is not None  # retained for retry
 
 
-class TestDirectLoginSuccessPath:
-    """The direct-login success branch in setup.html.
-
-    The endpoints return {status, display_name} and no DI tokens, because the
-    login ran here and the token store is already written. The page must not
-    relay that to /api/garmin-ticket: there is nothing to relay, so it posts
-    {"tokens": {}} and gets back a 400 "Invalid tokens" — a red error on a
-    login that actually succeeded (#296 review).
-    """
-
-    def _setup_html(self) -> str:
-        from pathlib import Path
-
-        return (
-            Path(__file__).parent.parent
-            / "src" / "hevy2garmin" / "templates" / "setup.html"
-        ).read_text()
-
-    def test_success_handler_short_circuits_before_the_ticket_relay(self) -> None:
-        html = self._setup_html()
-        body = html.split("async function handleGarminLoginResponse", 1)[1]
-        success = body.split("if (data.status === 'success')", 1)[1].split("if (data.status ===", 1)[0]
-        guard = success.find("if (DIRECT_LOGIN)")
-        relay = success.find("/api/garmin-ticket")
-        assert guard != -1, "success branch does not special-case DIRECT_LOGIN"
-        assert relay != -1, "expected the worker-mode ticket relay to still exist"
-        assert guard < relay, "DIRECT_LOGIN guard must come before the ticket relay"
-        assert "return;" in success[guard:relay], "DIRECT_LOGIN branch must return, not fall through"
-
-    def test_ticket_relay_still_used_in_worker_mode(self) -> None:
-        """Worker mode is unchanged — the tokens still have to be persisted."""
-        html = self._setup_html()
-        assert "di_token: data.di_token" in html
-
-
 class TestTokenStoreSelection:
     """begin() must write the store sync later reads from.
 
