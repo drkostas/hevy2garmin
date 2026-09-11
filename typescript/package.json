@@ -8,7 +8,40 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./exercise-map": {
+      "types": "./dist/exercise-map.d.ts",
+      "default": "./dist/exercise-map.js"
+    },
+    "./mapper": {
+      "types": "./dist/mapper.d.ts",
+      "default": "./dist/mapper.js"
+    },
+    "./fit": {
+      "types": "./dist/fit.d.ts",
+      "default": "./dist/fit.js"
+    },
+    "./hevy": {
+      "types": "./dist/hevy.d.ts",
+      "default": "./dist/hevy.js"
+    },
+    "./garmin": {
+      "types": "./dist/garmin.d.ts",
+      "default": "./dist/garmin.js"
+    },
+    "./match": {
+      "types": "./dist/match.d.ts",
+      "default": "./dist/match.js"
+    },
+    "./muscle-groups": {
+      "types": "./dist/muscle-groups.d.ts",
+      "default": "./dist/muscle-groups.js"
+    },
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"

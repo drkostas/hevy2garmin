@@ -103,6 +103,9 @@ way, checking Garmin before ever re-uploading.
 
 ## API
 
+Every module is also a subpath (`hevy2garmin/muscle-groups`, `hevy2garmin/match`, `hevy2garmin/fit`, `hevy2garmin/sync`, ...), so a consumer that only needs a table does not load the Garmin client and its `garmin-auth` peer.
+
+
 | Export | What it does |
 | --- | --- |
 | `HevyClient` | Read the Hevy API (`getWorkoutCount`, `getWorkouts`, `getWorkout`, `getAllWorkouts`). |
