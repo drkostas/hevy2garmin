@@ -1,0 +1,52 @@
+name: Hevy spec watch
+
+# hevy2garmin#237 asks for Hevy workout photos on Garmin. The Hevy public API exposes none, and
+# the promise on that issue is to revisit when it does. This job keeps the promise: once a week
+# it reads the spec and, the first time a media-shaped field appears, says so on the issue.
+# A spec that cannot be fetched fails the run instead of passing quietly (#524).
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print instead of commenting on the issue"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Read the spec
+        id: spec
+        run: |
+          python3 scripts/hevy_spec_media_check.py | tee result.txt
+          if [ "$(sed -n 2p result.txt)" = "none" ]; then echo "found=false" >> "$GITHUB_OUTPUT"; else echo "found=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Comment on the issue
+        if: steps.spec.outputs.found == 'true' && (github.event_name == 'schedule' || inputs.dry_run == false)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "The Hevy public API spec now carries media-shaped fields (found by the weekly spec watch, #524):"
+            echo
+            echo '```'
+            tail -n +2 result.txt
+            echo '```'
+            echo
+            echo "Time to revisit this: see #525 for the Garmin side."
+          } > comment.md
+          gh issue comment 237 --repo "$GITHUB_REPOSITORY" --body-file comment.md
+      - name: Dry run summary
+        if: steps.spec.outputs.found == 'true' && github.event_name == 'workflow_dispatch' && inputs.dry_run != false
+        run: echo "media fields found; dry run, not commenting"
