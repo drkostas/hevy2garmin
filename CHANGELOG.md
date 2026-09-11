@@ -13,6 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The PyPI package is deprecated, with an end date of 2026-10-31.** The CLI and the Python sync core keep working until then; after that date the package receives no releases and is marked deprecated on PyPI. The replacements are the Next.js dashboard for the app and the npm package `hevy2garmin` for the sync engine (same FIT generation, same exercise map, same dedup rules, Python-parity goldens in its tests). `garmin-auth` on PyPI follows the same date.
 
 ### Changed
+- The Garmin login Worker moved to garmin-auth (`garmin-auth-sso.gkos.workers.dev`); the dashboard binds `garmin-auth/sso-worker` and the Python setup page points at the new URL. `worker/` and `worker-di/` are gone from this repository; a fork with its own Worker keeps setting `GARMIN_LOGIN_WORKER_URL` (drkostas/soma#842).
+
+### Changed
 - `hevy2garmin` 0.5.0 adds the exercise to muscle-group mapping and volume aggregation (`getExerciseMuscles`, `aggregateMuscleVolumes`, `MUSCLE_LABELS`, `MUSCLE_HEX`) that soma's web and app each kept a copy of (soma#841).
 - `hevy2garmin` 0.4.1 is 0.4.0 rebuilt from an empty `dist/`: 0.4.0 shipped stale compiled files that shadowed the sync engine's types. A `prepack` step now clears and rebuilds `dist/` before every publish ([#508](https://github.com/drkostas/hevy2garmin/issues/508)).
 - `hevy2garmin` 0.4.0 adds `matchHevyToGarmin` and `toUtcDate`, the timestamp matcher soma used to keep as a local copy (soma#835).

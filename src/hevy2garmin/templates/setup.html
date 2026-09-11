@@ -136,7 +136,7 @@
 </div>
 
 <script>
-const GARMIN_WORKER_BASE = 'https://hevy2garmin-exchange-di.gkos.workers.dev';
+const GARMIN_WORKER_BASE = 'https://garmin-auth-sso.gkos.workers.dev';
 const DIRECT_LOGIN = {{ direct_garmin_login | default(false) | tojson }};
 
 // ── Garmin inline login (preferred UX, no copy-paste) ──────────────────────
@@ -331,7 +331,7 @@ async function exchangeTicket() {
         // The "-di" worker is the garmin-auth >= 0.3.0 variant; the legacy
         // `hevy2garmin-exchange` worker stays alive for older deployments.
         // Worker returns {di_token, di_refresh_token, di_client_id, expires_in, ...}
-        const exchResp = await fetch('https://hevy2garmin-exchange-di.gkos.workers.dev/exchange', {
+        const exchResp = await fetch('https://garmin-auth-sso.gkos.workers.dev/exchange', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ticket: ticket })
