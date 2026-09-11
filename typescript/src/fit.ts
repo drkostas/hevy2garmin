@@ -94,7 +94,14 @@ export function calcCalories(hrBpm: number[], durationS: number, workoutYear: nu
 export function generateFit(
   workout: HevyWorkout,
   hrSamples: HrSample[] | null,
-  opts: { profile?: Partial<FitProfile>; custom?: CustomMappings } = {},
+  opts: {
+    profile?: Partial<FitProfile>;
+    custom?: CustomMappings;
+    /** Garmin Connect keeps session.training_load_peak from an upload and shows it as the
+     *  activity's Training Load (verified 2026-09-11, hevy2garmin#522). Off unless given, because
+     *  a written load feeds Garmin's acute load and training status. */
+    trainingLoad?: number;
+  } = {},
 ): FitResult {
   const p: FitProfile = { ...DEFAULT_PROFILE, ...opts.profile };
 
@@ -228,6 +235,7 @@ export function generateFit(
   };
   if (avgHr != null) { lap.avgHeartRate = avgHr; lap.maxHeartRate = maxHr; session.avgHeartRate = avgHr; session.maxHeartRate = maxHr; }
   if (totalDistanceM > 0) { lap.totalDistance = totalDistanceM; session.totalDistance = totalDistanceM; }
+  if (opts.trainingLoad != null && opts.trainingLoad > 0) session.trainingLoadPeak = opts.trainingLoad;
   wm(lap);
   wm(session);
   const activity: Record<string, unknown> = {

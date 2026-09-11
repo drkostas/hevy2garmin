@@ -33,3 +33,19 @@ describe("lookupExercise — exercise map", () => {
     expect(lookupExercise("Totally Made Up Exercise", null).category).toBe(65534);
   });
 });
+
+describe("generateFit — training load (hevy2garmin#523)", () => {
+  const readSession = (fit: Uint8Array) => {
+    const { messages } = new Decoder(Stream.fromByteArray(Buffer.from(fit))).read();
+    return messages.sessionMesgs[0] as Record<string, unknown>;
+  };
+  it("writes training_load_peak only when asked", () => {
+    const off = generateFit(workout as any, null);
+    expect(readSession(off.fit).trainingLoadPeak).toBeUndefined();
+    const on = generateFit(workout as any, null, { trainingLoad: 87.5 });
+    expect(readSession(on.fit).trainingLoadPeak).toBeCloseTo(87.5, 1);
+  });
+  it("ignores a non-positive load", () => {
+    expect(readSession(generateFit(workout as any, null, { trainingLoad: 0 }).fit).trainingLoadPeak).toBeUndefined();
+  });
+});
