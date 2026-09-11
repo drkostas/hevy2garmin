@@ -4,6 +4,8 @@ All notable changes to hevy2garmin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [0.12.0] - 2026-09-11
 
 ### Removed
@@ -18,8 +20,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.6.0 (npm)] - 2026-09-11
 
 - `generateFit` accepts `trainingLoad`. When set, the FIT session carries `training_load_peak`, which Garmin Connect displays as the activity's Training Load for uploads (hevy2garmin#522 proved the field is honoured; #523). Off by default: a written load feeds Garmin's acute load and training status.
-
-## [Unreleased]
 
 ## [0.11.0] - 2026-09-11
 
