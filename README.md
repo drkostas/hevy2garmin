@@ -396,6 +396,8 @@ Your Vercel project is linked to your GitHub fork. To get the latest version:
 3. Vercel auto-deploys when your fork updates. Wait ~1 minute for the build to finish.
 4. Open your dashboard URL and reconnect Garmin if prompted (token format may change between versions)
 
+**If Sync fork shows "Discard N commits" instead of "Update branch"** (N is a number), your fork was made on or before 9 September 2026. The history of this repository was rewritten that day, so GitHub cannot update older forks the normal way. Click **Discard N commits**. This replaces the code in your fork with the current version. Your Vercel settings, environment variables and database are not in the repository, so they stay as they are. Please do not click **Open pull request**, because that sends a pull request to this repository and does not update your fork. If you changed the code in your fork yourself, please save those changes first, because discarding removes them.
+
 **If you deployed before April 2026** using the old one-click button, your repo may be a standalone copy instead of a fork ("Sync fork" button won't appear). To migrate:
 
 1. [Fork hevy2garmin](https://github.com/drkostas/hevy2garmin/fork) to your GitHub account
