@@ -58,6 +58,13 @@ beforeEach(() => {
 });
 
 describe("syncOneWorkout (route shim)", () => {
+  it("pads the Garmin adapter's date listing for the engine's merge lookup", async () => {
+    const list = vi.fn(async () => []);
+    h.engine.garminGateway.mockReturnValueOnce(Object.assign({ client: {}, kind: "gateway" }, { activitiesByDate: list }));
+    const gateway = await buildSyncDeps(SQL).gateway();
+    await gateway.activitiesByDate("2026-06-15", "2026-06-15");
+    expect(list).toHaveBeenCalledWith("2026-06-14", "2026-06-16");
+  });
   it("never injects a dryRun, and passes the caller's options through", async () => {
     await syncOneWorkout(SQL);
     expect(h.engine.syncOneWorkout).toHaveBeenCalledTimes(1);
