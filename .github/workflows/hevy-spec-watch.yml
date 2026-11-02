@@ -21,6 +21,9 @@ permissions:
 
 jobs:
   watch:
+    # Maintainer-only reminder. Skip forks, which have no upstream issue to read
+    # and may have issues disabled (hevy2garmin#771).
+    if: github.repository == 'drkostas/hevy2garmin'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
