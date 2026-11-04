@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
+import { demoWorkouts } from "@/lib/demo-data";
 import { WorkoutList } from "@/components/workout-list";
 import { CandidatesList } from "@/components/candidates-list";
 
@@ -27,6 +29,7 @@ interface WorkoutsData {
 const EMPTY: WorkoutsData = { dbConfigured: false, items: [] };
 
 async function loadWorkouts(): Promise<WorkoutsData> {
+  if (demoMode()) return demoWorkouts();
   let sql: ReturnType<typeof getDb>;
   try {
     sql = getDb();

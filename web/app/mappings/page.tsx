@@ -2,6 +2,8 @@ import { HEVY_TO_GARMIN } from "hevy2garmin";
 import { DatabaseDownPage } from "@/components/database-down";
 import { ifNoTable } from "@/lib/missing-table";
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
+import { demoMappings } from "@/lib/demo-data";
 import {
   CATEGORY_OPTIONS,
   categoryName,
@@ -34,6 +36,8 @@ async function loadMappings(): Promise<MappingsData> {
     category: pair[0],
     subcategory: pair[1],
   }));
+
+  if (demoMode()) return { dbConfigured: true, custom: demoMappings(), builtin };
 
   let sql: ReturnType<typeof getDb>;
   try {

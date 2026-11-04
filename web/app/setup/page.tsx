@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
+import { demoSetup } from "@/lib/demo-data";
 import { authEnabled, productionRuntime } from "@/lib/auth";
 import { loadGarminConnection, loadHevyConnection, type Connection } from "@/lib/connections";
 import { ConnectHevy } from "@/components/connect-hevy";
@@ -21,6 +23,7 @@ const NONE: Connection = { connected: false, connectedAt: null };
 const EMPTY: SetupData = { dbConfigured: false, hevy: NONE, garmin: NONE, timezone: null };
 
 async function loadSetup(): Promise<SetupData> {
+  if (demoMode()) return demoSetup();
   let sql: ReturnType<typeof getDb>;
   try {
     sql = getDb();
@@ -116,7 +119,10 @@ function SetPasswordFirst() {
 }
 
 export default async function SetupPage() {
-  if (productionRuntime() && !authEnabled()) return <SetPasswordFirst />;
+  // The public demo is read-only and has no owner to set a password, so it shows
+  // the connected sample here rather than the password prompt, the same choice the
+  // proxy makes for every demo page (#634).
+  if (productionRuntime() && !authEnabled() && !demoMode()) return <SetPasswordFirst />;
   const data = await loadSetup();
   const hevyConnected = data.hevy.connected;
   const garminConnected = data.garmin.connected;
