@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
+import { demoSettings } from "@/lib/demo-data";
 import { DatabaseDownPage } from "@/components/database-down";
 import { ifNoTable } from "@/lib/missing-table";
 import { SettingsForm } from "@/components/settings-form";
@@ -39,6 +41,7 @@ const EMPTY: SettingsData = { dbConfigured: false, platforms: [], config: [], sy
 const CONFIG_KEYS = ["user_profile", "timing", "hr_fusion", "merge_settings", "auto_sync", "sync_window"];
 
 async function loadSettings(): Promise<SettingsData> {
+  if (demoMode()) return demoSettings();
   let sql: ReturnType<typeof getDb>;
   try {
     sql = getDb();

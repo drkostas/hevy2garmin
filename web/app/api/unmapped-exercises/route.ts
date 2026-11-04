@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
 import { getHevyClient } from "@/lib/hevy-sync";
 import { computeUnmapped, type WorkoutLike } from "@/lib/unmapped-exercises";
 
@@ -15,6 +16,11 @@ export const runtime = "nodejs";
  * _get_unmapped_exercises() feeding the "Unmapped Exercises" card.
  */
 export async function GET() {
+  // The public demo has no Hevy connection, so there are no recent workouts to
+  // scan. Answer empty rather than calling the Hevy API, which would only fail on
+  // the demo placeholder credentials.
+  if (demoMode()) return NextResponse.json({ unmapped: [], total: 0 });
+
   // Custom-mapped names are excluded (best-effort: no DB → no exclusions).
   let customNames = new Set<string>();
   try {

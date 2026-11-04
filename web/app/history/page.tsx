@@ -2,6 +2,8 @@ import Link from "next/link";
 import { DatabaseDownPage } from "@/components/database-down";
 import { ifNoTable } from "@/lib/missing-table";
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
+import { demoHistory } from "@/lib/demo-data";
 import { resyncedLabel } from "@/lib/resynced";
 
 // Queries the live hevy2garmin Postgres per request — never at build time.
@@ -31,6 +33,7 @@ const EMPTY: HistoryData = { dbConfigured: false, total: 0, rows: [] };
 const LIMIT = 100;
 
 async function loadHistory(): Promise<HistoryData> {
+  if (demoMode()) return demoHistory();
   let sql: ReturnType<typeof getDb>;
   try {
     sql = getDb();

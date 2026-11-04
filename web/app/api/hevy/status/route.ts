@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { databaseNotAnswering } from "@/lib/db-down";
 import { ifNoTable } from "@/lib/missing-table";
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
+import { demoStatus } from "@/lib/demo-data";
 import { loadGarminConnection, loadHevyConnection } from "@/lib/connections";
 
 // Reads the live hevy2garmin Postgres at request time — never at build.
@@ -40,6 +42,7 @@ const EMPTY: StatusResponse = {
 };
 
 export async function GET() {
+  if (demoMode()) return NextResponse.json(demoStatus());
   let sql: ReturnType<typeof getDb>;
   try {
     sql = getDb();

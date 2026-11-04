@@ -4,6 +4,7 @@ import { repeatsEarlierRun } from "@/lib/sync-progress";
 import { postgresSyncStore } from "@/lib/sync-store";
 import { recordSyncRun } from "hevy2garmin";
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
 import { acquireSyncLock } from "hevy2garmin";
 import { postgresLockBackend } from "@/lib/sync-lock-store";
 import { getGithubPat, getGithubRepo, triggerViaActions } from "@/lib/github";
@@ -30,6 +31,12 @@ export async function GET(request: Request) {
   const m = auth.match(/^Bearer\s+(.+)$/i);
   if (!secret || !m || m[1] !== secret) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  }
+
+  // The public demo has no database and only placeholder credentials, so there is
+  // nothing to sync. Answer without starting a database or a GitHub Action.
+  if (demoMode()) {
+    return NextResponse.json({ ok: true, mode: "demo", reason: "sync is disabled in demo mode" });
   }
 
   // Deployed path: hand off to the Action so the long browser-auth sync runs off

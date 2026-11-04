@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/db";
+import { demoMode } from "@/lib/demo";
+import { demoDashboard } from "@/lib/demo-data";
 import { DatabaseDownPage } from "@/components/database-down";
 import { ifNoTable } from "@/lib/missing-table";
 import { loadGarminConnection, loadHevyConnection } from "@/lib/connections";
@@ -72,6 +74,7 @@ const EMPTY: DashboardData = {
 };
 
 async function loadDashboard(): Promise<DashboardData> {
+  if (demoMode()) return demoDashboard();
   let sql: ReturnType<typeof getDb>;
   try {
     sql = getDb();
