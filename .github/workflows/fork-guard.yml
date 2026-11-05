@@ -1,0 +1,23 @@
+name: Fork guard
+
+# Fail a pull request that adds a scheduled or workflow_dispatch job which acts on this
+# repository's issues, pull requests or comments without an `if: github.repository == 'owner/name'`
+# guard. Such a job runs in every fork too, where it acts on the wrong repository or fails because
+# the fork turned issues off. The check is claude-ops' fork-guard lint.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fork-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install "claude-ops[yaml] @ git+https://github.com/drkostas/claude-ops@main"
+      - run: claude-ops fork-guard .github/workflows
