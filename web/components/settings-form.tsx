@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { withBasePath } from "@/lib/base-path";
+import { convertWeightEntry, weightFromKg, weightToKg, type WeightUnit } from "@/lib/weight-units";
+import { WeightConverter } from "./weight-converter";
 
 interface Props {
   /** A GitHub token is saved (platform_credentials 'github'); the value itself is never sent to the browser. */
@@ -15,6 +17,7 @@ interface Props {
   hrFusionEnabled: boolean;
   mergeWatchStrategy: string;
   weightKg: number | null;
+  weightUnit?: WeightUnit;
   // Profile
   birthYear: number | null;
   sex: string | null;
@@ -84,7 +87,7 @@ export function SettingsForm(p: Props) {
       const res = await fetch(withBasePath("/api/pull-garmin-profile"), { method: "POST" });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; profile?: { weight_kg?: number | null; birth_year?: number | null; sex?: string | null; vo2max?: number | null } };
       if (!res.ok || !j.ok || !j.profile) { setPullMsg(j.error ?? `Request failed (${res.status}).`); return; }
-      if (j.profile.weight_kg != null) setWeight(String(j.profile.weight_kg));
+      if (j.profile.weight_kg != null) setWeightEntry({ value: String(j.profile.weight_kg), unit: "kg" });
       if (j.profile.birth_year != null) setBirthYear(String(j.profile.birth_year));
       if (j.profile.sex) setSex(j.profile.sex);
       if (j.profile.vo2max != null) setVo2max(String(j.profile.vo2max));
@@ -95,7 +98,9 @@ export function SettingsForm(p: Props) {
   const [interval, setIntervalMin] = useState(p.autoSyncInterval);
   const [hrFusion, setHrFusion] = useState(p.hrFusionEnabled);
   const [strategy, setStrategy] = useState(p.mergeWatchStrategy);
-  const [weight, setWeight] = useState(p.weightKg != null ? String(p.weightKg) : "");
+  const [unit, setUnit] = useState<WeightUnit>(p.weightUnit ?? "kg");
+  const [weightEntry, setWeightEntry] = useState<{ value: string; unit: WeightUnit }>({ value: p.weightKg != null ? String(p.weightKg) : "", unit: "kg" });
+  const weight = convertWeightEntry(weightEntry, unit);
   const [birthYear, setBirthYear] = useState(p.birthYear != null ? String(p.birthYear) : "");
   const [sex, setSex] = useState(p.sex ?? "male");
   const [vo2max, setVo2max] = useState(p.vo2max != null ? String(p.vo2max) : "");
@@ -133,7 +138,7 @@ export function SettingsForm(p: Props) {
     setBusy(true);
     try {
       const profile: Record<string, unknown> = {};
-      const w = numOrUndef(weight); if (w !== undefined) profile.weight_kg = w;
+      const w = numOrUndef(weightEntry.value); if (w !== undefined) profile.weight_kg = weightToKg(w, weightEntry.unit);
       const by = numOrUndef(birthYear); if (by !== undefined) profile.birth_year = by;
       profile.sex = sex;
       const vo = numOrUndef(vo2max); if (vo !== undefined) profile.vo2max = vo;
@@ -141,6 +146,7 @@ export function SettingsForm(p: Props) {
 
       const extras = extraTypes.split(",").map((t) => t.trim()).filter(Boolean);
       const body = {
+        display_units: { weight: unit },
         auto_sync: { enabled: autoSync, interval_minutes: interval },
         hr_fusion: { enabled: hrFusion },
         merge_settings: {
@@ -184,6 +190,16 @@ export function SettingsForm(p: Props) {
 
   return (
     <form onSubmit={submit} className="space-y-6">
+      <div className={cardCls}>
+        <h3 className="text-sm font-semibold text-text">Weight units</h3>
+        <label className={`${labelCls} mt-3`} htmlFor="sf-weight-unit">Preferred weight unit</label>
+        <select id="sf-weight-unit" value={unit} onChange={(e) => setUnit(e.target.value as WeightUnit)} className={controlCls}>
+          <option value="kg">Kilograms (kg)</option>
+          <option value="lb">Pounds (lbs)</option>
+        </select>
+        <p className="mt-2 text-xs text-text-muted">Used for your body weight and Garmin workout notes. Save to apply to future syncs and resyncs.</p>
+        <WeightConverter />
+      </div>
       {!p.serverSchedule && <div className={cardCls}>
         <label className={labelCls} htmlFor="github_pat">GitHub token (auto-sync on your fork)</label>
         <input id="github_pat" type="password" autoComplete="off" value={githubPat} onChange={(e) => setGithubPat(e.target.value)}
@@ -221,8 +237,8 @@ export function SettingsForm(p: Props) {
         <h3 className="mb-2 text-sm font-semibold text-text">Your profile</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cardCls}>
-            <label className={labelCls} htmlFor="sf-weight">Body weight (kg)</label>
-            <input id="sf-weight" type="number" min={1} max={499} step={0.1} value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="80" className={controlCls} />
+            <label className={labelCls} htmlFor="sf-weight">Body weight ({unit === "lb" ? "lbs" : "kg"})</label>
+            <input id="sf-weight" type="number" min={weightFromKg(1, unit)} max={weightFromKg(499, unit)} step="any" value={weight} onChange={(e) => setWeightEntry({ value: e.target.value, unit })} placeholder={unit === "lb" ? "180" : "80"} className={controlCls} />
           </div>
           <div className={cardCls}>
             <label className={labelCls} htmlFor="sf-birthyear">Birth year</label>

@@ -29,12 +29,14 @@ import {
 import type { GarminClient } from "garmin-auth";
 import { getGarminClient } from "./garmin-upload";
 import { fetchAllWorkouts, type HevyWorkout } from "./hevy-sync";
-import { hrDepsFor, type HrWorkout } from "./hr-store";
+import { hrDepsFor } from "./hr-store";
 import { postgresSyncStore } from "./sync-store";
 import { loadSyncSettings, loadSyncStartDate } from "./sync-settings";
 import { parseStartDate, withinSyncWindow } from "./sync-window";
 import type { Sql } from "./pending-store";
 import { withGarminLocalDates } from "./garmin-local-dates";
+import { loadWeightUnit } from "./weight-unit-settings";
+import { descriptionInWeightUnit } from "./workout-description";
 
 export type {
   CandidateWorkout,
@@ -60,12 +62,38 @@ export function buildSyncDeps(sql: Sql, options: SyncOneOptions = {}): SyncDeps 
   // The engine asks for a backup by workout id, and rebasing one needs the
   // workout's start and end. The fetch is the only place both are in hand, so
   // the list is kept as it goes past.
-  const seen = new Map<string, HrWorkout>();
+  const seen = new Map<string, HevyWorkout>();
+  const store = postgresSyncStore(sql);
+  let describingId = options.targetHevyId;
+  let pendingWorkout: Record<string, unknown> | undefined;
 
   return {
-    store: postgresSyncStore(sql),
+    store: {
+      ...store,
+      // The engine rechecks the chosen ID before every live sync/resync.
+      // Bind the note to that exact workout, not another session with the
+      // same title or a weight that happens to round to the same kg value.
+      isSynced: (id) => { describingId = id; pendingWorkout = undefined; return store.isSynced(id); },
+      getPending: async (id) => {
+        const pending = await store.getPending(id);
+        describingId = id;
+        const source = pending?.payload?.workout;
+        pendingWorkout = source && typeof source === "object" && !Array.isArray(source) ? source as Record<string, unknown> : undefined;
+        return pending;
+      },
+    },
     // Built once, lazily: the dry-run/no-candidate paths never log in to Garmin.
-    gateway: () => (gateway ??= clientFactory().then(garminGateway).then(withGarminLocalDates)),
+    gateway: () => (gateway ??= clientFactory().then(garminGateway).then(withGarminLocalDates).then((g) => ({
+      ...g,
+      describe: async (id, description) => {
+        const unit = await loadWeightUnit(sql);
+        if (unit === "kg") return g.describe(id, description);
+        // Recovery uses the durable payload that generated its description.
+        const workout = (describingId ? seen.get(describingId) : undefined) ?? pendingWorkout;
+        if (!workout) throw new Error("The source workout is unavailable for formatting its weight units.");
+        return g.describe(id, descriptionInWeightUnit(description, workout, unit));
+      },
+    }))),
     fetchWorkouts: async () => {
       const all = await fetchWorkouts();
       // Applied HERE, before the engine sees the list, so listCandidates and
@@ -85,7 +113,7 @@ export function buildSyncDeps(sql: Sql, options: SyncOneOptions = {}): SyncDeps 
       // before the window was set still has heart rate worth finding.
       for (const w of all) {
         const id = String((w as { id?: unknown }).id ?? "");
-        if (id) seen.set(id, w as HrWorkout);
+        if (id) seen.set(id, w);
       }
       return workouts;
     },
