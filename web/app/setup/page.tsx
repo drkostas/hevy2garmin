@@ -8,8 +8,12 @@ import { ConnectGarmin } from "@/components/connect-garmin";
 import { directGarminLogin } from "@/lib/direct-login-flag";
 import { SetupTimezone } from "@/components/setup-timezone";
 
-// Queries the live hevy2garmin Postgres per request — never at build time.
-export const dynamic = "force-dynamic";
+import { connection } from "next/server";
+
+// Self-hosted, this reads Postgres per request and renders dynamically. The public
+// demo has no database and serves fixed sample data, so it prerenders as a static
+// page. The connection() call in the component forces the dynamic render off the
+// demo; leaving it out in demo mode lets the page be prerendered at build.
 
 interface SetupData {
   dbConfigured: boolean;
@@ -119,6 +123,7 @@ function SetPasswordFirst() {
 }
 
 export default async function SetupPage() {
+  if (!demoMode()) await connection();
   // The public demo is read-only and has no owner to set a password, so it shows
   // the connected sample here rather than the password prompt, the same choice the
   // proxy makes for every demo page (#634).

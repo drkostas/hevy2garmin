@@ -9,8 +9,12 @@ import { SessionsCard } from "@/components/sessions-card";
 import { ScanDuplicates } from "@/components/scan-duplicates";
 import { serverSyncSchedule } from "@/lib/server-schedule";
 
-// Queries the live hevy2garmin Postgres per request — never at build time.
-export const dynamic = "force-dynamic";
+import { connection } from "next/server";
+
+// Self-hosted, this reads Postgres per request and renders dynamically. The public
+// demo has no database and serves fixed sample data, so it prerenders as a static
+// page. The connection() call in the component forces the dynamic render off the
+// demo; leaving it out in demo mode lets the page be prerendered at build.
 
 interface PlatformRow {
   platform: string;
@@ -133,6 +137,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export default async function SettingsPage() {
+  if (!demoMode()) await connection();
   const data = await loadSettings();
   if (data.dbDown) return <DatabaseDownPage title="Settings" />;
   const cfg = (key: string): Record<string, unknown> =>

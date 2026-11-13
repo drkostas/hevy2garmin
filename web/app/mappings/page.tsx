@@ -12,8 +12,13 @@ import { DeleteMappingButton, MappingForm } from "@/components/mapping-form";
 import { MappingsTable } from "@/components/mappings-table";
 import { UnmappedCard } from "@/components/unmapped-card";
 
-// Queries the live hevy2garmin Postgres per request — never at build time.
-export const dynamic = "force-dynamic";
+import { connection } from "next/server";
+import { Suspense } from "react";
+
+// Self-hosted, this reads Postgres per request and renders dynamically. The public
+// demo has no database and serves fixed sample data, so it prerenders as a static
+// page. The connection() call in the component forces the dynamic render off the
+// demo; leaving it out in demo mode lets the page be prerendered at build.
 
 interface CustomMapping {
   hevy_name: string;
@@ -69,6 +74,7 @@ async function loadMappings(): Promise<MappingsData> {
 }
 
 export default async function MappingsPage() {
+  if (!demoMode()) await connection();
   const data = await loadMappings();
   if (data.dbDown) return <DatabaseDownPage title="Exercise mappings" />;
 
@@ -99,7 +105,9 @@ export default async function MappingsPage() {
           Add a custom mapping
         </h2>
         <div className="rounded-xl border border-border bg-surface-elevated p-4">
-          <MappingForm categories={CATEGORY_OPTIONS} />
+          <Suspense fallback={null}>
+            <MappingForm categories={CATEGORY_OPTIONS} />
+          </Suspense>
           <p className="mt-3 text-xs text-text-muted">
             A custom mapping overrides the built-in map for that exact Hevy
             exercise name. Sub ID 0 uses the category&apos;s generic exercise.

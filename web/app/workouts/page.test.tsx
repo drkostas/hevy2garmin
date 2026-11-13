@@ -5,6 +5,12 @@ import { ledgerSql } from "@/lib/test-ledger-sql";
 const db = vi.hoisted(() => ({ sql: null as unknown }));
 vi.mock("@/lib/db", () => ({ getDb: () => db.sql }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
+// The page calls connection() off demo to force a dynamic render; it throws
+// outside a request scope, so stub it to a no-op for this unit render.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  connection: async () => {},
+}));
 
 import WorkoutsPage from "./page";
 

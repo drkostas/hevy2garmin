@@ -178,12 +178,33 @@ const STATIC_PREFIX = /^\/(_next|favicon|manifest|icons|robots|sitemap)/;
    one existed. Signing in and out stays allowed so the demo can be browsed. */
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const DEMO_ALLOWED = ["/api/login", "/api/logout", "/api/client-error"];
+// In the demo these read-only API answers are fixed sample data, so Vercel's CDN
+// can hold them and a page view need not re-invoke a function. These few are left
+// out: cron must run, session-epoch/login/logout are auth, version must stay fresh
+// so a redeploy check is not masked, and client-error only takes POSTs.
+const DEMO_UNCACHED = ["/api/cron", "/api/session-epoch", "/api/login", "/api/logout", "/api/version", "/api/client-error"];
+const DEMO_API_CDN = "max-age=21600, stale-while-revalidate=86400";
 function demoMode(): boolean {
   const v = (process.env.DEMO_MODE ?? "").trim().toLowerCase();
   return v === "1" || v === "true" || v === "yes" || v === "on";
 }
 function demoRefusal(): NextResponse {
   return NextResponse.json({ ok: false, error: "Read-only in demo mode" }, { status: 403 });
+}
+/* The public demo serves reads only (#634). On a cacheable read-only /api GET, tag the
+   response so Vercel's CDN holds the fixed sample answer and a page view need not
+   re-invoke the function. Everything else passes straight through. The demo's static
+   pages carry their own CDN header from next.config.ts, so only /api is tagged here. */
+function demoPublicResponse(pathname: string, method: string): NextResponse {
+  const res = NextResponse.next();
+  if (
+    pathname.startsWith("/api/") &&
+    method.toUpperCase() === "GET" &&
+    !DEMO_UNCACHED.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  ) {
+    res.headers.set("Vercel-CDN-Cache-Control", DEMO_API_CDN);
+  }
+  return res;
 }
 
 /** Gate every page + API route behind the shared-password session (mirrors auth.py).
@@ -212,8 +233,10 @@ export async function proxy(req: NextRequest, event?: NextFetchEvent) {
     // happen here (#634). Every mutating API call was already refused above,
     // and there are no server actions, so what remains is reads. Without this
     // the demo sent each visitor to /setup to read instructions for configuring
-    // a deployment they do not own, which is what the README linked to.
-    if (demoMode()) return NextResponse.next();
+    // a deployment they do not own, which is what the README linked to. The demo
+    // has no password, so this branch returns before any session fetch or verify,
+    // which is what keeps the proxy's per-hit cost off the cached demo pages.
+    if (demoMode()) return demoPublicResponse(pathname, req.method);
     return unconfiguredRefusal(req);
   }
   // Let the epoch endpoint through BEFORE reading the epoch, or currentEpoch()
