@@ -15,8 +15,12 @@ import { HEVY_TO_GARMIN } from "hevy2garmin";
 import { withBasePath } from "@/lib/base-path";
 import { UpdateBanner } from "@/components/update-banner";
 
-// Queries the live hevy2garmin Postgres per request — never at build time.
-export const dynamic = "force-dynamic";
+import { connection } from "next/server";
+
+// Self-hosted, this reads Postgres per request and renders dynamically. The public
+// demo has no database and serves fixed sample data, so it prerenders as a static
+// page. The connection() call in the component forces the dynamic render off the
+// demo; leaving it out in demo mode lets the page be prerendered at build.
 
 interface RecentWorkout {
   hevy_id: string;
@@ -235,6 +239,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export default async function DashboardPage() {
+  if (!demoMode()) await connection();
   const data = await loadDashboard();
   if (data.dbDown) return <DatabaseDownPage title="Sync status" />;
 
