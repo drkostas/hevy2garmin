@@ -269,8 +269,28 @@ export function ConnectGarmin({ connected, directLogin = false }: { connected: b
       <p className="text-xs text-text-muted">
         {connected
           ? "Garmin is connected. Sign in again to refresh the session."
-          : "Sign in with your Garmin Connect account. Your password is used only to get a token and is never stored."}
+          : "Sign in with your Garmin Connect account."}
       </p>
+      {!connected && (
+        <p className="text-xs text-text-muted">
+          {directLogin ? (
+            "This server signs in to Garmin directly, so your password stays on your server and is never stored."
+          ) : (
+            <>
+              Garmin blocks sign-in from cloud servers, so your email and password are sent once to a{" "}
+              <a
+                href="https://github.com/drkostas/garmin-auth/blob/main/worker/index.js"
+                target="_blank"
+                rel="noreferrer"
+                className="text-teal underline"
+              >
+                Cloudflare Worker
+              </a>{" "}
+              that completes the login and returns only a token. It does not store or log your password.
+            </>
+          )}
+        </p>
+      )}
       <input type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Garmin email" className={inputCls} aria-label="Garmin email" />
       <input type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Garmin password" className={inputCls} aria-label="Garmin password" />
       <div className="flex flex-wrap items-center gap-3">

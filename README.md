@@ -296,7 +296,13 @@ See [`.env.example`](.env.example) for all available env vars.
 
 **Garmin authentication:** Only needs the password for initial login. After that, tokens are cached (in `~/.garminconnect` locally or in Postgres for cloud deploys) and refresh automatically.
 
-> **Cloud deploys (Vercel):** Garmin blocks automated logins from cloud servers, so hevy2garmin routes the login through a Cloudflare Worker (`hevy2garmin-exchange-di.gkos.workers.dev`) that runs on Cloudflare's edge network. The Worker accepts your email + password from the setup page, completes the login (including 2FA if enabled), and returns a DI OAuth token that hevy2garmin stores in your Postgres database. This happens in a single click from the setup wizard. On the rare occasion Garmin rejects the direct login, the setup page automatically falls back to a "sign in via browser, paste the URL back" flow.
+> **Cloud deploys (Vercel):** Garmin blocks automated logins from cloud servers, so hevy2garmin routes the login through a Cloudflare Worker (`garmin-auth-sso.gkos.workers.dev`) that runs on Cloudflare's edge network. The Worker accepts your email + password from the setup page, completes the login (including 2FA if enabled), and returns a DI OAuth token that hevy2garmin stores in your Postgres database. This happens in a single click from the setup wizard. On the rare occasion Garmin rejects the direct login, the setup page automatically falls back to a "sign in via browser, paste the URL back" flow.
+
+### What the login Worker receives and keeps
+
+The Worker is open source at [`garmin-auth/worker/index.js`](https://github.com/drkostas/garmin-auth/blob/main/worker/index.js), so the whole flow is readable. Your password is never stored and never logged. It stays in memory for the single login request, goes to Garmin, and is discarded. The Worker writes only two things to storage. The first is a rate-limit cooldown keyed by the SHA-256 hash of your email, so your email is not stored in the clear. The second, only for a two-factor account, is a short session holding your email and Garmin's cookies for up to ten minutes between the password step and the code step, deleted the moment sign-in finishes. There is no database.
+
+You can avoid the shared Worker in two ways. On a long-running self-hosted server, set `H2G_DIRECT_GARMIN_LOGIN=true` and the sign-in runs in your own process, so the credentials reach Garmin and nowhere else. Or deploy your own copy of the Worker and set `GARMIN_LOGIN_WORKER_URL` to it. On a serverless Vercel deploy the in-process mode cannot run, because the two-factor step needs a process that keeps running between the two calls, so there the Worker stays the default.
 
 ## Securing the dashboard
 
