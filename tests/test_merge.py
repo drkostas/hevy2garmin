@@ -130,6 +130,19 @@ class TestFindMatchingActivity:
         assert match is not None
         assert match["activityId"] == 12345
 
+    def test_excludes_activity_owned_by_another_workout(self):
+        """An activity already mapped to another Hevy workout is not a merge target (#796)."""
+        from hevy2garmin.garmin import find_matching_garmin_activity
+
+        client = MagicMock()
+        client.get_activities_by_date.return_value = [
+            _make_garmin_activity(activity_id=999, start="2026-03-15 18:02:00", duration_s=43 * 60),
+        ]
+        # It matches normally, but not once the ledger says it belongs elsewhere.
+        assert find_matching_garmin_activity(client, HEVY_WORKOUT) is not None
+        match = find_matching_garmin_activity(client, HEVY_WORKOUT, exclude_activity_ids={"999"})
+        assert match is None
+
     def test_incomplete_activity_rejected(self):
         """Activity still in progress (end time in future) → no match."""
         from datetime import datetime, timezone
@@ -547,6 +560,22 @@ class TestAttemptMerge:
 
         result = attempt_merge(MagicMock(), HEVY_WORKOUT, mock_db)
 
+        assert result.merged is False
+        assert "No matching" in result.fallback_reason
+
+    def test_skips_activity_the_ledger_maps_to_another_workout(self):
+        """Merge mode must not merge a session into a sibling workout's upload (#796)."""
+        client = MagicMock()
+        # The only candidate overlaps perfectly, but the ledger already owns it.
+        client.get_activities_by_date.return_value = [
+            _make_garmin_activity(activity_id=999, start="2026-03-15 18:02:00", duration_s=43 * 60),
+        ]
+        mock_db = MagicMock()
+        mock_db.known_garmin_activity_ids.return_value = {"999"}
+
+        result = attempt_merge(client, HEVY_WORKOUT, mock_db)
+
+        mock_db.known_garmin_activity_ids.assert_called_once_with(exclude_hevy_id="test-123")
         assert result.merged is False
         assert "No matching" in result.fallback_reason
 

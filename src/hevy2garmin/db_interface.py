@@ -27,6 +27,17 @@ class Database(ABC):
         """Get the Garmin activity ID for a synced workout."""
 
     @abstractmethod
+    def known_garmin_activity_ids(self, exclude_hevy_id: str | None = None) -> set[str]:
+        """Return every Garmin activity id the ledger already maps to a workout.
+
+        Covers both finished syncs and in-flight uploads. ``exclude_hevy_id``
+        drops the id belonging to that one Hevy workout, so a workout's own
+        prior upload is never treated as a sibling's. Used to stop a later
+        workout's start-time lookup from claiming an activity that already
+        belongs to a different Hevy workout (#796).
+        """
+
+    @abstractmethod
     def mark_synced(
         self,
         hevy_id: str,

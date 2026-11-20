@@ -38,6 +38,7 @@ def _make_db(tmp_path):
         with db._get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM synced_workouts")
+                cur.execute("DELETE FROM pending_uploads")
                 cur.execute("DELETE FROM sync_log")
                 cur.execute("DELETE FROM hr_cache")
                 cur.execute("DELETE FROM synced_routines")
@@ -398,3 +399,37 @@ class TestDispatcher:
         assert db.is_synced("w1", db_path=tmp_path / "ignored.db") is True
         assert db.get_synced_count(db_path=tmp_path / "ignored.db") == 1
         db.reset()
+
+
+class TestKnownGarminActivityIds:
+    """Ledger lookup that stops back-to-back workouts from colliding (#796)."""
+
+    def test_returns_every_synced_activity_id(self, tmp_path: Path) -> None:
+        db = _make_db(tmp_path)
+        db.mark_synced("A", garmin_activity_id="111")
+        db.mark_synced("B", garmin_activity_id="222")
+        assert db.known_garmin_activity_ids() == {"111", "222"}
+
+    def test_excludes_the_given_hevy_id(self, tmp_path: Path) -> None:
+        db = _make_db(tmp_path)
+        db.mark_synced("A", garmin_activity_id="111")
+        db.mark_synced("B", garmin_activity_id="222")
+        # Syncing B must see A's activity but never its own.
+        assert db.known_garmin_activity_ids(exclude_hevy_id="B") == {"111"}
+
+    def test_ignores_rows_without_an_activity_id(self, tmp_path: Path) -> None:
+        db = _make_db(tmp_path)
+        db.mark_synced("A", garmin_activity_id="111")
+        db.mark_synced("C", title="no id yet")  # merged/failed row, no garmin id
+        assert db.known_garmin_activity_ids() == {"111"}
+
+    def test_includes_in_flight_pending_uploads(self, tmp_path: Path) -> None:
+        db = _make_db(tmp_path)
+        db.claim_pending("A", {"title": "Fusion 15"})
+        db.update_pending("A", garmin_activity_id="333")
+        assert "333" in db.known_garmin_activity_ids()
+        assert db.known_garmin_activity_ids(exclude_hevy_id="A") == set()
+
+    def test_empty_when_nothing_synced(self, tmp_path: Path) -> None:
+        db = _make_db(tmp_path)
+        assert db.known_garmin_activity_ids() == set()

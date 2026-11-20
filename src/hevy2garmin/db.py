@@ -74,6 +74,11 @@ def get_garmin_id(hevy_id: str, **kw) -> str | None:
     return get_db().get_garmin_id(hevy_id)
 
 
+def known_garmin_activity_ids(exclude_hevy_id: str | None = None, **kw) -> set[str]:
+    """Garmin activity ids the ledger already maps to a workout (#796)."""
+    return get_db().known_garmin_activity_ids(exclude_hevy_id)
+
+
 def mark_synced(
     hevy_id: str,
     garmin_activity_id: str | None = None,
