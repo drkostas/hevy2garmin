@@ -165,6 +165,22 @@ class SQLiteDatabase(Database):
         conn.close()
         return row[0] if row else None
 
+    def known_garmin_activity_ids(self, exclude_hevy_id: str | None = None) -> set[str]:
+        conn = self._get_conn()
+        rows = conn.execute(
+            "SELECT garmin_activity_id, hevy_id FROM synced_workouts "
+            "WHERE garmin_activity_id IS NOT NULL "
+            "UNION "
+            "SELECT garmin_activity_id, hevy_id FROM pending_uploads "
+            "WHERE garmin_activity_id IS NOT NULL"
+        ).fetchall()
+        conn.close()
+        return {
+            str(gid)
+            for gid, hid in rows
+            if gid is not None and (exclude_hevy_id is None or str(hid) != str(exclude_hevy_id))
+        }
+
     # ── Routine → Garmin planned-workout tracking ───────────────────────────
     def get_synced_routine(self, hevy_routine_id: str) -> dict | None:
         conn = self._get_conn()

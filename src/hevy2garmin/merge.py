@@ -489,6 +489,13 @@ def attempt_merge(
     if _circuit_breaker_tripped():
         return MergeResult(merged=False, fallback_reason="Circuit breaker: too many PUT failures")
 
+    # Activities the ledger already maps to another Hevy workout: never merge a
+    # back-to-back session into a sibling's own upload (#796).
+    try:
+        known_ids = database.known_garmin_activity_ids(exclude_hevy_id=hevy_workout.get("id"))
+    except Exception:  # noqa: BLE001  # a ledger read failure must not block the merge attempt
+        known_ids = set()
+
     # Find matching activity
     match = find_matching_garmin_activity(
         client,
@@ -496,6 +503,7 @@ def attempt_merge(
         overlap_threshold=overlap_threshold,
         max_drift_minutes=max_drift_minutes,
         activity_types=activity_types,
+        exclude_activity_ids=known_ids,
     )
     if not match:
         return MergeResult(merged=False, fallback_reason="No matching Garmin activity found")

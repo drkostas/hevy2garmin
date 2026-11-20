@@ -191,6 +191,23 @@ class PostgresDatabase(Database):
             row = cur.fetchone()
             return row["garmin_activity_id"] if row else None
 
+    def known_garmin_activity_ids(self, exclude_hevy_id: str | None = None) -> set[str]:
+        with self._get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT garmin_activity_id, hevy_id FROM synced_workouts "
+                "WHERE garmin_activity_id IS NOT NULL "
+                "UNION "
+                "SELECT garmin_activity_id, hevy_id FROM pending_uploads "
+                "WHERE garmin_activity_id IS NOT NULL"
+            )
+            rows = cur.fetchall()
+        return {
+            str(row["garmin_activity_id"])
+            for row in rows
+            if row["garmin_activity_id"] is not None
+            and (exclude_hevy_id is None or str(row["hevy_id"]) != str(exclude_hevy_id))
+        }
+
     # ── Routine → Garmin planned-workout tracking ───────────────────────────
     def get_synced_routine(self, hevy_routine_id: str) -> dict | None:
         with self._get_conn() as conn, conn.cursor() as cur:

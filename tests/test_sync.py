@@ -777,3 +777,53 @@ def test_sync_runs_duplicate_scan(mock_detect, mock_merge, mock_hevy_cls, mock_g
         )
     assert stats["duplicates"] == 1
     mock_detect.assert_called_once()
+
+
+class TestBackToBackDedup:
+    """A second workout must not be treated as the first's upload (#796)."""
+
+    def test_sibling_activity_excluded_from_start_time_lookup(self, tmp_path) -> None:
+        from hevy2garmin.db_sqlite import SQLiteDatabase
+        from hevy2garmin.sync import SyncOneResult
+
+        database = SQLiteDatabase(tmp_path / "t.db")
+        # First session already synced to Garmin activity 111.
+        database.mark_synced("workout-A", garmin_activity_id="111")
+
+        workout_b = {
+            "id": "workout-B",
+            "title": "PRE-LIFT",
+            "start_time": "2026-04-01T20:08:00+00:00",
+            "end_time": "2026-04-01T20:40:00+00:00",
+            "exercises": [],
+        }
+        cfg = {"merge_mode": False, "hr_fusion": {"enabled": False}, "description_enabled": False}
+
+        with (
+            patch("hevy2garmin.sync.find_activity_by_start_time", return_value=None) as finder,
+            patch(
+                "hevy2garmin.sync.generate_fit",
+                return_value={"exercises": 1, "total_sets": 1, "calories": 100, "avg_hr": None},
+            ),
+            patch("hevy2garmin.sync.activities_for_workout", return_value=[]),
+            patch(
+                "hevy2garmin.sync.upload_fit",
+                return_value={"activity_id": "222", "upload_id": "u1"},
+            ),
+            patch(
+                "hevy2garmin.sync.finalize_pending",
+                return_value=SyncOneResult(status="synced", activity_id=222),
+            ),
+        ):
+            result = sync_one_workout(
+                workout_b,
+                cfg=cfg,
+                garmin_client=MagicMock(),
+                respect_grace=False,
+                database=database,
+            )
+
+        excluded = {str(x) for x in (finder.call_args.kwargs["exclude_activity_ids"] or [])}
+        assert "111" in excluded  # the first session's activity is off-limits
+        assert result.status == "synced"
+        assert result.activity_id == 222  # B uploaded as its own fresh activity

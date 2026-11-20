@@ -318,6 +318,7 @@ def find_matching_garmin_activity(
     overlap_threshold: float = 0.70,
     max_drift_minutes: int = 20,
     activity_types: set[str] | None = None,
+    exclude_activity_ids: list[int | str] | set[int | str] | None = None,
 ) -> dict | None:
     """Find a user-recorded Garmin activity matching a Hevy workout.
 
@@ -329,9 +330,14 @@ def find_matching_garmin_activity(
     ``activity_types`` (default: ``{"strength_training"}``). Pass additional
     types (e.g. ``"bouldering"``, ``"indoor_climbing"``) to also enhance
     non-strength watch activities with Hevy exercise data.
+
+    ``exclude_activity_ids`` are activities the caller already knows belong to
+    another Hevy workout, so back-to-back sessions do not merge into each
+    other's upload (#796).
     """
     if activity_types is None:
         activity_types = {"strength_training"}
+    excluded = {str(activity_id) for activity_id in (exclude_activity_ids or [])}
     from datetime import datetime, timedelta, timezone
 
     start_raw = hevy_workout.get("start_time") or hevy_workout.get("startTime", "")
@@ -362,6 +368,10 @@ def find_matching_garmin_activity(
     best: dict | None = None
 
     for act in activities or []:
+        # Skip activities the ledger already maps to another Hevy workout, so a
+        # back-to-back session does not merge into a sibling's upload (#796).
+        if str(act.get("activityId")) in excluded:
+            continue
         # Hard filter: only configured activity types are eligible for merge
         act_type = act.get("activityType", {}).get("typeKey", "")
         if act_type not in activity_types:

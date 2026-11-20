@@ -580,7 +580,15 @@ def sync_one_workout(
 
         existing_id = None
         uploaded = False
-        exclude_ids = [merge_delete_id] if merge_delete_id else None
+        # Exclude the watch copy this run will delete, plus every activity the
+        # ledger already maps to another Hevy workout, so a back-to-back session
+        # is not mistaken for "already on Garmin" (#796).
+        exclude_ids: list[int | str] = [merge_delete_id] if merge_delete_id else []
+        try:
+            exclude_ids += merge_store.known_garmin_activity_ids(exclude_hevy_id=wid)
+        except Exception as exc:  # noqa: BLE001  # a ledger read failure must not block the upload
+            logger.debug("  Could not read known activity ids from the ledger: %s", exc)
+        exclude_ids = exclude_ids or None
         if start_time and not force_upload and not merge_forced_fresh:
             existing_id = find_activity_by_start_time(
                 garmin_client,
