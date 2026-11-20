@@ -38,6 +38,7 @@ def _make_db(tmp_path):
         with db._get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM synced_workouts")
+                cur.execute("DELETE FROM pending_uploads")
                 cur.execute("DELETE FROM sync_log")
                 cur.execute("DELETE FROM hr_cache")
                 cur.execute("DELETE FROM synced_routines")
