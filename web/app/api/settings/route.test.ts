@@ -8,13 +8,15 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 const writes: Array<{ key: string; value: Record<string, unknown> }> = [];
+const persisted = new Map<string, Record<string, unknown>>();
 vi.mock("@/lib/db", () => {
   const tag = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const q = strings.join("?");
     if (q.startsWith("SELECT key, value FROM app_cache")) return []; // no existing config
-    if (q.startsWith("SELECT value FROM app_cache")) return [];      // saveConfigKey: no existing row
+    if (q.startsWith("SELECT value FROM app_cache")) return persisted.has(String(values[0])) ? [{ value: persisted.get(String(values[0])) }] : [];
     if (q.includes("INSERT INTO app_cache")) {
       writes.push({ key: values[0] as string, value: values[1] as Record<string, unknown> });
+      persisted.set(String(values[0]), values[1] as Record<string, unknown>);
       return [];
     }
     throw new Error("unexpected query: " + q);
@@ -24,6 +26,8 @@ vi.mock("@/lib/db", () => {
 });
 
 import { POST } from "./route";
+import { getDb } from "@/lib/db";
+import { loadWeightUnit } from "@/lib/weight-unit-settings";
 
 function req(body: unknown): Request {
   return new Request("http://h/api/settings", {
@@ -38,9 +42,28 @@ function saved(key: string): Record<string, unknown> | undefined {
 
 beforeEach(() => {
   writes.length = 0;
+  persisted.clear();
 });
 
 describe("POST /api/settings — extended config surface", () => {
+  it("round-trips the saved unit without rewriting the canonical profile", async () => {
+    persisted.set("user_profile", { weight_kg: 80 });
+    expect(await loadWeightUnit(getDb())).toBe("kg");
+    await POST(req({ display_units: { weight: "lb" } }));
+    expect(await loadWeightUnit(getDb())).toBe("lb");
+    await POST(req({ display_units: { weight: "kg" } }));
+    expect(await loadWeightUnit(getDb())).toBe("kg");
+    expect(persisted.get("user_profile")).toEqual({ weight_kg: 80 });
+  });
+  it.each(["lb", "kg"])("saves %s separately from canonical profile weights", async (unit) => {
+    expect((await POST(req({ display_units: { weight: unit } }))).status).toBe(200);
+    expect(saved("display_units")).toEqual({ weight: unit });
+    expect(saved("user_profile")).toBeUndefined();
+  });
+  it("rejects unsupported weight units without writing settings", async () => {
+    expect((await POST(req({ display_units: { weight: "stones" } }))).status).toBe(400);
+    expect(writes).toEqual([]);
+  });
   it("saves profile fields with validation (sex whitelist, vo2max)", async () => {
     const res = await POST(
       req({ user_profile: { birth_year: 1994, sex: "FEMALE", vo2max: 52.34, timezone: " Europe/Athens " } }),

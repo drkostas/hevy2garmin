@@ -46,7 +46,9 @@ function clampInt(v: unknown, lo: number, hi: number): number | undefined {
  */
 function sanitise(key: string, raw: Obj): Obj {
   const out: Obj = {};
-  if (key === "auto_sync") {
+  if (key === "display_units") {
+    if (raw.weight === "lb" || raw.weight === "kg") out.weight = raw.weight;
+  } else if (key === "auto_sync") {
     if ("enabled" in raw) out.enabled = Boolean(raw.enabled);
     if ("interval_minutes" in raw) {
       const n = Number(raw.interval_minutes);
@@ -122,7 +124,7 @@ function sanitise(key: string, raw: Obj): Obj {
   return out;
 }
 
-const EDITABLE = ["auto_sync", "hr_fusion", "merge_settings", "user_profile", "timing", "sync_window"];
+const EDITABLE = ["auto_sync", "hr_fusion", "merge_settings", "user_profile", "timing", "sync_window", "display_units"];
 
 export async function POST(request: Request) {
   // Gate only when a password is configured (prod). With no password set the app
