@@ -372,6 +372,16 @@ Leave `GITHUB_PAT` and `GITHUB_REPO` unset on a self-hosted box. With both set, 
 
 The dashboard's **Auto-sync** toggle and interval schedule that GitHub Actions workflow, so on a self-hosted box they change nothing. Set `H2G_SERVER_SYNC_SCHEDULE` to how often your scheduler runs, in words (`every 2 hours`): the dashboard and Settings then show that schedule in place of the toggle, the interval and the GitHub token, and **Sync all** says it runs on the server.
 
+### Several people on one dashboard
+
+One dashboard can sync several people's accounts. Open **Profiles** from the top bar, rename the **Default profile** if you like, and add a profile for each extra person. Adding one opens its setup page, where you connect that person's Hevy key and Garmin account. The selector in the top bar switches the active profile, and other open tabs reload so they never show the previous person.
+
+Each profile keeps its own Hevy key, Garmin sign-in, settings, mappings and sync history, in its own Postgres schema. The default profile is the data you already have, left where it is, so upgrading changes nothing until you add a profile. `HEVY_API_KEY`, `GITHUB_PAT` and the intervals.icu variables belong to the default profile only.
+
+`GET /api/cron/sync` runs every profile in turn, each under its own lock, and an added profile without a Hevy key is skipped. One person's expired Garmin sign-in does not stop the next person's sync. With more than one profile, the response lists each profile's result under `profiles`.
+
+Profiles are aimed at self-hosted servers. The GitHub Actions workflow, and with it Vercel's **Auto-sync** toggle, syncs only the default profile, and the Hevy webhook does too. On Vercel, an added profile syncs when you press **Sync all**, which runs in the request instead of handing off to the workflow. Added profiles select their schema inside each transaction, so pooled connection strings such as Neon's work. Everyone who knows the dashboard password can see and manage every profile.
+
 ### Removing duplicates from intervals.icu
 
 The `replace` watch strategy deletes the watch recording from Garmin once the named activity is uploaded, so Garmin ends up with one activity. Garmin deletions do not propagate, though: if you also sync Garmin to [intervals.icu](https://intervals.icu), the copy it already pulled stays there, and every merged workout leaves a duplicate behind.
