@@ -11,6 +11,7 @@ import { detectDuplicates, garminClient } from "@/lib/garmin-activities";
 import { getHevyClient } from "@/lib/hevy-sync";
 import { getGithubPat, getGithubRepo, triggerViaActions } from "@/lib/github";
 import { verifySession, SESSION_COOKIE, authEnabled } from "@/lib/auth";
+import { isDefaultProfile } from "@/lib/profile-context";
 
 // Reads live Hevy + Postgres (and, on the live path, Garmin) at request time.
 export const dynamic = "force-dynamic";
@@ -101,8 +102,9 @@ export async function POST(request: Request) {
   }
 
   // Live, deployed: hand off to the GitHub Action so the long browser-auth sync
-  // runs off the request path.
-  const pat = await getGithubPat(sql);   // Settings row first, GITHUB_PAT fallback (#458)
+  // runs off the request path. The Action syncs only the default profile, so an
+  // added profile always syncs inline, even if it saved a GitHub token of its own.
+  const pat = (await isDefaultProfile()) ? await getGithubPat(sql) : null;   // Settings row first, GITHUB_PAT fallback (#458)
   const repo = getGithubRepo();
   if (pat && repo) {
     try {

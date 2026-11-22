@@ -12,7 +12,10 @@ const syncOneWorkout = vi.fn();
 vi.mock("@/lib/sync-one", () => ({
   syncOneWorkout: (...a: unknown[]) => syncOneWorkout(...a),
 }));
-vi.mock("@/lib/db", () => ({ getDb: () => ({}) }));
+const savedPat = vi.hoisted(() => ({ value: null as string | null }));
+vi.mock("@/lib/db", () => ({
+  getDb: () => async () => (savedPat.value ? [{ credentials: { pat: savedPat.value } }] : []),
+}));
 // The batch now takes the sync lock and scans for duplicates afterwards. Both
 // are wiring this file does not exercise, so they are stubbed to their
 // "nothing in the way, nothing found" answers (#604, #608).
@@ -60,6 +63,7 @@ beforeEach(() => {
   authEnabled.mockReturnValue(true);
   verifySession.mockReturnValue(false);
   cookieGet.mockReturnValue(undefined);
+  savedPat.value = null;
   syncOneWorkout.mockResolvedValue(DRY);
 });
 
@@ -98,6 +102,20 @@ describe("POST /api/sync — batch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/repos/drkostas/hevy2garmin/dispatches");
     expect(syncOneWorkout).not.toHaveBeenCalled();
+  });
+
+  it("live + authorized on an added profile → syncs inline instead of dispatching the default profile's Action", async () => {
+    authEnabled.mockReturnValue(false);
+    savedPat.value = "profile-pat";
+    process.env.GITHUB_REPO = "drkostas/hevy2garmin";
+    cookieGet.mockImplementation((name: string) => name === "h2g_profile" ? { value: "9b1b9af0-ddc8-4e4b-8209-4d436f93bb0e" } : undefined);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    syncOneWorkout.mockResolvedValueOnce({ status: "none", remaining: 0 });
+    const res = await POST(req("http://h/api/sync?live=1", {}));
+    const json = await res.json();
+    expect(json.mode).toBe("inline");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("live + authorized + no PAT → inline loop until 'none', aggregates", async () => {

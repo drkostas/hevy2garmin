@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
 import { authEnabled, verifySession, SESSION_COOKIE } from "@/lib/auth";
-import { getGithubPat, getGithubRepo, setupGithubActions } from "@/lib/github";
+import { getGithubPat, getGithubRepo, githubActionsProfileError, setupGithubActions } from "@/lib/github";
 import { resolveDatabaseUrl } from "@/lib/database-url";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,8 @@ export async function POST(request: Request) {
     const store = await cookies();
     if (!(await verifySession(store.get(SESSION_COOKIE)?.value ?? null))) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   }
+  const profileError = await githubActionsProfileError();
+  if (profileError) return NextResponse.json({ ok: false, message: profileError }, { status: 400 });
   let body: { interval?: unknown } = {};
   try { const t = await request.text(); if (t) body = JSON.parse(t); } catch { return NextResponse.json({ ok: false, message: "Invalid JSON body." }, { status: 400 }); }
   const allowed = [30, 60, 120, 240, 360, 720, 1440];

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { getGithubPat, getGithubRepo, setupGithubActions, disableGithubActions } from "@/lib/github";
+import { getGithubPat, getGithubRepo, githubActionsProfileError, setupGithubActions, disableGithubActions } from "@/lib/github";
 import { resolveDatabaseUrl } from "@/lib/database-url";
 
 // Reads/writes the app_cache config at request time — never at build.
@@ -48,6 +48,8 @@ export async function POST(request: Request) {
     const onVercel = Boolean(process.env.VERCEL);
     let actions: { ok: boolean; message: string } | null = null;
     if (onVercel) {
+      const profileError = await githubActionsProfileError();
+      if (profileError) return NextResponse.json({ ok: false, error: profileError }, { status: 400 });
       const pat = await getGithubPat(sql);
       const repo = getGithubRepo();
       if (enabled) {

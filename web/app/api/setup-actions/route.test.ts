@@ -15,6 +15,7 @@ const { setup } = vi.hoisted(() => ({ setup: vi.fn(async () => ({ ok: true, mess
 vi.mock("@/lib/github", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/github")>()), setupGithubActions: setup }));
 
 import { POST } from "./route";
+import { withProfile } from "@/lib/profile-context";
 const req = (body: unknown) => new Request("http://h/api/setup-actions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 describe("POST /api/setup-actions", () => {
@@ -29,5 +30,10 @@ describe("POST /api/setup-actions", () => {
     state.pat = "ghp_x"; process.env.VERCEL_GIT_REPO_OWNER = "o"; process.env.VERCEL_GIT_REPO_SLUG = "r";
     const res = await POST(req({ interval: 240 })); expect(res.status).toBe(200);
     expect(setup).toHaveBeenCalledWith({ pat: "ghp_x", repo: "o/r", databaseUrl: "postgres://x", intervalMinutes: 240 });
+  });
+  it("leaves the default profile's workflow alone when an added profile asks", async () => {
+    state.pat = "ghp_x"; process.env.VERCEL_GIT_REPO_OWNER = "o"; process.env.VERCEL_GIT_REPO_SLUG = "r";
+    const res = await withProfile("9b1b9af0-ddc8-4e4b-8209-4d436f93bb0e", () => POST(req({ interval: 240 })));
+    expect(res.status).toBe(400); expect((await res.json()).message).toMatch(/default profile/); expect(setup).not.toHaveBeenCalled();
   });
 });
