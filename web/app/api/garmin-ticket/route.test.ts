@@ -1,17 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const save = vi.fn();
-vi.mock("garmin-auth", () => ({
-  DBTokenStore: class {
-    constructor(..._a: unknown[]) {}
-    save(...a: unknown[]) {
-      return save(...a);
-    }
-  },
-}));
 const resetGarminClient = vi.fn();
 vi.mock("@/lib/garmin-upload", () => ({
   GARMIN_TOKEN_PLATFORM: "garmin_tokens",
+  garminTokenStore: () => ({ save: (...a: unknown[]) => save(...a) }),
   resetGarminClient: () => resetGarminClient(),
 }));
 
@@ -31,7 +24,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/garmin-ticket", () => {
-  it("persists the three DI tokens (nested via DBTokenStore) and returns ok", async () => {
+  it("persists the three DI tokens and returns ok", async () => {
     const res = await POST(req({ tokens: { di_token: "a", di_refresh_token: "b", di_client_id: "c" } }));
     const json = await res.json();
     expect(res.status).toBe(200);

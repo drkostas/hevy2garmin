@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
   let sql: ReturnType<typeof getDb> | null = null;
   try {
-    sql = getDb();
+    sql = getDb({ global: true });
   } catch {
     sql = null; // DB unavailable → skip the limiter (never lock the admin out on an outage)
   }

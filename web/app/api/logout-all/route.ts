@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 export async function POST() {
   let epoch: number;
   try {
-    epoch = await bumpSessionEpoch(getDb());
+    epoch = await bumpSessionEpoch(getDb({ global: true }));
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     return NextResponse.json(

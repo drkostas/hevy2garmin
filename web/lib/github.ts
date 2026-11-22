@@ -8,6 +8,7 @@
  */
 import sodium from "libsodium-wrappers";
 import type { getDb } from "./db";
+import { legacyEnvironmentValue } from "./profile-context";
 
 type Sql = ReturnType<typeof getDb>;
 
@@ -22,7 +23,7 @@ export async function getGithubPat(sql: Sql | null): Promise<string | null> {
       if (typeof pat === "string" && pat.trim()) return pat.trim();
     } catch { /* fall through to env */ }
   }
-  const env = process.env.GITHUB_PAT?.trim();
+  const env = (await legacyEnvironmentValue("GITHUB_PAT"))?.trim();
   return env || null;
 }
 

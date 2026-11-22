@@ -35,6 +35,7 @@ import { loadSyncSettings, loadSyncStartDate } from "./sync-settings";
 import { parseStartDate, withinSyncWindow } from "./sync-window";
 import type { Sql } from "./pending-store";
 import { withGarminLocalDates } from "./garmin-local-dates";
+import { isDefaultProfile } from "./profile-context";
 
 export type {
   CandidateWorkout,
@@ -56,6 +57,10 @@ export function buildSyncDeps(sql: Sql, options: SyncOneOptions = {}): SyncDeps 
   const clientFactory = options.garminClientFactory ?? (() => getGarminClient());
   let gateway: Promise<GarminGateway> | null = null;
   const fetchWorkouts = options.fetchWorkouts ?? (() => fetchAllWorkouts());
+  const cleanup = intervalsCleanupHook({
+    apiKey: process.env.INTERVALS_API_KEY,
+    athleteId: process.env.INTERVALS_ATHLETE_ID,
+  });
 
   // The engine asks for a backup by workout id, and rebasing one needs the
   // workout's start and end. The fetch is the only place both are in hand, so
@@ -95,11 +100,9 @@ export function buildSyncDeps(sql: Sql, options: SyncOneOptions = {}): SyncDeps 
     // arrives as a second one. The hook removes the stale copy. It is null
     // unless both credentials are set, and undefined rather than a no-op
     // function makes the engine skip the step outright for everyone else.
-    onWatchActivityDeleted:
-      intervalsCleanupHook({
-        apiKey: process.env.INTERVALS_API_KEY,
-        athleteId: process.env.INTERVALS_ATHLETE_ID,
-      }) ?? undefined,
+    onWatchActivityDeleted: cleanup ? async (activityId, workoutStart) => {
+      if (await isDefaultProfile()) await cleanup(activityId, workoutStart);
+    } : undefined,
   };
 }
 

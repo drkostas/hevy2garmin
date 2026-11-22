@@ -16,14 +16,46 @@
  * lookup) and is always safe to call.
  */
 import { getDb } from "./db";
-import { GarminAuth, DBTokenStore, type GarminClient } from "garmin-auth";
+import { GarminAuth, DBTokenStore, type GarminClient, type TokenStore } from "garmin-auth";
 import { resolveDatabaseUrl } from "./database-url";
+import { activeProfile } from "./profiles";
+import { activeProfileId, DEFAULT_PROFILE_ID } from "./profile-context";
+import { profileSql } from "./profile-database";
 
 /** The DI tokens live in platform_credentials at this platform key. */
 export const GARMIN_TOKEN_PLATFORM = "garmin_tokens";
 
-let cachedClient: GarminClient | null = null;
-let normalized = false;
+/**
+ * Where a profile's Garmin tokens live. The default profile keeps garmin-auth's DBTokenStore.
+ * DBTokenStore opens its own plain connections, which would reach the default profile's row,
+ * so an added profile runs the same statements through its own schema-scoped handle.
+ */
+export function garminTokenStore(profileId: string, databaseUrl: string): TokenStore {
+  if (profileId === DEFAULT_PROFILE_ID) return new DBTokenStore(databaseUrl, GARMIN_TOKEN_PLATFORM);
+  const sql = profileSql(profileId);
+  return {
+    async load() {
+      const rows = await sql`SELECT credentials FROM platform_credentials WHERE platform = ${GARMIN_TOKEN_PLATFORM} LIMIT 1`;
+      const tokens = rows[0]?.credentials?.garmin_tokens;
+      if (typeof tokens === "string") return tokens;
+      return tokens && typeof tokens === "object" && "di_token" in tokens ? JSON.stringify(tokens) : null;
+    },
+    async save(tokens) {
+      const payload = typeof tokens === "string" ? JSON.parse(tokens) : tokens;
+      await sql`INSERT INTO platform_credentials (platform, auth_type, credentials, status, connected_at)
+        VALUES (${GARMIN_TOKEN_PLATFORM}, 'oauth', ${sql.json({ garmin_tokens: payload })}, 'active', now())
+        ON CONFLICT (platform) DO UPDATE
+          SET credentials = EXCLUDED.credentials, auth_type = EXCLUDED.auth_type,
+              status = EXCLUDED.status, connected_at = EXCLUDED.connected_at`;
+    },
+    async delete() {
+      await sql`DELETE FROM platform_credentials WHERE platform = ${GARMIN_TOKEN_PLATFORM}`;
+    },
+  };
+}
+
+const clients = new Map<string, Promise<GarminClient>>();
+const normalized = new Set<string>();
 
 /**
  * Self-heal the token row (#459). garmin-auth < 0.3 (Python 0.2.x) wrote the DI payload FLAT
@@ -32,7 +64,8 @@ let normalized = false;
  * "reconnect Garmin" for no reason. Idempotent; runs once per process; never throws.
  */
 export async function normalizeGarminTokenRow(sql: ReturnType<typeof getDb>): Promise<void> {
-  if (normalized) return;
+  const id = await activeProfileId();
+  if (normalized.has(id)) return;
   try {
     await sql`
       UPDATE platform_credentials
@@ -40,7 +73,7 @@ export async function normalizeGarminTokenRow(sql: ReturnType<typeof getDb>): Pr
        WHERE platform = ${GARMIN_TOKEN_PLATFORM}
          AND credentials ? 'di_token'
          AND NOT (credentials ? 'garmin_tokens')`;
-    normalized = true;
+    normalized.add(id);
   } catch { /* best effort: DBTokenStore reports the real problem if any */ }
 }
 
@@ -54,17 +87,22 @@ export async function normalizeGarminTokenRow(sql: ReturnType<typeof getDb>): Pr
  * This authenticates only; it does not upload or mutate any activity.
  */
 export async function getGarminClient(databaseUrl?: string): Promise<GarminClient> {
-  if (cachedClient) return cachedClient;
-  const url = databaseUrl ?? resolveDatabaseUrl();
-  if (!url) throw new Error("DATABASE_URL not set (cannot load Garmin tokens)");
-  try { await normalizeGarminTokenRow(getDb()); } catch { /* no DB handle: DBTokenStore reports it */ }
-  const store = new DBTokenStore(url, GARMIN_TOKEN_PLATFORM);
-  const auth = new GarminAuth({ store });
-  cachedClient = await auth.client();
-  return cachedClient;
+  const profile = await activeProfile();
+  let pending = clients.get(profile.id);
+  if (!pending) {
+    pending = (async () => {
+      const url = databaseUrl ?? resolveDatabaseUrl();
+      if (!url) throw new Error("DATABASE_URL not set (cannot load Garmin tokens)");
+      try { await normalizeGarminTokenRow(getDb()); } catch { /* DBTokenStore reports the real failure. */ }
+      return new GarminAuth({ store: garminTokenStore(profile.id, url) }).client();
+    })().catch((error) => { clients.delete(profile.id); throw error; });
+    clients.set(profile.id, pending);
+  }
+  return pending;
 }
 
 /** Reset the cached client (test seam / after a token rotation). */
-export function resetGarminClient(): void {
-  cachedClient = null;
+export function resetGarminClient(profileId?: string): void {
+  if (profileId) clients.delete(profileId);
+  else clients.clear();
 }

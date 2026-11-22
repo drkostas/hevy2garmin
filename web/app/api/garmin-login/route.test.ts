@@ -12,17 +12,10 @@ vi.mock("@/lib/garmin-login-worker", async (orig) => {
 });
 
 const save = vi.fn();
-vi.mock("garmin-auth", () => ({
-  DBTokenStore: class {
-    constructor(..._a: unknown[]) {}
-    save(...a: unknown[]) {
-      return save(...a);
-    }
-  },
-}));
 const resetGarminClient = vi.fn();
 vi.mock("@/lib/garmin-upload", () => ({
   GARMIN_TOKEN_PLATFORM: "garmin_tokens",
+  garminTokenStore: () => ({ save: (...a: unknown[]) => save(...a) }),
   resetGarminClient: () => resetGarminClient(),
 }));
 

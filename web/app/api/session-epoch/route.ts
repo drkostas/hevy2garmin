@@ -14,7 +14,7 @@ export const runtime = "nodejs";
  */
 export async function GET() {
   try {
-    const n = await getSessionEpoch(getDb());
+    const n = await getSessionEpoch(getDb({ global: true }));
     return NextResponse.json({ n });
   } catch {
     return NextResponse.json({ n: 0 });

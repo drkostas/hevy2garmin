@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { DBTokenStore } from "garmin-auth";
-import { GARMIN_TOKEN_PLATFORM, resetGarminClient } from "@/lib/garmin-upload";
+import { garminTokenStore, resetGarminClient } from "@/lib/garmin-upload";
+import { activeProfile } from "@/lib/profiles";
 import { resolveDatabaseUrl } from "@/lib/database-url";
 
 export const dynamic = "force-dynamic";
@@ -48,9 +48,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const store = new DBTokenStore(url, GARMIN_TOKEN_PLATFORM);
-    await store.save({ di_token, di_refresh_token, di_client_id });
-    resetGarminClient();
+    const profile = await activeProfile();
+    await garminTokenStore(profile.id, url).save({ di_token, di_refresh_token, di_client_id });
+    resetGarminClient(profile.id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);

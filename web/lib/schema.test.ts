@@ -38,6 +38,14 @@ describe("ensureSchema (#475)", () => {
     expect(db.unsafe).toHaveBeenCalledTimes(SCHEMA_STATEMENTS.length);
   });
 
+  it("runs migrations for a second profile's connection too", async () => {
+    const first = runner();
+    const second = runner();
+    await Promise.all([ensureSchema(first.db), ensureSchema(second.db)]);
+    expect(first.db.unsafe).toHaveBeenCalledTimes(SCHEMA_STATEMENTS.length);
+    expect(second.db.unsafe).toHaveBeenCalledTimes(SCHEMA_STATEMENTS.length);
+  });
+
   it("never rejects: a failing statement logs, resolves false, and does not block queries", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { db } = runner("app_cache");

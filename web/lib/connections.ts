@@ -1,5 +1,6 @@
 import type { getDb } from "./db";
 import { ifNoTable } from "./missing-table";
+import { legacyEnvironmentValue } from "./profile-context";
 
 type Sql = ReturnType<typeof getDb>;
 
@@ -50,7 +51,7 @@ export async function loadGarminConnection(sql: Sql): Promise<Connection> {
  * writes status='active', so testing for the literal 'connected' never matches.
  */
 export async function loadHevyConnection(sql: Sql): Promise<Connection> {
-  const fromEnv = Boolean(process.env.HEVY_API_KEY?.trim());
+  const fromEnv = Boolean((await legacyEnvironmentValue("HEVY_API_KEY"))?.trim());
   const rows = await sql`
     SELECT status, connected_at, jsonb_exists(credentials, 'api_key') AS has_key
     FROM platform_credentials
