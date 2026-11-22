@@ -8,7 +8,7 @@
  */
 import sodium from "libsodium-wrappers";
 import type { getDb } from "./db";
-import { legacyEnvironmentValue } from "./profile-context";
+import { isDefaultProfile, legacyEnvironmentValue } from "./profile-context";
 
 type Sql = ReturnType<typeof getDb>;
 
@@ -118,6 +118,13 @@ export async function sealSecret(publicKeyB64: string, value: string): Promise<s
 }
 
 export interface SetupResult { ok: boolean; message: string }
+
+/** The fork's workflow syncs the default profile's data, so an added profile must not rewrite or delete it. */
+export async function githubActionsProfileError(): Promise<string | null> {
+  return (await isDefaultProfile())
+    ? null
+    : "GitHub Actions auto-sync belongs to the default profile. Switch to it to change auto-sync.";
+}
 
 /**
  * Configure auto-sync on the fork: make the repo public, enable Actions, store DATABASE_URL
