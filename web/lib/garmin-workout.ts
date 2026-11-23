@@ -6,11 +6,12 @@
  * the description. The numeric enum ids were reverse-engineered +
  * validated against a real Garmin export in the Python.
  *
- * Identical consecutive sets become one repeat block ("3 sets" in Garmin, as
- * its own editor builds them), so the workout reads like the routine (#727).
- * Sets that differ (a warmup, a changed weight or rep count) stay separate
- * steps, so per-set weights are kept. routine.py still emits one flat step per
- * set; it is frozen for the PyPI deprecation (#515).
+ * An exercise whose working sets are all identical becomes one repeat block
+ * ("3 sets" in Garmin, as its own editor builds them), so a uniform routine
+ * reads cleanly (#727). An exercise with any varied working set, for example
+ * 10/8/8, stays one flat step per set, so Garmin shows each set as the routine
+ * has it (#800). Warmups are always their own step. routine.py still emits one
+ * flat step per set and is frozen for the PyPI deprecation (#515).
  */
 import { lookupExercise } from "hevy2garmin";
 import { fitExerciseStrings } from "./garmin-exercise-strings";
@@ -70,7 +71,7 @@ function buildStep(
   exerciseNameStr: string | null,
   weightUnit: string,
 ): Step {
-  const isWarmup = (set.type ?? "").toLowerCase() === "warmup";
+  const isWarmup = isWarmupSet(set);
   const step: Step = {
     type: "ExecutableStepDTO",
     stepOrder: order,
@@ -102,16 +103,19 @@ function restStep(order: number, restSeconds: number): Step {
   };
 }
 
+function isWarmupSet(set: HevySet): boolean {
+  return (set.type ?? "").toLowerCase() === "warmup";
+}
+
 /**
  * Two sets are one repeatable step when Garmin would show them the same: the
  * same warmup/working type, the same end condition (reps, or else duration) and
  * the same weight. Mirrors what buildStep reads from a set.
  */
 function setKey(set: HevySet): string {
-  const warmup = (set.type ?? "").toLowerCase() === "warmup";
   const reps = set.reps ?? null;
   const duration = reps == null ? (set.duration_seconds ?? null) : null;
-  return JSON.stringify([warmup, reps, duration, set.weight_kg ?? null]);
+  return JSON.stringify([isWarmupSet(set), reps, duration, set.weight_kg ?? null]);
 }
 
 export interface WorkoutBuildOptions {
@@ -145,11 +149,26 @@ export function routineToGarminWorkout(
 
     const restSeconds = exercise.rest_seconds ?? defaultRestSeconds;
     const sets = exercise.sets ?? [];
+    // A repeat block is used only when every working set of the exercise is
+    // identical, so a uniform exercise like 3x8 reads as one clean block. An
+    // exercise with any varied working set (10/8/8) stays one flat step per set
+    // (#800). Warmups are always their own step and never start or join a run.
+    const working = sets.filter((s) => !isWarmupSet(s));
+    const uniformWorking =
+      working.length >= 2 && working.every((s) => setKey(s) === setKey(working[0]));
     let i = 0;
     while (i < sets.length) {
-      // A run of identical consecutive sets.
+      // A run of identical consecutive working sets, only for a uniform exercise.
       let n = 1;
-      while (i + n < sets.length && setKey(sets[i + n]) === setKey(sets[i])) n += 1;
+      if (uniformWorking && !isWarmupSet(sets[i])) {
+        while (
+          i + n < sets.length &&
+          !isWarmupSet(sets[i + n]) &&
+          setKey(sets[i + n]) === setKey(sets[i])
+        ) {
+          n += 1;
+        }
+      }
       const endsWorkout = exerciseIdx === lastExercise && i + n === sets.length;
 
       if (n >= 2) {

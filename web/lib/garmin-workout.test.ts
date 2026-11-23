@@ -98,7 +98,23 @@ describe("routineToGarminWorkout", () => {
     expect(topSteps(r).map(key)).toEqual(["interval", "rest", "interval", "rest", "interval"]);
   });
 
-  it("two runs in one exercise: the first block keeps its last rest, the second skips it", () => {
+  it("an exercise with variable reps keeps each set, not a repeat block (#800)", () => {
+    const r: HevyRoutine = {
+      exercises: [{ title: "Lat Pulldown (Cable)", rest_seconds: 90, sets: [
+        { type: "normal", reps: 10, weight_kg: 50 },
+        { type: "normal", reps: 8, weight_kg: 50 },
+        { type: "normal", reps: 8, weight_kg: 50 },
+      ] }],
+    };
+    const steps = topSteps(r);
+    // 10, 8, 8 is not a uniform exercise, so the trailing 8s must not collapse
+    // into a repeat block. Three flat sets, a rest between each.
+    expect(steps.map(key)).toEqual(["interval", "rest", "interval", "rest", "interval"]);
+    expect(steps.some((s) => s.type === "RepeatGroupDTO")).toBe(false);
+    expect(steps.filter((s) => key(s) === "interval").map((s) => s.endConditionValue)).toEqual([10, 8, 8]);
+  });
+
+  it("an exercise with varied working sets stays flat, even where some sets repeat (#800)", () => {
     const r: HevyRoutine = {
       exercises: [{ title: "Deadlift (Barbell)", rest_seconds: 60, sets: [
         { type: "normal", reps: 5, weight_kg: 100 },
@@ -108,10 +124,11 @@ describe("routineToGarminWorkout", () => {
       ] }],
     };
     const steps = topSteps(r);
-    expect(steps.map(key)).toEqual(["repeat", "repeat"]);
-    expect(steps[0]).toMatchObject({ numberOfIterations: 2, skipLastRestStep: false });
-    expect(steps[1]).toMatchObject({ numberOfIterations: 2, skipLastRestStep: true });
-    expect(steps[0].childStepId).not.toBe(steps[1].childStepId);
+    // The working sets are not all identical, so each is its own step with a rest
+    // between, and the last set of the workout has none after it (#800).
+    expect(steps.map(key)).toEqual(["interval", "rest", "interval", "rest", "interval", "rest", "interval"]);
+    expect(steps.some((s) => s.type === "RepeatGroupDTO")).toBe(false);
+    expect(steps.filter((s) => key(s) === "interval").map((s) => s.endConditionValue)).toEqual([5, 5, 3, 3]);
   });
 
   it("numbers every step once, in order, across exercises, and gives each block its own childStepId", () => {
