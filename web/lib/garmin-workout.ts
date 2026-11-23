@@ -10,8 +10,13 @@
  * ("3 sets" in Garmin, as its own editor builds them), so a uniform routine
  * reads cleanly (#727). An exercise with any varied working set, for example
  * 10/8/8, stays one flat step per set, so Garmin shows each set as the routine
- * has it (#800). Warmups are always their own step. routine.py still emits one
- * flat step per set and is frozen for the PyPI deprecation (#515).
+ * has it (#800). Warmups are always their own step.
+ *
+ * Exercises grouped as a superset in Hevy (the same non-null superset_id) are
+ * emitted interleaved, one set of each exercise in turn with the rest after the
+ * whole group, so Garmin keeps the superset order rather than two independent
+ * exercises (#801). routine.py still emits one flat step per set and is frozen
+ * for the PyPI deprecation (#515).
  */
 import { lookupExercise } from "hevy2garmin";
 import { fitExerciseStrings } from "./garmin-exercise-strings";
@@ -42,6 +47,10 @@ export interface HevyExercise {
   name?: string | null;
   exercise_template_id?: string | null;
   rest_seconds?: number | null;
+  // The id of the superset this exercise belongs to, or null when it is not in
+  // one (Hevy's routine/workout API; #801). Exercises that share a non-null
+  // value are performed together.
+  superset_id?: number | string | null;
   sets?: HevySet[];
 }
 export interface HevyRoutine {
@@ -53,6 +62,7 @@ export interface HevyRoutine {
 }
 
 type Step = Record<string, unknown>;
+type Ctx = { order: number; groupId: number };
 
 function weightFields(set: HevySet, weightUnit: string): Step {
   const kg = set.weight_kg;
@@ -118,6 +128,137 @@ function setKey(set: HevySet): string {
   return JSON.stringify([isWarmupSet(set), reps, duration, set.weight_kg ?? null]);
 }
 
+/** The Garmin category and exercise-name strings for one Hevy exercise. */
+function exerciseStrings(exercise: HevyExercise): {
+  title: string;
+  categoryStr: string | null;
+  exerciseNameStr: string | null;
+} {
+  const title = exercise.title || exercise.name || "Exercise";
+  const { category, subcategory } = lookupExercise(title, exercise.exercise_template_id ?? null);
+  const [categoryStr, exerciseNameStr] = fitExerciseStrings(category, subcategory);
+  return { title, categoryStr, exerciseNameStr };
+}
+
+/**
+ * Emit one ordinary (non-superset) exercise. Identical consecutive working sets
+ * collapse into one repeat block (#727/#800); every other set is one flat step.
+ * A timed rest follows each set unless it is the workout's last (#730).
+ */
+function emitExercise(
+  exercise: HevyExercise,
+  isLastInWorkout: boolean,
+  steps: Step[],
+  ctx: Ctx,
+  weightUnit: string,
+  defaultRestSeconds: number | null,
+): void {
+  const { title, categoryStr, exerciseNameStr } = exerciseStrings(exercise);
+  const restSeconds = exercise.rest_seconds ?? defaultRestSeconds;
+  const sets = exercise.sets ?? [];
+  // A repeat block is used only when every working set of the exercise is
+  // identical, so a uniform exercise like 3x8 reads as one clean block. An
+  // exercise with any varied working set (10/8/8) stays one flat step per set
+  // (#800). Warmups are always their own step and never start or join a run.
+  const working = sets.filter((s) => !isWarmupSet(s));
+  const uniformWorking =
+    working.length >= 2 && working.every((s) => setKey(s) === setKey(working[0]));
+  let i = 0;
+  while (i < sets.length) {
+    // A run of identical consecutive working sets, only for a uniform exercise.
+    let n = 1;
+    if (uniformWorking && !isWarmupSet(sets[i])) {
+      while (
+        i + n < sets.length &&
+        !isWarmupSet(sets[i + n]) &&
+        setKey(sets[i + n]) === setKey(sets[i])
+      ) {
+        n += 1;
+      }
+    }
+    const endsWorkout = isLastInWorkout && i + n === sets.length;
+
+    if (n >= 2) {
+      // One repeat block of n rounds, each the set and its rest. Garmin numbers
+      // the block first and its children after it, and marks the children with
+      // the block's childStepId (read back from a stored workout).
+      ctx.groupId += 1;
+      const groupOrder = ctx.order;
+      ctx.order += 1;
+      const children: Step[] = [
+        { ...buildStep(ctx.order, sets[i], title, categoryStr, exerciseNameStr, weightUnit), childStepId: ctx.groupId },
+      ];
+      ctx.order += 1;
+      if (restSeconds) {
+        children.push({ ...restStep(ctx.order, restSeconds), childStepId: ctx.groupId });
+        ctx.order += 1;
+      }
+      steps.push({
+        type: "RepeatGroupDTO",
+        stepOrder: groupOrder,
+        stepType: STEP_TYPE_REPEAT,
+        childStepId: ctx.groupId,
+        numberOfIterations: n,
+        endCondition: END_ITERATIONS,
+        endConditionValue: n,
+        // The rest after the last round is the rest before whatever comes next;
+        // only the block that ends the workout skips it.
+        skipLastRestStep: Boolean(restSeconds) && endsWorkout,
+        smartRepeat: false,
+        workoutSteps: children,
+      });
+    } else {
+      steps.push(buildStep(ctx.order, sets[i], title, categoryStr, exerciseNameStr, weightUnit));
+      ctx.order += 1;
+      // Rest after the set, unless it is the last set of the workout.
+      if (restSeconds && !endsWorkout) {
+        steps.push(restStep(ctx.order, restSeconds));
+        ctx.order += 1;
+      }
+    }
+    i += n;
+  }
+}
+
+/**
+ * Emit a superset: two or more exercises done back to back, with rest only after
+ * the whole group (#801). One flat step per set, interleaved by round across the
+ * members, so Garmin shows set 1 of each exercise, a rest, set 2 of each, and so
+ * on. The rest after a round is the last member's rest, and the workout's final
+ * round has none (#730). A repeat block is not used, because its rounds would
+ * have to be identical and a superset's members are different exercises.
+ */
+function emitSuperset(
+  members: HevyExercise[],
+  isLastInWorkout: boolean,
+  steps: Step[],
+  ctx: Ctx,
+  weightUnit: string,
+  defaultRestSeconds: number | null,
+): void {
+  const strings = members.map(exerciseStrings);
+  const setLists = members.map((m) => m.sets ?? []);
+  const rounds = Math.max(0, ...setLists.map((s) => s.length));
+  const last = members[members.length - 1];
+  const restSeconds = last.rest_seconds ?? defaultRestSeconds;
+  for (let r = 0; r < rounds; r += 1) {
+    for (let m = 0; m < members.length; m += 1) {
+      const set = setLists[m][r];
+      if (set === undefined) continue;
+      steps.push(
+        buildStep(ctx.order, set, strings[m].title, strings[m].categoryStr, strings[m].exerciseNameStr, weightUnit),
+      );
+      ctx.order += 1;
+    }
+    // Rest after the round, unless this round ends the workout.
+    const endsWorkout = isLastInWorkout && r === rounds - 1;
+    if (restSeconds && !endsWorkout) {
+      steps.push(restStep(ctx.order, restSeconds));
+      ctx.order += 1;
+    }
+  }
+}
+
 export interface WorkoutBuildOptions {
   weightUnit?: "kilogram" | "pound";
   defaultRestSeconds?: number | null;
@@ -132,86 +273,36 @@ export function routineToGarminWorkout(
   const defaultRestSeconds = opts.defaultRestSeconds ?? null;
   const exercises = routine.exercises ?? [];
   const steps: Step[] = [];
-  let order = 1;
-  let groupId = 0;
+  const ctx: Ctx = { order: 1, groupId: 0 };
+
+  // Consecutive exercises that share a non-null superset_id are one superset
+  // unit; every other exercise is its own unit (#801). A lone exercise that
+  // carries a superset_id (a one-member group) is treated as ordinary.
+  const units: HevyExercise[][] = [];
+  for (const ex of exercises) {
+    const sid = ex.superset_id ?? null;
+    const lastUnit = units[units.length - 1];
+    const lastSid = lastUnit ? (lastUnit[0].superset_id ?? null) : null;
+    if (sid != null && lastUnit != null && lastSid === sid) lastUnit.push(ex);
+    else units.push([ex]);
+  }
+
   // Hevy's rest timer runs after every set, the last set of an exercise included,
   // so the rest before the next exercise is a real step. Only the very last set of
-  // the workout has none after it (#730).
-  let lastExercise = -1;
-  exercises.forEach((e, idx) => {
-    if ((e.sets ?? []).length > 0) lastExercise = idx;
+  // the workout has none after it (#730). Find the last unit that has any sets.
+  let lastUnitIdx = -1;
+  units.forEach((u, idx) => {
+    if (u.some((e) => (e.sets ?? []).length > 0)) lastUnitIdx = idx;
   });
 
-  for (const [exerciseIdx, exercise] of exercises.entries()) {
-    const title = exercise.title || exercise.name || "Exercise";
-    const { category, subcategory } = lookupExercise(title, exercise.exercise_template_id ?? null);
-    const [categoryStr, exerciseNameStr] = fitExerciseStrings(category, subcategory);
-
-    const restSeconds = exercise.rest_seconds ?? defaultRestSeconds;
-    const sets = exercise.sets ?? [];
-    // A repeat block is used only when every working set of the exercise is
-    // identical, so a uniform exercise like 3x8 reads as one clean block. An
-    // exercise with any varied working set (10/8/8) stays one flat step per set
-    // (#800). Warmups are always their own step and never start or join a run.
-    const working = sets.filter((s) => !isWarmupSet(s));
-    const uniformWorking =
-      working.length >= 2 && working.every((s) => setKey(s) === setKey(working[0]));
-    let i = 0;
-    while (i < sets.length) {
-      // A run of identical consecutive working sets, only for a uniform exercise.
-      let n = 1;
-      if (uniformWorking && !isWarmupSet(sets[i])) {
-        while (
-          i + n < sets.length &&
-          !isWarmupSet(sets[i + n]) &&
-          setKey(sets[i + n]) === setKey(sets[i])
-        ) {
-          n += 1;
-        }
-      }
-      const endsWorkout = exerciseIdx === lastExercise && i + n === sets.length;
-
-      if (n >= 2) {
-        // One repeat block of n rounds, each the set and its rest. Garmin numbers
-        // the block first and its children after it, and marks the children with
-        // the block's childStepId (read back from a stored workout).
-        groupId += 1;
-        const groupOrder = order;
-        order += 1;
-        const children: Step[] = [
-          { ...buildStep(order, sets[i], title, categoryStr, exerciseNameStr, weightUnit), childStepId: groupId },
-        ];
-        order += 1;
-        if (restSeconds) {
-          children.push({ ...restStep(order, restSeconds), childStepId: groupId });
-          order += 1;
-        }
-        steps.push({
-          type: "RepeatGroupDTO",
-          stepOrder: groupOrder,
-          stepType: STEP_TYPE_REPEAT,
-          childStepId: groupId,
-          numberOfIterations: n,
-          endCondition: END_ITERATIONS,
-          endConditionValue: n,
-          // The rest after the last round is the rest before whatever comes next;
-          // only the block that ends the workout skips it.
-          skipLastRestStep: Boolean(restSeconds) && endsWorkout,
-          smartRepeat: false,
-          workoutSteps: children,
-        });
-      } else {
-        steps.push(buildStep(order, sets[i], title, categoryStr, exerciseNameStr, weightUnit));
-        order += 1;
-        // Rest after the set, unless it is the last set of the workout.
-        if (restSeconds && !endsWorkout) {
-          steps.push(restStep(order, restSeconds));
-          order += 1;
-        }
-      }
-      i += n;
+  units.forEach((unit, idx) => {
+    const isLast = idx === lastUnitIdx;
+    if (unit.length >= 2) {
+      emitSuperset(unit, isLast, steps, ctx, weightUnit, defaultRestSeconds);
+    } else {
+      emitExercise(unit[0], isLast, steps, ctx, weightUnit, defaultRestSeconds);
     }
-  }
+  });
 
   const name = routine.title || routine.name || "Hevy Routine";
   const marker = `\n${ROUTINE_DESC_MARKER}`;
