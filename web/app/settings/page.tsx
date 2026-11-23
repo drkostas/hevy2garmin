@@ -8,6 +8,7 @@ import { DangerZone } from "@/components/danger-zone";
 import { SessionsCard } from "@/components/sessions-card";
 import { ScanDuplicates } from "@/components/scan-duplicates";
 import { serverSyncSchedule } from "@/lib/server-schedule";
+import { weightUnit } from "@/lib/weight-units";
 
 import { connection } from "next/server";
 
@@ -42,7 +43,7 @@ interface SettingsData {
 const EMPTY: SettingsData = { dbConfigured: false, platforms: [], config: [], syncedCount: 0 };
 
 // The user-editable config the Python app persists to app_cache (config.py).
-const CONFIG_KEYS = ["user_profile", "timing", "hr_fusion", "merge_settings", "auto_sync", "sync_window"];
+const CONFIG_KEYS = ["user_profile", "timing", "hr_fusion", "merge_settings", "auto_sync", "sync_window", "display_units"];
 
 async function loadSettings(): Promise<SettingsData> {
   if (demoMode()) return demoSettings();
@@ -224,6 +225,7 @@ export default async function SettingsPage() {
           hrFusionEnabled={hrFusion.enabled == null ? true : Boolean(hrFusion.enabled)}
           mergeWatchStrategy={String(merge.merge_watch_strategy ?? "merge")}
           weightKg={numOrNull(profile.weight_kg)}
+          weightUnit={weightUnit(cfg("display_units").weight)}
           birthYear={numOrNull(profile.birth_year)}
           sex={profile.sex != null ? String(profile.sex) : null}
           vo2max={numOrNull(profile.vo2max)}
