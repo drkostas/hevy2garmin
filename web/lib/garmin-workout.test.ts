@@ -178,4 +178,51 @@ describe("routineToGarminWorkout", () => {
     const r: HevyRoutine = { exercises: [{ title: "Pull Up", rest_seconds: 90, sets: [{ type: "normal", reps: 10 }] }] };
     expect(topSteps(r).map(key)).toEqual(["interval"]);
   });
+
+  it("a superset interleaves its exercises, one set of each per round, with rest after the pair (#801)", () => {
+    const r: HevyRoutine = {
+      exercises: [
+        { title: "Bench Press (Barbell)", rest_seconds: 90, superset_id: 1, sets: [1, 2, 3].map(() => ({ type: "normal", reps: 10, weight_kg: 60 })) },
+        { title: "Bent Over Row (Barbell)", rest_seconds: 90, superset_id: 1, sets: [1, 2, 3].map(() => ({ type: "normal", reps: 12, weight_kg: 50 })) },
+      ],
+    };
+    const steps = topSteps(r);
+    // One set of each exercise, then a rest, repeated — not all of A then all of B.
+    expect(steps.map(key)).toEqual(["interval", "interval", "rest", "interval", "interval", "rest", "interval", "interval"]);
+    expect(steps.some((s) => s.type === "RepeatGroupDTO")).toBe(false);
+    // Reps alternate 10, 12 round by round, confirming the interleave.
+    expect(steps.filter((s) => key(s) === "interval").map((s) => s.endConditionValue)).toEqual([10, 12, 10, 12, 10, 12]);
+    // The rest after each pair is the last member's rest; the workout's final round has none (#730).
+    expect(steps.filter((s) => key(s) === "rest").map((s) => s.endConditionValue)).toEqual([90, 90]);
+    const orders = allOrders(steps);
+    expect(orders).toEqual(orders.map((_, i) => i + 1));
+  });
+
+  it("a superset with uneven set counts interleaves and keeps the rest before the next exercise (#801)", () => {
+    const r: HevyRoutine = {
+      exercises: [
+        { title: "Incline Bench Press (Dumbbell)", rest_seconds: 60, superset_id: 7, sets: [1, 2].map(() => ({ type: "normal", reps: 10, weight_kg: 20 })) },
+        { title: "Chest Fly (Cable)", rest_seconds: 60, superset_id: 7, sets: [1, 2, 3].map(() => ({ type: "normal", reps: 15, weight_kg: 15 })) },
+        { title: "Pull Up", rest_seconds: 90, sets: [{ type: "normal", reps: 8 }] },
+      ],
+    };
+    const steps = topSteps(r);
+    // Rounds 1 and 2 have both exercises; round 3 has only the longer one. A rest
+    // follows every round, the one after the group included, because the Pull Up follows.
+    expect(steps.map(key)).toEqual(["interval", "interval", "rest", "interval", "interval", "rest", "interval", "rest", "interval"]);
+    expect(steps.some((s) => s.type === "RepeatGroupDTO")).toBe(false);
+    expect(steps.filter((s) => key(s) === "interval").map((s) => s.endConditionValue)).toEqual([10, 15, 10, 15, 15, 8]);
+    // Every superset rest is the last member's rest (60); the final Pull Up set has none.
+    expect(steps.filter((s) => key(s) === "rest").map((s) => s.endConditionValue)).toEqual([60, 60, 60]);
+  });
+
+  it("a lone exercise that carries a superset_id is treated as an ordinary exercise (#801)", () => {
+    const r: HevyRoutine = {
+      exercises: [{ title: "Squat (Barbell)", rest_seconds: 90, superset_id: 3, sets: [1, 2, 3].map(() => ({ type: "normal", reps: 5, weight_kg: 100 })) }],
+    };
+    // One member, uniform sets, so still one clean repeat block, not the superset path.
+    const steps = topSteps(r);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatchObject({ type: "RepeatGroupDTO", numberOfIterations: 3, skipLastRestStep: true });
+  });
 });
