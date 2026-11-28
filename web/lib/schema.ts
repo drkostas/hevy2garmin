@@ -96,12 +96,25 @@ export const SCHEMA_STATEMENTS: readonly string[] = [
      scheduled_date TEXT,
      PRIMARY KEY (hevy_routine_id, schedule_id)
    )`,
+  // The workout photos put on a Garmin activity (#237). Web only; Python never
+  // uploaded photos. One row per workout and photo URL, naming the activity it
+  // went to, so a sync or Resync uploads only what that activity lacks.
+  `CREATE TABLE IF NOT EXISTS synced_media (
+     hevy_id TEXT NOT NULL,
+     media_url TEXT NOT NULL,
+     garmin_activity_id TEXT,
+     uploaded_at TIMESTAMPTZ DEFAULT NOW(),
+     PRIMARY KEY (hevy_id, media_url)
+   )`,
 ];
 
-/** The nine tables the Python bootstrap creates; the CI empty-database job asserts on them. */
+/**
+ * Every table the web app creates: the nine the Python bootstrap creates, and
+ * synced_media. The CI empty-database job asserts on them.
+ */
 export const SCHEMA_TABLES = [
   "synced_workouts", "sync_log", "hr_cache", "pending_uploads", "platform_credentials",
-  "custom_mappings", "app_cache", "synced_routines", "routine_schedules",
+  "custom_mappings", "app_cache", "synced_routines", "routine_schedules", "synced_media",
 ] as const;
 
 /** A raw-SQL runner: postgres.js `client.unsafe(text)`. */

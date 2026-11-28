@@ -338,12 +338,12 @@ jobs:
             exit 1
           fi
 
-      - name: The web app created the nine tables itself
+      - name: The web app created the ten tables itself
         run: |
-          for t in synced_workouts sync_log hr_cache pending_uploads platform_credentials custom_mappings app_cache synced_routines routine_schedules; do
+          for t in synced_workouts sync_log hr_cache pending_uploads platform_credentials custom_mappings app_cache synced_routines routine_schedules synced_media; do
             psql "$DATABASE_URL" -tAc "SELECT to_regclass('public.$t')" | grep -qx "$t" || { echo "missing table: $t"; exit 1; }
           done
-          echo "all nine tables present"
+          echo "all ten tables present"
 
       - name: The write must have persisted, not just returned 200
         run: |
@@ -358,6 +358,8 @@ jobs:
       # has it. Last, so the checks above see the database as the app left it;
       # the tests delete only the rows they wrote. Without TEST_DATABASE_URL
       # they skip, so an unset URL fails here rather than passing silently (#709).
+      # One file at a time: both create the schema, and two concurrent CREATE
+      # TABLE IF NOT EXISTS of one table can fail on a fresh database (#237).
       - name: The store's upserts against real Postgres
         working-directory: web
-        run: TEST_DATABASE_URL="${DATABASE_URL:?}" npx vitest run lib/pending-store.db.test.ts
+        run: TEST_DATABASE_URL="${DATABASE_URL:?}" npx vitest run --no-file-parallelism lib/pending-store.db.test.ts lib/workout-photos.db.test.ts

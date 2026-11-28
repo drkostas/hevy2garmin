@@ -16,13 +16,18 @@ const h = vi.hoisted(() => ({
   },
   ps: { isSynced: vi.fn(async (_id: string, _sql: unknown) => false) },
   getGarminClient: vi.fn(async () => ({ name: "healed-client" }) as unknown as GarminClient),
-  fetchAllWorkouts: vi.fn(async () => [{ id: "hevy-1" }]),
+  fetchAllWorkouts: vi.fn(async () => [{ id: "hevy-1" }] as unknown[]),
+  syncWorkoutPhotos: vi.fn(async (_o: unknown) => ({ uploaded: 0, skipped: 0 })),
 }));
 vi.mock("hevy2garmin", async (importOriginal) => ({ ...(await importOriginal<object>()), ...h.engine }));
 vi.mock("./pending-store", () => h.ps);
 vi.mock("./db", () => ({ getDb: () => ({}) }));
 vi.mock("./garmin-upload", () => ({ getGarminClient: () => h.getGarminClient() }));
 vi.mock("./hevy-sync", () => ({ fetchAllWorkouts: () => h.fetchAllWorkouts() }));
+vi.mock("./workout-photos", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  syncWorkoutPhotos: (o: unknown) => h.syncWorkoutPhotos(o),
+}));
 
 import { syncOneWorkout, listCandidates, buildSyncDeps } from "./sync-one";
 
@@ -55,6 +60,7 @@ beforeEach(() => {
   h.getGarminClient.mockClear();
   h.fetchAllWorkouts.mockClear();
   h.ps.isSynced.mockClear();
+  h.syncWorkoutPhotos.mockClear();
 });
 
 describe("syncOneWorkout (route shim)", () => {
@@ -192,5 +198,103 @@ describe("sync start date", () => {
     // A bad value must never mean "hide everything": the user would see an
     // empty list with nothing to explain it.
     expect((await fetchWith("last tuesday")).map((w) => w.id)).toEqual(["old", "new"]);
+  });
+});
+
+describe("workout photos (#237)", () => {
+  const WORKOUT = { id: "hevy-1", title: "Push", media: [{ type: "image", url: "https://cdn.example/a.jpg" }] };
+  const OTHER = { id: "hevy-2", title: "Pull", media: [] };
+  const result = (over: Record<string, unknown> = {}) => ({
+    status: "synced",
+    dryRun: false,
+    garminActivityId: 777,
+    workout: { hevy_id: "hevy-1", title: "Push", start_time: null },
+    syncMethod: "upload",
+    error: null,
+    ...over,
+  });
+  /** The engine fetches the workouts, then answers `r`, as the real one does. */
+  const engineAnswers = (r: unknown) =>
+    h.engine.syncOneWorkout.mockImplementationOnce(async (deps: unknown) => {
+      await (deps as Deps).fetchWorkouts();
+      return r as never;
+    });
+  const photoCall = () => h.syncWorkoutPhotos.mock.calls[0]![0] as {
+    sql: unknown;
+    hevyId: string;
+    activityId: number;
+    workout: unknown;
+    client: () => Promise<GarminClient>;
+  };
+
+  beforeEach(() => {
+    h.fetchAllWorkouts.mockResolvedValue([OTHER, WORKOUT]);
+  });
+
+  it.each([
+    ["a fresh upload, or replace's named upload", { syncMethod: "upload" }, {}],
+    ["a match or upload_fallback", { syncMethod: "match" }, {}],
+    ["a merge into the watch activity", { syncMethod: "merge" }, {}],
+    ["a Resync", { syncMethod: "merge" }, { targetHevyId: "hevy-1", targetActivityId: 777 }],
+  ])("%s: the workout's photos go to its activity", async (_name, over, options) => {
+    engineAnswers(result(over));
+    await syncOneWorkout(SQL, { dryRun: false, ...options });
+    expect(h.syncWorkoutPhotos).toHaveBeenCalledTimes(1);
+    expect(photoCall()).toMatchObject({ sql: SQL, hevyId: "hevy-1", activityId: 777, workout: WORKOUT });
+  });
+
+  it.each([
+    ["a dry run", { status: "dry_run", dryRun: true, garminActivityId: null }],
+    ["merge_pending", { status: "merge_pending", garminActivityId: null }],
+    ["deferred", { status: "deferred", garminActivityId: null }],
+    ["failed", { status: "failed", garminActivityId: null }],
+    ["an error", { status: "error", garminActivityId: null, error: "boom" }],
+  ])("%s: no photos", async (_name, over) => {
+    engineAnswers(result(over));
+    await syncOneWorkout(SQL, { dryRun: false });
+    expect(h.syncWorkoutPhotos).not.toHaveBeenCalled();
+  });
+
+  it("the setting off: no photos", async () => {
+    engineAnswers(result());
+    await syncOneWorkout(makeSql({ workout_photos: { enabled: false } }) as never, { dryRun: false });
+    expect(h.syncWorkoutPhotos).not.toHaveBeenCalled();
+  });
+
+  it("returns the engine's result as it was", async () => {
+    const r = result();
+    engineAnswers(r);
+    expect(await syncOneWorkout(SQL, { dryRun: false })).toBe(r);
+  });
+
+  it("uses the sync's own Garmin client, so the photos need no second login", async () => {
+    h.engine.syncOneWorkout.mockImplementationOnce(async (deps: unknown) => {
+      await (deps as Deps).fetchWorkouts();
+      await (deps as Deps).gateway();
+      return result() as never;
+    });
+    await syncOneWorkout(SQL, { dryRun: false });
+    expect(await photoCall().client()).toEqual({ name: "healed-client" });
+    expect(h.getGarminClient).toHaveBeenCalledTimes(1);
+  });
+
+  it("a workout the sync did not fetch: no photos", async () => {
+    engineAnswers(result({ workout: { hevy_id: "hevy-9", title: null, start_time: null } }));
+    await syncOneWorkout(SQL, { dryRun: false });
+    expect(h.syncWorkoutPhotos).not.toHaveBeenCalled();
+  });
+
+  it("a photo step that throws still leaves the sync a success, and says why", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      h.syncWorkoutPhotos.mockRejectedValueOnce(new Error("unexpected"));
+      const r = result();
+      engineAnswers(r);
+      expect(await syncOneWorkout(SQL, { dryRun: false })).toBe(r);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toMatch(/\[photos\] workout hevy-1.*unexpected/);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

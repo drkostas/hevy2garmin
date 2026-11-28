@@ -19,7 +19,7 @@
   "dependencies": {
     "@garmin/fitsdk": "^21.212.0",
     "@types/libsodium-wrappers": "^0.7.14",
-    "garmin-auth": "^0.8.0",
+    "garmin-auth": "^0.9.0",
     "hash-wasm": "^4.12.0",
     "hevy2garmin": "^0.14.0",
     "libsodium-wrappers": "^0.8.4",

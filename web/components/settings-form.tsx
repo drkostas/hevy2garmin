@@ -13,6 +13,8 @@ interface Props {
   autoSyncEnabled: boolean;
   autoSyncInterval: number;
   hrFusionEnabled: boolean;
+  /** Put the workout's Hevy photos on its Garmin activity (#237). */
+  photosEnabled: boolean;
   mergeWatchStrategy: string;
   weightKg: number | null;
   // Profile
@@ -94,6 +96,7 @@ export function SettingsForm(p: Props) {
   }
   const [interval, setIntervalMin] = useState(p.autoSyncInterval);
   const [hrFusion, setHrFusion] = useState(p.hrFusionEnabled);
+  const [photos, setPhotos] = useState(p.photosEnabled);
   const [strategy, setStrategy] = useState(p.mergeWatchStrategy);
   const [weight, setWeight] = useState(p.weightKg != null ? String(p.weightKg) : "");
   const [birthYear, setBirthYear] = useState(p.birthYear != null ? String(p.birthYear) : "");
@@ -143,6 +146,7 @@ export function SettingsForm(p: Props) {
       const body = {
         auto_sync: { enabled: autoSync, interval_minutes: interval },
         hr_fusion: { enabled: hrFusion },
+        workout_photos: { enabled: photos },
         merge_settings: {
           merge_watch_strategy: strategy,
           merge_mode: mergeMode,
@@ -214,6 +218,7 @@ export function SettingsForm(p: Props) {
         </div>
         )}
         <Toggle label="HR fusion" checked={hrFusion} onChange={setHrFusion} hint="Pull heart-rate from a matched Garmin activity into the synced workout." />
+        <Toggle label="Sync workout photos" checked={photos} onChange={setPhotos} hint="Add the photos from a Hevy workout to its Garmin activity. Videos are not synced." />
       </div>
 
       {/* Profile */}

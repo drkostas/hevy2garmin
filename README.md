@@ -471,6 +471,10 @@ When hevy2garmin syncs a workout, it adds a text description to the Garmin activ
 
 This is visible in the activity details on Garmin Connect and any connected apps (Strava, etc.). Cardio exercises show distance and duration instead of weight and reps.
 
+## Workout Photos
+
+Photos you add to a workout in Hevy are added to its Garmin activity when the web dashboard syncs it. Only photos are synced; videos are not. A photo that fails to download or upload is tried again on the next sync or **Resync**, and **Resync** also adds photos to workouts synced before this was available. Turn it off with **Sync workout photos** in Settings (on by default).
+
 ## Enhance Watch Activities (opt-in)
 
 By default, hevy2garmin creates a new Garmin activity from your Hevy workout using your watch's daily HR monitoring (~2 min sampling). This works without any behavior change. When a matching watch-recorded workout is found and the **Replace** strategy is selected, hevy2garmin instead downloads that activity's high-resolution HR, saves a durable backup, embeds it in the named Hevy FIT, uploads the replacement, and only then deletes the watch copy. If neither the original FIT nor an existing backup is available, replacement stops and preserves the watch activity.

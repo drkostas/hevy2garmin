@@ -22,6 +22,11 @@ export interface SyncSettings {
    * for an 80 kg person born in 1990, with no timezone, whoever is syncing.
    */
   profile: Partial<FitProfile>;
+  /**
+   * Put the workout's Hevy photos on its Garmin activity (#237). Not an engine
+   * option: the web app uploads them around the engine call.
+   */
+  photos: boolean;
 }
 
 /** What a fresh install syncs with: merge on, sets pushed into the watch activity. */
@@ -36,6 +41,7 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   hrFusion: true,
   descriptionEnabled: true,
   profile: {},
+  photos: true,
 };
 
 /** `timing` in the stored config, in the engine's spelling. */
@@ -104,12 +110,13 @@ export async function loadCustomMappings(sql: Sql): Promise<Record<string, [numb
  * with merge silently off.
  */
 export async function loadSyncSettings(sql: Sql): Promise<SyncSettings> {
-  const [mergeCfg, hrCfg, profileCfg, timingCfg, customMappings] = await Promise.all([
+  const [mergeCfg, hrCfg, profileCfg, timingCfg, customMappings, photosCfg] = await Promise.all([
     readConfig(sql, "merge_settings"),
     readConfig(sql, "hr_fusion"),
     readConfig(sql, "user_profile"),
     readConfig(sql, "timing"),
     loadCustomMappings(sql),
+    readConfig(sql, "workout_photos"),
   ]);
 
   // Only fields the user actually set are carried, so an absent one keeps the
@@ -157,6 +164,7 @@ export async function loadSyncSettings(sql: Sql): Promise<SyncSettings> {
     hrFusion: bool(hrCfg?.enabled, d.hrFusion),
     descriptionEnabled: bool(mergeCfg?.description_enabled, d.descriptionEnabled),
     profile,
+    photos: bool(photosCfg?.enabled, d.photos),
   };
 }
 

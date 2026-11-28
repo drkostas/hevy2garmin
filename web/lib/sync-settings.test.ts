@@ -77,6 +77,7 @@ describe("loadSyncSettings", () => {
       },
       hrFusion: true,
       descriptionEnabled: true,
+      photos: true,
     });
     expect(s.merge.enabled).toBe(DEFAULT_SYNC_SETTINGS.merge.enabled);
   });
@@ -95,6 +96,13 @@ describe("loadSyncSettings", () => {
     const s = await loadSyncSettings(brokenSql());
     expect(s.merge.enabled).toBe(true);
     expect(s.hrFusion).toBe(true);
+    expect(s.photos).toBe(true);
+  });
+
+  it("reads Sync workout photos, on unless the user turned it off (#237)", async () => {
+    expect((await loadSyncSettings(fakeSql({ workout_photos: { enabled: false } }))).photos).toBe(false);
+    expect((await loadSyncSettings(fakeSql({ workout_photos: { enabled: true } }))).photos).toBe(true);
+    expect((await loadSyncSettings(fakeSql({ workout_photos: { enabled: "no" } }))).photos).toBe(true);
   });
 
   it("respects merge_mode false, which is a user saying no", async () => {

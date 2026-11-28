@@ -9,6 +9,7 @@
  *   fetchWorkouts→ the app's Hevy key resolution (fetchAllWorkouts)
  *   hr           → ./hr-store (the hr_cache table and the durable backup)
  *   settings     → ./sync-settings (what the user saved on the Settings page)
+ *   photos       → ./workout-photos, after the engine call (#237)
  *
  * The settings are the point of this module now. The engine can merge and fuse
  * heart rate, and it only does either when told to, so without this the Settings
@@ -35,6 +36,7 @@ import { loadSyncSettings, loadSyncStartDate } from "./sync-settings";
 import { parseStartDate, withinSyncWindow } from "./sync-window";
 import type { Sql } from "./pending-store";
 import { withGarminLocalDates } from "./garmin-local-dates";
+import { photoActivityId, syncWorkoutPhotos } from "./workout-photos";
 
 export type {
   CandidateWorkout,
@@ -53,7 +55,17 @@ export interface SyncOneOptions extends EngineSyncOneOptions {
 
 /** Bind the engine to this app's store, Garmin client, Hevy fetch and HR storage. */
 export function buildSyncDeps(sql: Sql, options: SyncOneOptions = {}): SyncDeps {
+  return bindSync(sql, options).deps;
+}
+
+/**
+ * The engine's deps, and what the photo step needs from the same run: the
+ * workouts as fetched, by id, and the Garmin client the gateway was built on.
+ */
+function bindSync(sql: Sql, options: SyncOneOptions) {
   const clientFactory = options.garminClientFactory ?? (() => getGarminClient());
+  let client: Promise<GarminClient> | null = null;
+  const garminClient = () => (client ??= clientFactory());
   let gateway: Promise<GarminGateway> | null = null;
   const fetchWorkouts = options.fetchWorkouts ?? (() => fetchAllWorkouts());
 
@@ -62,10 +74,10 @@ export function buildSyncDeps(sql: Sql, options: SyncOneOptions = {}): SyncDeps 
   // the list is kept as it goes past.
   const seen = new Map<string, HrWorkout>();
 
-  return {
+  const deps: SyncDeps = {
     store: postgresSyncStore(sql),
     // Built once, lazily: the dry-run/no-candidate paths never log in to Garmin.
-    gateway: () => (gateway ??= clientFactory().then(garminGateway).then(withGarminLocalDates)),
+    gateway: () => (gateway ??= garminClient().then(garminGateway).then(withGarminLocalDates)),
     fetchWorkouts: async () => {
       const all = await fetchWorkouts();
       // Applied HERE, before the engine sees the list, so listCandidates and
@@ -101,6 +113,7 @@ export function buildSyncDeps(sql: Sql, options: SyncOneOptions = {}): SyncDeps 
         athleteId: process.env.INTERVALS_ATHLETE_ID,
       }) ?? undefined,
   };
+  return { deps, seen, garminClient };
 }
 
 /** READ-only: the unsynced Hevy workouts. */
@@ -118,11 +131,25 @@ export function listCandidates(sql: Sql, options: SyncOneOptions = {}) {
 export async function syncOneWorkout(sql: Sql, options: SyncOneOptions = {}) {
   const { fetchWorkouts: _f, garminClientFactory: _g, ...engineOptions } = options;
   const saved = await loadSyncSettings(sql);
-  return engineSyncOneWorkout(buildSyncDeps(sql, options), {
+  const { deps, seen, garminClient } = bindSync(sql, options);
+  const result = await engineSyncOneWorkout(deps, {
     merge: saved.merge,
     hrFusion: saved.hrFusion,
     descriptionEnabled: saved.descriptionEnabled,
     profile: saved.profile,
     ...engineOptions, // an explicit option still wins, which is what tests rely on
   });
+
+  // The workout's photos, onto the activity it now lives on. After the engine,
+  // so its Garmin calls and the photo uploads never interleave, and never able
+  // to fail the sync: the step itself does not throw, and this is the backstop.
+  const activityId = photoActivityId(result);
+  const hevyId = result.workout?.hevy_id;
+  const workout = hevyId ? seen.get(hevyId) : undefined;
+  if (saved.photos && activityId != null && hevyId && workout) {
+    await syncWorkoutPhotos({ sql, hevyId, activityId, workout, client: garminClient }).catch((err) =>
+      console.warn(`[photos] workout ${hevyId}: photos skipped: ${err instanceof Error ? err.message : String(err)}`),
+    );
+  }
+  return result;
 }

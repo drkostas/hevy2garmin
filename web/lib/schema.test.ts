@@ -18,11 +18,18 @@ function runner(failOn?: string) {
 beforeEach(() => resetSchemaForTests());
 
 describe("ensureSchema (#475)", () => {
-  it("creates the nine Python tables, every statement IF NOT EXISTS", () => {
+  it("creates the nine Python tables and synced_media, every statement IF NOT EXISTS", () => {
     const creates = SCHEMA_STATEMENTS.filter((s) => s.startsWith("CREATE TABLE"));
-    expect(creates).toHaveLength(9);
+    expect(creates).toHaveLength(10);
+    expect(SCHEMA_TABLES).toHaveLength(10);
     for (const t of SCHEMA_TABLES) expect(creates.some((s) => s.includes(`IF NOT EXISTS ${t} (`))).toBe(true);
     for (const s of SCHEMA_STATEMENTS) expect(s).toMatch(/IF NOT EXISTS/);
+  });
+
+  it("keys synced_media by workout and photo URL (#237)", () => {
+    const media = SCHEMA_STATEMENTS.find((s) => s.includes("IF NOT EXISTS synced_media ("));
+    expect(media).toMatch(/PRIMARY KEY \(hevy_id, media_url\)/);
+    expect(media).toMatch(/garmin_activity_id TEXT/);
   });
 
   it("runs every statement in order, once", async () => {

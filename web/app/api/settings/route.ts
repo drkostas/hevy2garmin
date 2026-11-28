@@ -15,6 +15,7 @@ export const runtime = "nodejs";
  * Body: a partial map of editable config keys, e.g.
  *   { auto_sync: { enabled, interval_minutes },
  *     hr_fusion: { enabled },
+ *     workout_photos: { enabled },
  *     merge_settings: { merge_watch_strategy, merge_activity_types },
  *     user_profile: { weight_kg } }
  *
@@ -52,7 +53,7 @@ function sanitise(key: string, raw: Obj): Obj {
       const n = Number(raw.interval_minutes);
       out.interval_minutes = INTERVALS.includes(n) ? n : 120;
     }
-  } else if (key === "hr_fusion") {
+  } else if (key === "hr_fusion" || key === "workout_photos") {
     if ("enabled" in raw) out.enabled = Boolean(raw.enabled);
   } else if (key === "merge_settings") {
     if ("merge_watch_strategy" in raw) {
@@ -122,7 +123,7 @@ function sanitise(key: string, raw: Obj): Obj {
   return out;
 }
 
-const EDITABLE = ["auto_sync", "hr_fusion", "merge_settings", "user_profile", "timing", "sync_window"];
+const EDITABLE = ["auto_sync", "hr_fusion", "workout_photos", "merge_settings", "user_profile", "timing", "sync_window"];
 
 export async function POST(request: Request) {
   // Gate only when a password is configured (prod). With no password set the app
