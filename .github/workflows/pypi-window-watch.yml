@@ -4,12 +4,10 @@ name: PyPI deprecation window watch
 # and the PyPI description. The removal half cannot happen before that date without breaking the
 # promise, and it should not depend on anyone remembering it afterwards either. This job says so
 # on the issue once the date has passed, and then stops.
-#
-# Same shape as hevy-spec-watch.yml (#524), which keeps the equivalent promise on #237.
 
 on:
   schedule:
-    - cron: "23 6 * * 1"   # Mondays 06:23 UTC, six minutes after the spec watch
+    - cron: "23 6 * * 1"   # Mondays 06:23 UTC
   workflow_dispatch:
     inputs:
       dry_run:
