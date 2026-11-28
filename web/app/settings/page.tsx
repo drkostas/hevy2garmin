@@ -42,7 +42,7 @@ interface SettingsData {
 const EMPTY: SettingsData = { dbConfigured: false, platforms: [], config: [], syncedCount: 0 };
 
 // The user-editable config the Python app persists to app_cache (config.py).
-const CONFIG_KEYS = ["user_profile", "timing", "hr_fusion", "merge_settings", "auto_sync", "sync_window"];
+const CONFIG_KEYS = ["user_profile", "timing", "hr_fusion", "workout_photos", "merge_settings", "auto_sync", "sync_window"];
 
 async function loadSettings(): Promise<SettingsData> {
   if (demoMode()) return demoSettings();
@@ -144,6 +144,7 @@ export default async function SettingsPage() {
     data.config.find((c) => c.key === key)?.value ?? {};
   const autoSync = cfg("auto_sync");
   const hrFusion = cfg("hr_fusion");
+  const workoutPhotos = cfg("workout_photos");
   const merge = cfg("merge_settings");
   const profile = cfg("user_profile");
   const timing = cfg("timing");
@@ -222,6 +223,7 @@ export default async function SettingsPage() {
           autoSyncEnabled={Boolean(autoSync.enabled)}
           autoSyncInterval={Number(autoSync.interval_minutes) || 120}
           hrFusionEnabled={hrFusion.enabled == null ? true : Boolean(hrFusion.enabled)}
+          photosEnabled={workoutPhotos.enabled == null ? true : Boolean(workoutPhotos.enabled)}
           mergeWatchStrategy={String(merge.merge_watch_strategy ?? "merge")}
           weightKg={numOrNull(profile.weight_kg)}
           birthYear={numOrNull(profile.birth_year)}

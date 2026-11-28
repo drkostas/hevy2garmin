@@ -83,6 +83,12 @@ describe("POST /api/settings — extended config surface", () => {
     expect(t.rest_between_exercises_seconds).toBe(150);
   });
 
+  it("saves Sync workout photos as a boolean, and nothing else under that key (#237)", async () => {
+    const res = await POST(req({ workout_photos: { enabled: false, url: "https://evil.example" } }));
+    expect(res.status).toBe(200);
+    expect(saved("workout_photos")).toEqual({ enabled: false });
+  });
+
   it("400 when nothing editable is provided", async () => {
     const res = await POST(req({ nonsense: { x: 1 } }));
     expect(res.status).toBe(400);
