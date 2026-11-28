@@ -435,3 +435,37 @@ describe("syncWorkoutPhotos: refused URLs", () => {
     expect(log.mock.calls[0][0]).toMatch(new RegExp(`${IMG1.replace(/[.]/g, "\\.")} refused, redirect \\(HTTP ${status}\\) from host d2l9nsnmtah87f\\.cloudfront\\.net to host 169\\.254\\.169\\.254`));
   });
 });
+
+describe("real Hevy media, as the public API returned it (#237)", () => {
+  // Copied unchanged from a real workout. Image items carry no thumbnail_url.
+  const REAL_MEDIA = [
+    { url: "https://d2l9nsnmtah87f.cloudfront.net/profile-images/tsarbo-3cd45a58-aa9d-4e90-89ed-fe41645c22d3.jpg", type: "image" },
+    { url: "https://d2l9nsnmtah87f.cloudfront.net/profile-images/tsarbo-b9127624-2782-433b-91d7-f450021147d5.jpg", type: "image" },
+  ];
+  const [FIRST, SECOND] = REAL_MEDIA.map((m) => m.url);
+
+  it("both photos pass the host rule and go up in order", async () => {
+    expect(REAL_MEDIA.map((m) => photoUrlRefusal(m.url))).toEqual([null, null]);
+    const f = fakeFetch({ [FIRST]: () => jpeg([1]), [SECOND]: () => jpeg([2]) });
+    const { upload, db, log, options } = setup({ workout: workout(REAL_MEDIA), fetchImpl: f.fetchImpl });
+    expect(await syncWorkoutPhotos(options)).toEqual({ uploaded: 2, skipped: 0 });
+    expect(f.asked).toEqual([FIRST, SECOND]);
+    expect(upload.mock.calls.map((c) => [c[1], Array.from(c[2] as Uint8Array), c[3]])).toEqual([
+      [ACTIVITY, [1], { filename: "photo.jpg", contentType: "image/jpeg" }],
+      [ACTIVITY, [2], { filename: "photo.jpg", contentType: "image/jpeg" }],
+    ]);
+    expect(db.rows.map((r) => r.media_url)).toEqual([FIRST, SECOND]);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("media: [] does nothing: no download, no Garmin sign-in, no database", async () => {
+    const f = fakeFetch({});
+    const { upload, client, db, log, options } = setup({ workout: workout([]), fetchImpl: f.fetchImpl });
+    expect(await syncWorkoutPhotos(options)).toEqual({ uploaded: 0, skipped: 0 });
+    expect(f.asked).toEqual([]);
+    expect(client).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+    expect(db.queries).toEqual([]);
+    expect(log).not.toHaveBeenCalled();
+  });
+});
