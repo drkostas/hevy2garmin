@@ -4,6 +4,8 @@ import type { SyncOneResult } from "./sync-one";
 import {
   imageMediaUrls,
   photoActivityId,
+  photoUrlRefusal,
+  PHOTO_HOSTS,
   syncWorkoutPhotos,
   MAX_PHOTO_BYTES,
   type PhotoSyncOptions,
@@ -60,15 +62,17 @@ function fakeSql(initial: Array<[string, string, string]> = [], fail: { read?: b
 const jpeg = (bytes = [0xff, 0xd8, 0xff, 0xe0], headers: Record<string, string> = { "content-type": "image/jpeg" }) =>
   new Response(new Uint8Array(bytes), { status: 200, headers });
 
-/** Answers each URL from `routes`; anything else is a 404. Records the URLs asked for. */
+/** Answers each URL from `routes`; anything else is a 404. Records the URLs asked for, and how. */
 function fakeFetch(routes: Record<string, () => Response | Promise<Response>>) {
   const asked: string[] = [];
-  const fetchImpl = (async (url: string | URL) => {
+  const redirects: Array<RequestRedirect | undefined> = [];
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
     asked.push(String(url));
+    redirects.push(init?.redirect);
     const route = routes[String(url)];
     return route ? route() : new Response("", { status: 404 });
   }) as typeof fetch;
-  return { fetchImpl, asked };
+  return { fetchImpl, asked, redirects };
 }
 
 const CLIENT = { name: "garmin-client" } as unknown as GarminClient;
@@ -110,14 +114,13 @@ describe("imageMediaUrls", () => {
     expect(imageMediaUrls(null)).toEqual([]);
   });
 
-  it("skips items without a usable http(s) URL, and lists a repeated URL once", () => {
+  it("skips items without a URL, and lists a repeated URL once", () => {
     expect(
       imageMediaUrls(
         workout([
           { type: "image" },
           { type: "image", url: 42 },
           { type: "image", url: "" },
-          { type: "image", url: "file:///etc/passwd" },
           null,
           "image",
           image(IMG1),
@@ -357,5 +360,78 @@ describe("syncWorkoutPhotos", () => {
     expect(upload).not.toHaveBeenCalled();
     expect(client).not.toHaveBeenCalled();
     expect(db.queries).toEqual([]);
+  });
+});
+
+describe("photoUrlRefusal: only Hevy's own photo hosts, over https", () => {
+  it.each([
+    ["Hevy's CloudFront CDN", IMG1],
+    ["hevy.com itself", "https://hevy.com/p/a.jpg"],
+    ["a hevy.com subdomain", "https://media.hevy.com/a.jpg"],
+    ["hevyapp.com itself", "https://hevyapp.com/a.jpg"],
+    ["a hevyapp.com subdomain", "https://cdn.hevyapp.com/a.jpg"],
+    ["the default https port, written out", "https://d2l9nsnmtah87f.cloudfront.net:443/a.jpg"],
+    ["a host in capitals", "https://D2L9NSNMTAH87F.CLOUDFRONT.NET/a.jpg"],
+  ])("allows %s", (_name, url) => {
+    expect(photoUrlRefusal(url)).toBeNull();
+  });
+
+  it.each([
+    ["http:", "http://d2l9nsnmtah87f.cloudfront.net/a.jpg", /not https.*d2l9nsnmtah87f\.cloudfront\.net/],
+    ["the cloud metadata address", "https://169.254.169.254/latest/meta-data/", /host 169\.254\.169\.254 is not a Hevy photo host/],
+    ["localhost", "https://localhost/a.jpg", /host localhost is not a Hevy photo host/],
+    ["a look-alike host", "https://evilcloudfront.net/a.jpg", /host evilcloudfront\.net is not/],
+    ["a look-alike of hevy.com", "https://nothevy.com/a.jpg", /host nothevy\.com is not/],
+    ["an allowed name used as a subdomain", "https://d2l9nsnmtah87f.cloudfront.net.evil.example/a.jpg", /host d2l9nsnmtah87f\.cloudfront\.net\.evil\.example is not/],
+    ["bare cloudfront.net, which is no one's CDN", "https://cloudfront.net/a.jpg", /host cloudfront\.net is not/],
+    ["a non-default port", "https://d2l9nsnmtah87f.cloudfront.net:8443/a.jpg", /port 8443.*d2l9nsnmtah87f\.cloudfront\.net/],
+    ["file:", "file:///etc/passwd", /not https/],
+    ["something that is not a URL", "not a url", /not a valid URL/],
+  ])("refuses %s, naming why", (_name, url, why) => {
+    expect(photoUrlRefusal(url)).toMatch(why);
+  });
+
+  it("keeps the allowed hosts in one list", () => {
+    expect(PHOTO_HOSTS).toEqual(["hevy.com", "hevyapp.com", ".hevy.com", ".hevyapp.com", ".cloudfront.net"]);
+  });
+});
+
+describe("syncWorkoutPhotos: refused URLs", () => {
+  const BAD = "https://169.254.169.254/latest/meta-data/";
+
+  it("a refused URL is never fetched; logged with its host, not recorded, and the rest go up", async () => {
+    const f = fakeFetch({ [IMG1]: () => jpeg([7]) });
+    const { upload, db, log, options } = setup({ workout: workout([image(BAD), image(IMG1)]), fetchImpl: f.fetchImpl });
+    expect(await syncWorkoutPhotos(options)).toEqual({ uploaded: 1, skipped: 1 });
+    expect(f.asked).toEqual([IMG1]);
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(db.rows.map((r) => r.media_url)).toEqual([IMG1]);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0][0]).toMatch(/\[photos\] workout w1: .*refused, host 169\.254\.169\.254 is not a Hevy photo host/);
+  });
+
+  it("nothing allowed: no Garmin sign-in at all", async () => {
+    const { client, upload, options } = setup({ workout: workout([image(BAD), image("http://localhost/a.jpg")]) });
+    expect(await syncWorkoutPhotos(options)).toEqual({ uploaded: 0, skipped: 2 });
+    expect(client).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("downloads without following redirects", async () => {
+    const f = fakeFetch({ [IMG1]: () => jpeg(), [IMG2]: () => jpeg() });
+    const { options } = setup({ fetchImpl: f.fetchImpl });
+    await syncWorkoutPhotos(options);
+    expect(f.redirects).toEqual(["manual", "manual"]);
+  });
+
+  it.each([301, 302, 307, 308])("a %i redirect is refused, naming where it pointed, and not followed", async (status) => {
+    const redirect = () => new Response(null, { status, headers: { location: "https://169.254.169.254/latest/meta-data/" } });
+    const f = fakeFetch({ [IMG1]: redirect, [IMG2]: () => jpeg([5]) });
+    const { upload, db, log, options } = setup({ fetchImpl: f.fetchImpl });
+    expect(await syncWorkoutPhotos(options)).toEqual({ uploaded: 1, skipped: 1 });
+    expect(f.asked).toEqual([IMG1, IMG2]);
+    expect(upload.mock.calls.map((c) => Array.from(c[2] as Uint8Array))).toEqual([[5]]);
+    expect(db.rows.map((r) => r.media_url)).toEqual([IMG2]);
+    expect(log.mock.calls[0][0]).toMatch(new RegExp(`${IMG1.replace(/[.]/g, "\\.")} refused, redirect \\(HTTP ${status}\\) from host d2l9nsnmtah87f\\.cloudfront\\.net to host 169\\.254\\.169\\.254`));
   });
 });

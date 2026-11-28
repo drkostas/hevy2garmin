@@ -8,6 +8,11 @@
  * activity, so a sync or a Resync only adds what is new, and a Resync adds
  * photos to workouts synced before this existed.
  *
+ * Only Hevy's own photo hosts are fetched, over https, without following a
+ * redirect. The URLs come from Hevy, but the server fetching them may sit in
+ * a network where a planted URL (a cloud metadata address, localhost) would
+ * reach something it should not; a refused URL is logged with its host.
+ *
  * A photo never fails a sync, the same contract as the intervals.icu cleanup
  * hook: a failed download or upload is logged and skipped, and since it is
  * not recorded, the next sync or Resync tries it again. Nothing here throws.
@@ -20,6 +25,14 @@ import type { Sql } from "./pending-store";
 /** Larger than any phone photo; anything bigger is skipped rather than held in memory. */
 export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT_MS = 20_000;
+
+/**
+ * The hosts a photo is fetched from: Hevy's own domains and the CloudFront
+ * CDN its API returns photo URLs on. An entry starting with "." matches any
+ * subdomain, by whole labels, so `evilcloudfront.net` does not match
+ * `.cloudfront.net`; the others match exactly.
+ */
+export const PHOTO_HOSTS = ["hevy.com", "hevyapp.com", ".hevy.com", ".hevyapp.com", ".cloudfront.net"] as const;
 
 /** Types a CDN may send for an image without naming it; treated as JPEG, which Hevy photos are. */
 const GENERIC_TYPES = new Set(["", "application/octet-stream", "binary/octet-stream"]);
@@ -57,7 +70,7 @@ export function imageMediaUrls(workout: unknown): string[] {
   for (const item of media) {
     if (!item || typeof item !== "object") continue;
     const { type, url } = item as { type?: unknown; url?: unknown };
-    if (type !== "image" || typeof url !== "string" || !/^https?:\/\//i.test(url)) continue;
+    if (type !== "image" || typeof url !== "string" || !url) continue;
     if (!urls.includes(url)) urls.push(url);
   }
   return urls;
@@ -74,6 +87,34 @@ export function imageMediaUrls(workout: unknown): string[] {
 export function photoActivityId(result: SyncOneResult): number | null {
   if (result.status !== "synced" || result.dryRun) return null;
   return result.garminActivityId ?? null;
+}
+
+function isPhotoHost(host: string): boolean {
+  return PHOTO_HOSTS.some((h) => (h.startsWith(".") ? host.endsWith(h) : host === h));
+}
+
+/** Why a photo URL may not be fetched, or null when it may: https, the default port, a Hevy photo host. */
+export function photoUrlRefusal(url: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return "not a valid URL";
+  }
+  if (u.protocol !== "https:") return `not https (${u.protocol} on host ${u.hostname || "none"})`;
+  if (u.port) return `port ${u.port} on host ${u.hostname}, not the https default`;
+  if (!isPhotoHost(u.hostname)) return `host ${u.hostname} is not a Hevy photo host`;
+  return null;
+}
+
+/** The host a redirect points at, for the log. */
+function redirectHost(location: string | null, from: URL): string {
+  if (!location) return "unknown";
+  try {
+    return new URL(location, from).hostname || "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 async function uploadedUrls(sql: Sql, hevyId: string, activityId: number): Promise<Set<string>> {
@@ -94,20 +135,29 @@ async function recordUploaded(sql: Sql, hevyId: string, mediaUrl: string, activi
   `;
 }
 
+/** The photo, or why not: `skip` is the whole outcome, "skipped, …" or "refused, …". */
 type Download = { bytes: Uint8Array; contentType: string } | { skip: string };
 
 async function download(url: string, fetchImpl: typeof fetch): Promise<Download> {
-  const res = await fetchImpl(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-  if (!res.ok) return { skip: `download failed: HTTP ${res.status}` };
+  // Not followed: where a redirect leads was never checked against PHOTO_HOSTS.
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS), redirect: "manual" });
+  if ((res.status >= 300 && res.status < 400) || res.type === "opaqueredirect") {
+    await res.body?.cancel().catch(() => {});
+    const from = new URL(url);
+    return {
+      skip: `refused, redirect (HTTP ${res.status}) from host ${from.hostname} to host ${redirectHost(res.headers.get("location"), from)}`,
+    };
+  }
+  if (!res.ok) return { skip: `skipped, download failed: HTTP ${res.status}` };
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
-  if (!type.startsWith("image/") && !GENERIC_TYPES.has(type)) return { skip: `not an image (${type})` };
+  if (!type.startsWith("image/") && !GENERIC_TYPES.has(type)) return { skip: `skipped, not an image (${type})` };
   if (Number(res.headers.get("content-length")) > MAX_PHOTO_BYTES) {
     await res.body?.cancel().catch(() => {});
-    return { skip: "too large" };
+    return { skip: "skipped, too large" };
   }
   const bytes = new Uint8Array(await res.arrayBuffer());
-  if (bytes.length === 0) return { skip: "empty" };
-  if (bytes.length > MAX_PHOTO_BYTES) return { skip: "too large" };
+  if (bytes.length === 0) return { skip: "skipped, empty" };
+  if (bytes.length > MAX_PHOTO_BYTES) return { skip: "skipped, too large" };
   return { bytes, contentType: type.startsWith("image/") ? type : "image/jpeg" };
 }
 
@@ -147,7 +197,18 @@ export async function syncWorkoutPhotos(options: PhotoSyncOptions): Promise<Phot
     say(`photos skipped, the record could not be read: ${message(err)}`);
     return { uploaded: 0, skipped: urls.length };
   }
-  const pending = urls.filter((url) => !done.has(url));
+  // Checked before anything is fetched, and before signing in to Garmin, so a
+  // workout whose photos are all refused never logs in.
+  const pending: string[] = [];
+  for (const url of urls.filter((u) => !done.has(u))) {
+    const refusal = photoUrlRefusal(url);
+    if (refusal) {
+      say(`${url} refused, ${refusal}`);
+      summary.skipped++;
+    } else {
+      pending.push(url);
+    }
+  }
   if (!pending.length) return summary;
 
   let client: GarminClient;
@@ -155,7 +216,8 @@ export async function syncWorkoutPhotos(options: PhotoSyncOptions): Promise<Phot
     client = await options.client();
   } catch (err) {
     say(`photos skipped, no Garmin client: ${message(err)}`);
-    return { uploaded: 0, skipped: pending.length };
+    summary.skipped += pending.length;
+    return summary;
   }
 
   for (const [i, url] of pending.entries()) {
@@ -163,10 +225,10 @@ export async function syncWorkoutPhotos(options: PhotoSyncOptions): Promise<Phot
     try {
       photo = await download(url, fetchImpl);
     } catch (err) {
-      photo = { skip: `download failed: ${message(err)}` };
+      photo = { skip: `skipped, download failed: ${message(err)}` };
     }
     if ("skip" in photo) {
-      say(`${url} skipped, ${photo.skip}`);
+      say(`${url} ${photo.skip}`);
       summary.skipped++;
       continue;
     }
